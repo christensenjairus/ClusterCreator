@@ -163,7 +163,7 @@ This will clone the template using terraform, create a VLAN in Unifi, and the cl
 
 ### Install K8S with Ansible
 ```bash
-``./create_cluster.sh
+./create_cluster.sh
 ```
 This will run a series of ansible playbooks to create the cluster.
 
