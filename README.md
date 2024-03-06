@@ -177,7 +177,7 @@ This will run an ansible playbook to remove k8s the virtual machines.
 
 ### Destroy the VMs with Terraform
 ```bash
-terraform destroy -var="cluster_name=<cluster_name>
+terraform destroy
 ```
 This will remove the VMs and VLAN from Unifi.
 
