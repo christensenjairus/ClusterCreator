@@ -1,0 +1,12 @@
+---
+- name: Show connected k8s nodes
+  hosts: kube_api_servers[0]
+  gather_facts: false
+  tasks:
+    - name: Get connected k8s nodes
+      ansible.builtin.command:
+        cmd: kubectl get nodes
+      register: kubectl_output
+    - name: Display connected k8s nodes
+      ansible.builtin.debug:
+        var: kubectl_output.stdout_lines

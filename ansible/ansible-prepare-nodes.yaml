@@ -1,0 +1,327 @@
+---
+- name: Prepare nodes for k8s
+  hosts: all
+  any_errors_fatal: true
+  become: true  # This ensures all tasks are run with elevated privileges
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/cluster_config.json') | from_json }}"
+  tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: yes
+        cache_valid_time: 3600 # Update the cache if it's older than 1 hour
+
+    - name: Load overlay and br_netfilter modules
+      copy:
+        dest: /etc/modules-load.d/k8s.conf
+        content: |
+          overlay
+          br_netfilter
+      notify: reload modules
+      tags:
+        - sysmodule_install
+    - name: Set sysctl parameters for Kubernetes
+      copy:
+        dest: /etc/sysctl.d/k8s.conf
+        content: |
+          net.bridge.bridge-nf-call-iptables  = 1
+          net.bridge.bridge-nf-call-ip6tables = 1
+          net.ipv4.ip_forward                 = 1
+      notify: apply sysctl
+      tags:
+        - sysmodule_install
+    - name: apply sysctl
+      command: sysctl --system
+      tags:
+        - sysmodule_install
+
+    - name: Check if containerd is already installed
+      ansible.builtin.stat:
+        path: /usr/local/bin/containerd
+      register: containerd_exists
+      become: true
+      tags:
+        - cri_install
+    - name: Download Containerd
+      get_url:
+        url: "https://github.com/containerd/containerd/releases/download/v{{ cluster_config.containerd_version }}/containerd-{{ cluster_config.containerd_version }}-linux-amd64.tar.gz"
+        dest: "/tmp/containerd-{{ cluster_config.containerd_version }}-linux-amd64.tar.gz"
+      tags:
+        - cri_install
+      when: not containerd_exists.stat.exists
+    - name: Extract Containerd to /usr/local
+      unarchive:
+        src: "/tmp/containerd-{{ cluster_config.containerd_version }}-linux-amd64.tar.gz"
+        dest: /usr/local
+        remote_src: yes
+      when: not containerd_exists.stat.exists
+      tags:
+        - cri_install
+    - name: Install Containerd systemd service
+      get_url:
+        url: "https://raw.githubusercontent.com/containerd/containerd/main/containerd.service"
+        dest: "/usr/lib/systemd/system/containerd.service"
+      tags:
+        - cri_install
+
+    - name: Check if runc is already installed
+      ansible.builtin.stat:
+        path: /usr/local/sbin/runc
+      register: runc_exists
+      become: true
+      tags:
+        - cri_install
+    - name: Download runc
+      get_url:
+        url: "https://github.com/opencontainers/runc/releases/download/v{{ cluster_config.runc_version }}/runc.amd64"
+        dest: "/tmp/runc.amd64"
+        mode: '0755'
+      when: not runc_exists.stat.exists
+      tags:
+        - runc_install
+    - name: Install runc
+      command: install -m 755 /tmp/runc.amd64 /usr/local/sbin/runc
+      when: not runc_exists.stat.exists
+      tags:
+        - runc_install
+
+    - name: Check if cni plugins are already installed
+      ansible.builtin.stat:
+        path: /opt/cni/bin
+      register: cni_exists
+      become: true
+      tags:
+        - cni_install
+    - name: Download CNI Plugins
+      get_url:
+        url: "https://github.com/containernetworking/plugins/releases/download/{{ cluster_config.cni_version }}/cni-plugins-linux-amd64-{{ cluster_config.cni_version }}.tgz"
+        dest: "/tmp/cni-plugins-linux-amd64-{{ cluster_config.cni_version }}.tgz"
+      when: not cni_exists.stat.exists
+      tags:
+        - cni_install
+    - name: Create CNI bin directory
+      file:
+        path: /opt/cni/bin
+        state: directory
+      when: not cni_exists.stat.exists
+      tags:
+        - cni_install
+    - name: Extract CNI Plugins to /opt/cni/bin
+      unarchive:
+        src: "/tmp/cni-plugins-linux-amd64-{{ cluster_config.cni_version }}.tgz"
+        dest: /opt/cni/bin
+        remote_src: yes
+      when: not cni_exists.stat.exists
+      tags:
+        - cni_install
+
+    - name: Ensure /etc/containerd directory exists
+      ansible.builtin.file:
+        path: /etc/containerd
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      tags:
+        - containerd_config
+    - name: Remove existing Containerd config file
+      ansible.builtin.file:
+        path: /etc/containerd/config.toml
+        state: absent
+      tags:
+        - containerd_config
+    - name: Create default Containerd config
+      become: true
+      shell: containerd config default
+      args:
+        creates: /etc/containerd/config.toml
+      register: containerd_config
+      tags:
+        - containerd_config
+    - name: Write the Containerd config to file
+      become: true
+      copy:
+        dest: /etc/containerd/config.toml
+        content: "{{ containerd_config.stdout }}"
+        force: yes
+      tags:
+        - containerd_config
+    - name: Ensure SystemdCgroup is set to true with correct indentation
+      become: true
+      replace:
+        path: /etc/containerd/config.toml
+        regexp: '^\s{10,12}SystemdCgroup\s*=\s*false'
+        replace: '            SystemdCgroup = true'
+      tags:
+        - containerd_config
+
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
+      tags:
+        - containerd_start
+    - name: Enable and restart containerd service
+      service:
+        name: containerd
+        enabled: yes
+        state: restarted
+      tags:
+        - containerd_start
+
+    - name: Configure kubelet with the correct interface IP
+      shell: |
+        local_ip="$(ip --json addr show eth0 | jq -r '.[0].addr_info[] | select(.family == "inet") | .local')"
+        echo "KUBELET_EXTRA_ARGS=--node-ip=${local_ip}" | sudo tee /etc/default/kubelet
+      args:
+        executable: /bin/bash
+      tags:
+        - kubelet_node_ip
+
+    - name: Check if Kubernetes packages are held
+      ansible.builtin.shell:
+        cmd: "apt-mark showhold | grep -E '^kubelet$|^kubeadm$|^kubectl$' || true"
+      register: k8s_pkg_hold
+      changed_when: false
+      tags:
+        kube_packages
+    - name: Ensure /etc/apt/keyrings directory exists
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+      tags:
+        kube_packages
+    - name: Add Kubernetes apt repository key
+      ansible.builtin.apt_key:
+        url: "https://pkgs.k8s.io/core:/stable:/v{{ cluster_config.kubernetes_version_short }}/deb/Release.key"
+        state: present
+        keyring: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+      tags:
+        kube_packages
+    - name: Add Kubernetes apt repository
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v{{ cluster_config.kubernetes_version_short }}/deb/ /"
+        state: present
+        filename: kubernetes.list
+        update_cache: yes
+      tags:
+        kube_packages
+    - name: Install Kubernetes binaries
+      ansible.builtin.apt:
+        name:
+          - "kubelet={{ cluster_config.kubernetes_version_long }}"
+          - "kubectl={{ cluster_config.kubernetes_version_long }}"
+          - "kubeadm={{ cluster_config.kubernetes_version_long }}"
+        state: present
+      tags:
+        kube_packages
+    - name: Hold Kubernetes packages at their current version
+      become: true
+      ansible.builtin.dpkg_selections:
+        name: "{{ item }}"
+        selection: hold
+      loop:
+        - kubelet
+        - kubeadm
+        - kubectl
+      when: k8s_pkg_hold.stdout_lines | length < 3
+      tags:
+        - kube_packages
+
+    - name: Check if Helm is installed
+      ansible.builtin.command: snap list helm
+      register: helm_installed
+      ignore_errors: false
+      changed_when: false
+      failed_when: helm_installed.rc not in [0, 1]
+      when: "'kube_api_servers' in group_names"
+      tags:
+        - install_helm
+    - name: Install Helm via snap if not already installed
+      ansible.builtin.shell: "snap install helm --classic"
+      when:
+        - "'kube_api_servers' in group_names"
+        - helm_installed.rc != 0
+      tags:
+        - install_helm
+
+    - name: Add VIP and hostname to /etc/hosts
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        line: "{{ cluster_config.vip }} {{ cluster_config.vip_hostname }}"
+        create: yes
+      tags: etc_hosts
+    - name: Add VIP and hostname to cloud templates (if exists)
+      ansible.builtin.lineinfile:
+        path: /etc/cloud/templates/hosts.debian.tmpl
+        line: "{{ cluster_config.vip }} {{ cluster_config.vip_hostname }}"
+        create: yes
+      when: ansible_facts['os_family'] == "Debian"
+      tags: etc_hosts
+
+    # the template shouldn't have swap on them, but if it does, remove it
+    - name: Remove swapfile from /etc/fstab
+      mount:
+        name: "{{ item }}"
+        fstype: swap
+        state: absent
+      with_items:
+        - swap
+        - none
+      tags:
+        - swap
+    - name: Disable swap
+      command: swapoff -a
+      when: ansible_swaptotal_mb >= 0
+      tags:
+        - swap
+
+  handlers:
+    - name: reload modules
+      command: "{{ item }}"
+      loop:
+        - modprobe overlay
+        - modprobe br_netfilter
+
+    - name: apply sysctl
+      command: sysctl --system
+
+- name: Determine if reboot is necessary
+  hosts: all
+  become: yes
+  tags:
+    - swap
+    - reboot
+  tasks:
+    - name: Check if kernel update requires reboot
+      ansible.builtin.shell: |
+        if [ -f /var/run/reboot-required ]; then
+          echo "yes";
+        else
+          echo "no";
+        fi
+      register: kernel_reboot_required
+      changed_when: false
+      ignore_errors: true
+
+    - name: Check swap configuration in /etc/fstab
+      ansible.builtin.shell: grep -i swap /etc/fstab || true
+      register: fstab_swap
+      changed_when: false
+
+    - name: Show active swap
+      ansible.builtin.shell: swapon --show || true
+      register: active_swap
+      changed_when: false
+
+    - name: Determine if swap changes require reboot
+      ansible.builtin.set_fact:
+        swap_changes_require_reboot: "{{ 'swap' in fstab_swap.stdout or active_swap.stdout_lines | length > 0 }}"
+      changed_when: false
+
+    - name: Reboot to apply kernel updates & swap changes
+      reboot:
+        reboot_timeout: 180 # Allow 3 minutes for the reboot to happen
+      when:
+        - kernel_reboot_required.stdout == "yes" or swap_changes_require_reboot
+

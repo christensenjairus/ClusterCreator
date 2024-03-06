@@ -1,0 +1,17 @@
+---
+allowVolumeExpansion: true
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "false"
+  name: longhorn-ephemeral
+parameters:
+  dataLocality: best-effort
+  fromBackup: ""
+  fsType: ext4
+  numberOfReplicas: "2"
+  staleReplicaTimeout: "30"
+provisioner: driver.longhorn.io
+reclaimPolicy: Delete
+volumeBindingMode: Immediate

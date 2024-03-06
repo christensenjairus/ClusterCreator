@@ -1,0 +1,46 @@
+---
+- name: Configure and Install Cert-Manager with Helm and Cloudflare DNS01 Solver
+  hosts: kube_api_servers[0]
+  gather_facts: no
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/cluster_config.json') | from_json }}"
+  tasks:
+    - name: Generate cert-manager configuration from template
+      ansible.builtin.template:
+        src: "./helpers/cert_manager.yaml.j2"
+        dest: "./cert-manager.yaml"
+
+    - name: Generate ClusterIssuers configuration from template
+      ansible.builtin.template:
+        src: "./helpers/clusterissuers.yaml.j2"
+        dest: "./clusterissuers.yaml"
+
+    - name: Generate Cloudflare secret configuration from template
+      ansible.builtin.template:
+        src: "./helpers/secret_cloudflare.yaml.j2"
+        dest: "./secret-cloudflare.yaml"
+
+    - name: Add Jetstack Helm repository and update
+      ansible.builtin.shell:
+        cmd: "helm repo add jetstack https://charts.jetstack.io && helm repo update"
+
+    - name: Install cert-manager via Helm
+      ansible.builtin.command:
+        cmd: >
+          helm upgrade --install cert-manager jetstack/cert-manager
+          --namespace cert-manager --create-namespace
+          --version "{{ cluster_config.cert_manager_chart_version }}"
+          -f ./cert-manager.yaml
+
+    - name: Apply ClusterIssuers and Secret configuration
+      ansible.builtin.shell:
+        cmd: kubectl apply -f ./clusterissuers.yaml -f ./secret-cloudflare.yaml -n cert-manager
+
+    - name: Remove configuration files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "./secret-cloudflare.yaml"
+        - "./clusterissuers.yaml"
+        - "./cert-manager.yaml"

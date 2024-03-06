@@ -1,0 +1,31 @@
+---
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: ClusterConfiguration
+kubernetesVersion: v{{ cluster_config.kubernetes_version_medium }}
+clusterName: {{ cluster_config.cluster_name }}
+controlPlaneEndpoint: "{{ cluster_config.vip_hostname }}:6443"
+apiServer:
+  certSANs:
+  - "{{ cluster_config.vip }}"
+{% for host in groups['kube_api_servers'] %}
+  - "{{ host }}"
+{% endfor %}
+  - "{{ cluster_config.cluster_name }}"
+  - "{{ cluster_config.cluster_name }}.lan"
+  - "{{ cluster_config.vip_hostname }}"
+  - "{{ cluster_config.vip_hostname }}.lan"
+networking:
+  dnsDomain: cluster.local
+  serviceSubnet: {{ cluster_config.svc_cidr }}
+  podSubnet: {{ cluster_config.pod_cidr }}
+{% if groups['kube_etcd_servers'] | default([]) | length > 0 %}
+etcd:
+  external:
+    endpoints:
+{% for host in groups['kube_etcd_servers'] %}
+    - https://{{ hostvars[host].hostname }}:2379
+{% endfor %}
+    caFile: /etc/kubernetes/pki/etcd/ca.crt
+    certFile: /etc/kubernetes/pki/apiserver-etcd-client.crt
+    keyFile: /etc/kubernetes/pki/apiserver-etcd-client.key
+{% endif %}

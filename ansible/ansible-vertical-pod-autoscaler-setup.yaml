@@ -1,0 +1,22 @@
+---
+- name: Clone, run, and clean up Kubernetes autoscaler repository
+  hosts: kube_api_servers[0]
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/cluster_config.json') | from_json }}"
+  tasks:
+    - name: Clone Kubernetes autoscaler repository
+      ansible.builtin.git:
+        repo: 'https://github.com/kubernetes/autoscaler.git'
+        dest: '{{ cluster_config.ssh_home }}/autoscaler'
+        version: 'master'
+
+    - name: Run vpa-up.sh script in vertical-pod-autoscaler
+      ansible.builtin.shell:
+        cmd: './hack/vpa-up.sh'
+        chdir: '{{ cluster_config.ssh_home }}/autoscaler/vertical-pod-autoscaler'
+
+    - name: Remove the autoscaler directory
+      ansible.builtin.file:
+        path: '{{ cluster_config.ssh_home }}/autoscaler'
+        state: absent
+      become: yes

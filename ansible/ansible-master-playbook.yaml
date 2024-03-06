@@ -1,0 +1,17 @@
+- import_playbook: ansible-trust-hosts.yaml
+- import_playbook: ansible-ping-nodes.yaml
+- import_playbook: ansible-prepare-nodes.yaml
+- import_playbook: ansible-etcd-nodes-setup.yaml
+- import_playbook: ansible-cp-nodes-setup.yaml
+- import_playbook: ansible-join-nodes.yaml
+- import_playbook: ansible-move-kubeconfig.yaml
+- import_playbook: ansible-cilium-setup.yaml
+- import_playbook: ansible-metrics-server-setup.yaml
+- import_playbook: ansible-vertical-pod-autoscaler-setup.yaml
+- import_playbook: ansible-cert-manager-setup.yaml
+- import_playbook: ansible-ingress-nginx-setup.yaml
+- import_playbook: ansible-kube-prometheus-setup.yaml
+- import_playbook: ansible-longhorn-setup.yaml
+- import_playbook: ansible-hubble-ui-setup.yaml
+- import_playbook: ansible-groundcover-setup.yaml
+- import_playbook: ansible-ending-output.yaml

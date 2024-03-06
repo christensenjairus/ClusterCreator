@@ -1,0 +1,28 @@
+---
+- name: Add ingress for hubble ui
+  hosts: kube_api_servers[0]
+  gather_facts: false
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/cluster_config.json') | from_json }}"
+    ingress_definitions:
+      - name: hubble-ingress
+        namespace: kube-system
+        hostname: "{{ cluster_config.hubble_domain_name }}"
+        service_name: hubble-ui
+        service_port: 80
+        tls_secret_name: "{{ cluster_config.hubble_tls_secret_name }}"
+        cluster_issuer: "{{ cluster_config.cluster_issuer }}"
+
+  tasks:
+    - name: Generate Hubble ui ingress manifests from template
+      ansible.builtin.template:
+        src: helpers/ingress_template.yaml.j2
+        dest: "/tmp/hubble_ingress.yaml"
+      tags:
+        - add_ingress
+
+    - name: Apply Hubble ui ingress manifest
+      ansible.builtin.command:
+        cmd: kubectl apply -f /tmp/hubble_ingress.yaml
+      tags:
+        - add_ingress

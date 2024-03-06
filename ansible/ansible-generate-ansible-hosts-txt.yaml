@@ -1,0 +1,12 @@
+---
+- name: Generate Ansible Hosts File from Terraform Configuration
+  hosts: localhost
+  gather_facts: no
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/cluster_config.json') | from_json }}"
+
+  tasks:
+    - name: "Template Ansible Hosts File"
+      template:
+        src: "helpers/ansible-hosts.txt.j2"
+        dest: "tmp/ansible-hosts.txt"

@@ -1,0 +1,10 @@
+controller:
+  kind: DaemonSet
+  service:
+    type: LoadBalancer
+    externalTrafficPolicy: Local
+  metrics:
+    enabled: true
+  podAnnotations:
+    prometheus.io/port: "10254"
+    prometheus.io/scrape: "true"

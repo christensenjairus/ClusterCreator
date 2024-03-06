@@ -1,0 +1,36 @@
+---
+- name: Update SSH keys in known_hosts file for all inventory hosts
+  hosts: localhost
+  gather_facts: no
+  any_errors_fatal: true
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/cluster_config.json') | from_json }}"
+
+  tasks:
+    - name: Iterate through all inventory hosts to update SSH keys
+      block:
+        - name: Remove old SSH key for the host from known_hosts
+          ansible.builtin.lineinfile:
+            path: "{{ ssh_hosts_file }}"
+            regexp: '^\[?{{ item }}\]?:'
+            state: absent
+          loop: "{{ groups['all'] }}"
+          check_mode: no
+          become: no
+
+        - name: Fetch new SSH key for the host
+          ansible.builtin.shell:
+            cmd: "ssh-keyscan -t {{ cluster_config.ssh_key_type }} {{ item }}"
+          register: ssh_key
+          loop: "{{ groups['all'] }}"
+          check_mode: no
+          become: no
+          ignore_errors: true
+
+        - name: Add new SSH keys to personal known_hosts
+          ansible.builtin.lineinfile:
+            path: "{{ ssh_hosts_file }}"
+            line: "{{ item.stdout }}"
+            state: present
+          loop: "{{ ssh_key.results }}"
+          when: item.stdout != "" and item.rc == 0

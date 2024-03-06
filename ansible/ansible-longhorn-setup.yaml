@@ -1,0 +1,61 @@
+---
+- name: Deploy Longhorn on Kubernetes
+  hosts: kube_api_servers[0]
+  gather_facts: false
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/cluster_config.json') | from_json }}"
+    longhorn_chart_version: "{{ cluster_config.longhorn_chart_version }}"
+    longhorn_nfs_storage: "{{ cluster_config.longhorn_nfs_storage }}"
+    longhorn_domain_name: "{{ cluster_config.longhorn_domain_name }}"
+    longhorn_tls_secret_name: "{{ cluster_config.longhorn_tls_secret_name }}"
+    cluster_issuer: "{{ cluster_config.cluster_issuer }}"
+
+  tasks:
+    - name: Add Longhorn Helm repository
+      ansible.builtin.shell:
+        cmd: helm repo add longhorn https://charts.longhorn.io
+      args:
+        executable: /bin/bash
+      tags:
+        - install-longhorn
+
+    - name: Update Helm repositories
+      ansible.builtin.shell:
+        cmd: helm repo update
+      args:
+        executable: /bin/bash
+      tags:
+        - install-longhorn
+
+    - name: Generate Longhorn Helm values file
+      ansible.builtin.template:
+        src: helpers/longhorn_values.yaml.j2
+        dest: "/tmp/longhorn-values.yaml"
+      tags:
+        - install-longhorn
+
+    - name: Install or upgrade Longhorn
+      ansible.builtin.shell:
+        cmd: >
+          helm upgrade --install longhorn longhorn/longhorn
+          --namespace longhorn-system
+          --create-namespace
+          --values /tmp/longhorn-values.yaml
+          --version {{ longhorn_chart_version }}
+      args:
+        executable: /bin/bash
+      tags:
+        - install-longhorn
+
+    - name: Generate Longhorn ephemeral StorageClass from template
+      ansible.builtin.template:
+        src: helpers/longhorn_ephemeral_storageclass.yaml.j2
+        dest: "/tmp/longhorn-ephemeral-storageclass.yaml"
+      tags:
+        - longhorn-emphemeral-storageclass
+
+    - name: Create Longhorn ephemeral StorageClass
+      ansible.builtin.command:
+        cmd: kubectl apply -f /tmp/longhorn-ephemeral-storageclass.yaml
+      tags:
+        - longhorn-emphemeral-storageclass

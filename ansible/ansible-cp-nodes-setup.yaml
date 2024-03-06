@@ -1,0 +1,125 @@
+---
+- name: Setup Kube-Vip on the control plane servers
+  hosts: kube_api_servers
+  gather_facts: false
+  any_errors_fatal: true
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/cluster_config.json') | from_json }}"
+  tags:
+    - vip_manifest
+  tasks:
+    - name: Check if Kube-Vip manifest already exists
+      ansible.builtin.stat:
+        path: /etc/kubernetes/manifests/kube-vip.yaml
+      register: kube_vip_manifest
+      become: true
+    - name: Pull Kube-Vip image and generate manifest
+      ansible.builtin.shell: |
+        ctr image pull ghcr.io/kube-vip/kube-vip:{{ cluster_config.kube_vip_version }}
+        ctr run --rm --net-host ghcr.io/kube-vip/kube-vip:{{ cluster_config.kube_vip_version }} vip /kube-vip manifest pod \
+            --interface {{ cluster_config.vip_interface }} \
+            --address {{ cluster_config.vip }} \
+            --controlplane \
+            --arp \
+            --leaderElection > /tmp/kube-vip.yaml
+# add --services above to get kube-vip to publish load balancers for all services that are of type LoadBalancer
+# if you do this, you'll need to add ONE of the following to new LB services
+#   metadata.annotation of kube-vip.io/ignore: "true" (kube-vip will ignore this svc)
+#   spec.loadBalancerClass=kube-vip.io/kube-vip-class (kube-vip will publish this svc - anything else and it will ignore it)
+      become: true
+      when: not kube_vip_manifest.stat.exists
+    - name: Ensure /etc/kubernetes/manifests exists
+      ansible.builtin.file:
+        path: /etc/kubernetes/manifests
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+      become: true
+      when: not kube_vip_manifest.stat.exists
+    - name: Move Kube-Vip manifest to Kubernetes manifests directory
+      ansible.builtin.copy:
+        src: /tmp/kube-vip.yaml
+        dest: /etc/kubernetes/manifests/kube-vip.yaml
+        owner: root
+        group: root
+        mode: '0644'
+        remote_src: true
+      become: true
+      when: not kube_vip_manifest.stat.exists
+
+- name: Generate and deploy kubeadm config file
+  hosts: kube_api_servers[0]
+  gather_facts: false
+  any_errors_fatal: true
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/cluster_config.json') | from_json }}"
+  tasks:
+    - name: Deploy kubeadm config file
+      ansible.builtin.template:
+        src: helpers/kubeadm_cp_config.yaml.j2
+        dest: "~/kubeadm-config.yaml"
+      tags:
+        - kubeadm_config
+
+    - name: Check if kubeadm init has already been run
+      ansible.builtin.stat:
+        path: /etc/kubernetes/admin.conf
+      register: kube_config_exists
+      become: true
+    - name: Run kubeadm init with custom config
+      ansible.builtin.shell:
+        cmd: >
+          kubeadm init
+          --config {{ cluster_config.ssh_home }}/kubeadm-config.yaml
+          --upload-certs
+          --skip-phases=addon/kube-proxy
+      become: true
+      register: kubeadm_init
+      failed_when: kubeadm_init.rc != 0
+      when: not kube_config_exists.stat.exists
+      tags:
+        - kubeadm_init
+    - name: Prepare kubeadm init output for parsing, replacing newlines with spaces
+      set_fact:
+        kubeadm_init_output_single_line: "{{ kubeadm_init.stdout | regex_replace('[\\\n\t]', ' ') }}"
+      tags:
+        - kubeadm_init
+      when: not kube_config_exists.stat.exists
+#    - name: Output entire contents of kubeadm init for debug purposes
+#      debug:
+#        var: kubeadm_init_output_single_line
+#      tags:
+#        - kubeadm_init
+    - name: Extract join command for worker nodes and remove backslashes & extra spaces
+      set_fact:
+        worker_join_command: "{{ kubeadm_init_output_single_line | regex_search('kubeadm join .*? --token .*? --discovery-token-ca-cert-hash sha256:[a-fA-F0-9]+(?=\\s)') | regex_replace('\\\\\\s+', ' ') }}"
+      tags:
+        - kubeadm_init
+      when: not kube_config_exists.stat.exists
+    - name: Extract control plane join command and remove backslashes & extra spaces
+      set_fact:
+        control_plane_join_command: "{{ kubeadm_init_output_single_line | regex_search('kubeadm join .*? --token .*? --control-plane --certificate-key [a-fA-F0-9]+') | regex_replace('\\\\\\s+', ' ') }}"
+      tags:
+        - kubeadm_init
+      when: not kube_config_exists.stat.exists
+    - name: Save worker node join command to file
+      local_action: copy content="{{ worker_join_command }}" dest="tmp/wrkr_join_command.sh"
+      run_once: true
+      tags:
+        - kubeadm_init
+      when: not kube_config_exists.stat.exists
+    - name: Save control plane join command to file
+      local_action: copy content="{{ control_plane_join_command }}" dest="tmp/cp_join_command.sh"
+      run_once: true
+      tags:
+        - kubeadm_init
+      when: not kube_config_exists.stat.exists
+    - name: Remove kubeadm-config.yaml
+      ansible.builtin.file:
+        path: "{{ cluster_config.ssh_home }}/kubeadm-config.yaml"
+        state: absent
+      become: true
+      when: not kube_config_exists.stat.exists
+      tags:
+        - kubeadm_init

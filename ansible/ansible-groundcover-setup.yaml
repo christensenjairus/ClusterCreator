@@ -1,0 +1,51 @@
+---
+- name: Configure and Deploy Groundcover (on first control plane node)
+  hosts: kube_api_servers[0]
+  gather_facts: no
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/cluster_config.json') | from_json }}"
+  tasks:
+    - name: Check if Groundcover is already installed
+      ansible.builtin.stat:
+        path: "{{ cluster_config.ssh_home }}/.groundcover/bin/groundcover"
+      register: groundcover_bin
+      become: true
+      tags:
+        - install_groundcover_cli
+      when: cluster_config.groundcover_enable
+
+    - name: Execute the Groundcover install script
+      ansible.builtin.shell: "curl -fsSL https://groundcover.com/install.sh | bash"
+      when: cluster_config.groundcover_enable and not groundcover_bin.stat.exists
+      tags:
+        - install_groundcover_cli
+
+    - name: Wait for the user to authenticate with Groundcover
+      ansible.builtin.pause:
+        prompt: |
+          ********************************************************************************
+          In another terminal, run the following command:
+    
+          ssh {{ cluster_config.ssh_user }}@{{ ansible_host }} '$HOME/.groundcover/bin/groundcover auth login'
+    
+          Press enter here once you have completed the authentication process.
+          ********************************************************************************
+      when: cluster_config.groundcover_enable
+      tags:
+        - deploy_groundcover
+
+    - name: Create Groundcover values file from template
+      ansible.builtin.template:
+        src: "helpers/groundcover_values.yaml.j2"
+        dest: "/tmp/groundcover.yaml"
+      when: cluster_config.groundcover_enable
+      tags:
+        - deploy_groundcover
+
+    - name: Deploy Groundcover with custom values
+      ansible.builtin.shell: "$HOME/.groundcover/bin/groundcover deploy --yes -f /tmp/groundcover.yaml"
+      register: deploy_output
+      changed_when: "'Deployment succeeded' in deploy_output.stdout"
+      when: cluster_config.groundcover_enable
+      tags:
+        - deploy_groundcover

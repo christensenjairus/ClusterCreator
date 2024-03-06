@@ -1,0 +1,13 @@
+.env
+.idea
+ClusterCreator.iml
+encodings.xml
+modules.xml
+.terraform*
+secrets.tf
+terraform.tfstate*
+ansible/tmp/cluster_config.json
+ansible/tmp/ansible-hosts.txt
+ansible/tmp/cp_join_command.sh
+ansible/tmp/wrkr_join_command.sh
+*.DS_Store

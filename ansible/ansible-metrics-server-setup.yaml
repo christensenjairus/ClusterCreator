@@ -1,0 +1,73 @@
+---
+- name: Apply metrics-server manifest and patch deployment
+  hosts: kube_api_servers[0]
+  gather_facts: no
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/cluster_config.json') | from_json }}"
+  tasks:
+    - name: Ensure kubernetes Python package is installed for Python3
+      ansible.builtin.pip:
+        name: kubernetes
+        state: present
+        executable: pip
+      tags:
+        - k8s_python_package
+
+    - name: Calculate the count of non-API/ETCD servers
+      set_fact:
+        non_api_etcd_server_count: "{{ groups['all'] | length - (groups['kube_api_servers'] | default([]) | length + groups['kube_etcd_servers'] | default([]) | length) }}"
+
+    - name: Determine if needing HA based on non-API/ETCD server count
+      set_fact:
+        metrics_server_replica_count: "{{ 1 if non_api_etcd_server_count == \"1\" else 2 }}"
+
+    - name: Apply standard metrics-server manifest
+      kubernetes.core.k8s:
+        state: present
+        src: "https://github.com/kubernetes-sigs/metrics-server/releases/download/{{ cluster_config.metrics_server_version }}/components.yaml"
+      when: metrics_server_replica_count == "1"
+
+    - name: Apply HA metrics-server manifest
+      kubernetes.core.k8s:
+        state: present
+        src: "https://github.com/kubernetes-sigs/metrics-server/releases/download/{{ cluster_config.metrics_server_version }}/high-availability-1.21+.yaml"
+      when: metrics_server_replica_count == "2"
+
+    - name: Scale down metrics-server deployment to zero replicas
+      kubernetes.core.k8s:
+        kind: Deployment
+        name: metrics-server
+        namespace: kube-system
+        definition:
+          spec:
+            replicas: 0
+
+    - name: Patch metrics-server deployment to ignore self-signed kubelet certificate
+      kubernetes.core.k8s_json_patch:
+        kind: Deployment
+        name: metrics-server
+        namespace: kube-system
+        patch:
+          - op: add
+            path: /spec/template/spec/containers/0/args/-
+            value: "--kubelet-insecure-tls=true"
+
+    - name: Scale metrics-server deployment back up
+      kubernetes.core.k8s:
+        kind: Deployment
+        name: metrics-server
+        namespace: kube-system
+        definition:
+          spec:
+            replicas: 1
+      when: metrics_server_replica_count == "1"
+
+    - name: Scale metrics-server deployment back up to HA mode
+      kubernetes.core.k8s:
+        kind: Deployment
+        name: metrics-server
+        namespace: kube-system
+        definition:
+          spec:
+            replicas: 2
+      when: metrics_server_replica_count == "2"

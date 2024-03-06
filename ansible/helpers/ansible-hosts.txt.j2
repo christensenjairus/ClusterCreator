@@ -1,0 +1,24 @@
+[kube_api_servers]
+{% for i in range(cluster_config.node_specs.apiserver.count) %}
+10.0.{{ cluster_config.vlan_id }}.{{ cluster_config.node_specs.apiserver.start_ip + i }} cp_index={{ i }} hostname={{ cluster_config.cluster_name }}-apiserver-{{ i }}
+{% endfor %}
+
+[kube_etcd_servers]
+{% for i in range(cluster_config.node_specs.etcd.count) %}
+10.0.{{ cluster_config.vlan_id }}.{{ cluster_config.node_specs.etcd.start_ip + i }} etcd_index={{ i }} hostname={{ cluster_config.cluster_name }}-etcd-{{ i }}
+{% endfor %}
+
+[kube_backup_servers]
+{% for i in range(cluster_config.node_specs.backup.count) %}
+10.0.{{ cluster_config.vlan_id }}.{{ cluster_config.node_specs.backup.start_ip + i }} backup_index={{ i }} hostname={{ cluster_config.cluster_name }}-backup-{{ i }}
+{% endfor %}
+
+[kube_db_servers]
+{% for i in range(cluster_config.node_specs.db.count) %}
+10.0.{{ cluster_config.vlan_id }}.{{ cluster_config.node_specs.db.start_ip + i }} db_index={{ i }} hostname={{ cluster_config.cluster_name }}-db-{{ i }}
+{% endfor %}
+
+[kube_general_servers]
+{% for i in range(cluster_config.node_specs.general.count) %}
+10.0.{{ cluster_config.vlan_id }}.{{ cluster_config.node_specs.general.start_ip + i }} general_index={{ i }} hostname={{ cluster_config.cluster_name }}-general-{{ i }}
+{% endfor %}

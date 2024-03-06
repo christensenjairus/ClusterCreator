@@ -1,0 +1,108 @@
+---
+- name: Deploy kube-prometheus on Kubernetes
+  hosts: kube_api_servers[0]
+  gather_facts: false
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/cluster_config.json') | from_json }}"
+    release: "{{ cluster_config.kube_prometheus_version }}"
+    git_repo: "https://github.com/prometheus-operator/kube-prometheus.git"
+    repo_dir: "/tmp/kube-prometheus"
+    ingress_definitions:
+      - name: grafana-ingress
+        namespace: monitoring
+        hostname: "{{ cluster_config.grafana_domain_name }}"
+        service_name: grafana
+        service_port: 3000
+        tls_secret_name: "{{ cluster_config.grafana_tls_secret_name }}"
+        cluster_issuer: "{{ cluster_config.cluster_issuer }}"
+      - name: prometheus-ingress
+        namespace: monitoring
+        hostname: "{{ cluster_config.prometheus_domain_name }}"
+        service_name: prometheus-k8s
+        service_port: 9090
+        tls_secret_name: "{{ cluster_config.prometheus_tls_secret_name }}"
+        cluster_issuer: "{{ cluster_config.cluster_issuer }}"
+
+  tasks:
+    - name: Clone kube-prometheus repository
+      ansible.builtin.git:
+        repo: "{{ git_repo }}"
+        dest: "{{ repo_dir }}"
+        version: "{{ release }}"
+      register: git_clone
+      changed_when: git_clone.before is defined and git_clone.before != git_clone.after
+      tags:
+        - install_kube_prometheus
+
+    - name: Apply setup manifests
+      ansible.builtin.command:
+        cmd: kubectl apply --server-side -f {{ repo_dir }}/manifests/setup
+      args:
+        chdir: "{{ repo_dir }}"
+      tags:
+        - install_kube_prometheus
+
+    - name: Wait for CRDs to be established
+      ansible.builtin.command:
+        cmd: kubectl wait --for condition=Established --all CustomResourceDefinition --namespace=monitoring
+      ignore_errors: yes
+      tags:
+        - install_kube_prometheus
+
+    - name: Apply main manifests
+      ansible.builtin.command:
+        cmd: kubectl apply -f {{ repo_dir }}/manifests/
+      args:
+        chdir: "{{ repo_dir }}"
+      tags:
+        - install_kube_prometheus
+
+    - name: Remove the cloned repository
+      ansible.builtin.file:
+        path: '{{ repo_dir }}'
+        state: absent
+
+    - name: Generate network policy patch for Grafana
+      vars:
+        app_label: "ingress-nginx"
+        ns_label: "ingress-nginx"
+      ansible.builtin.template:
+        src:  helpers/networkpolicy_patch.json.j2
+        dest: "/tmp/network_policy_grafana_patch.json"
+      tags:
+        - add_ingresses
+
+    - name: Apply network policy patch to Grafana
+      ansible.builtin.command:
+        cmd: "kubectl patch netpol grafana -n monitoring --type=json --patch-file /tmp/network_policy_grafana_patch.json"
+      tags:
+        - add_ingresses
+
+    - name: Generate network policy patch for Prometheus
+      vars:
+        app_label: "ingress-nginx"
+        ns_label: "ingress-nginx"
+      ansible.builtin.template:
+        src: helpers/networkpolicy_patch.json.j2
+        dest: "/tmp/network_policy_prometheus_patch.json"
+      tags:
+        - add_ingresses
+
+    - name: Apply network policy patch to Prometheus
+      ansible.builtin.command:
+        cmd: "kubectl patch netpol prometheus-k8s -n monitoring --type=json --patch-file /tmp/network_policy_prometheus_patch.json"
+      tags:
+        - add_ingresses
+
+    - name: Generate Grafana & Prometheus Ingress manifests from template
+      ansible.builtin.template:
+        src: helpers/ingress_template.yaml.j2
+        dest: "/tmp/ingresses.yaml"
+      tags:
+        - add_ingresses
+
+    - name: Apply Grafana & Prometheus Ingress manifests
+      ansible.builtin.command:
+        cmd: kubectl apply -f /tmp/ingresses.yaml
+      tags:
+        - add_ingresses
