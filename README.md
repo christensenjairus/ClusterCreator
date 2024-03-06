@@ -1,5 +1,5 @@
 # Cluster Creator - Terraform & Ansible K8S on Proxmox
-![Proxmox Pools for B1, G1, and Z1 Examples](Images/Proxmox Pools.png)
+![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/e37b5e75-990a-4931-be12-dd9d466f7c07)
 ## Create a K8S cluster in three commands or less
 
 This project will assist you in automating the creation of k8s clusters on Proxmox, each with a dedicated Unifi VLAN.
@@ -49,7 +49,7 @@ Simplest cluster possible - single node.
 
 *Note: Having less than 1 worker node will make ansible untaint the control plane node, allowing it to run workloads.*
 
-![B1 Node in k9s](Images/B1 Node in K9S.png)
+![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/e2130a29-efea-4f6a-bd71-819becac3b07)
 
 Make the control plane highly available, add an external etcd cluster, and 3 worker nodes...
 
@@ -64,7 +64,7 @@ Make the control plane highly available, add an external etcd cluster, and 3 wor
 
 *Note: etcd nodes are not shown in cluster, but they are used by the control plane nodes.*
 
-![G1 Nodes in k9s](Images/G1 Nodes in K9S.png)
+![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/fd35e1c7-a011-488e-b0f4-ca881dc7732c)
 
 Raise the control plane and etcd clusters to 5. Add some custom worker types.
 
@@ -82,7 +82,7 @@ Raise the control plane and etcd clusters to 5. Add some custom worker types.
 
 *Note: If you add a new worker type, you will need to edit `ansible/helpers/ansible-hosts.txt.j2` to account for it so that it is added to `ansible/tmp/ansible-hosts.txt` at runtime.*
 
-![Z1 Nodes in k9s](Images/Z1 Nodes in K9S.png)
+![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/0bd3ac52-347d-4e3e-8d97-92c93862eee4)
 
 ## Configuration/Secrets Files
 Create the following two files.
@@ -190,22 +190,23 @@ If you do need to reset `./uninstall_k8s.sh` should do the trick. But a full ter
 
 ## Final Product
 ### A Unifi Network with VLAN Managed by Terraform
-![Unifi Network with VLAN](Images/Unifi-Network.png)
+![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/7529eb65-7aa3-478d-a46f-ff1bafa6c45f)
 
 ### Pre-made Grafana Dashboards
-![Grafana Dashboard](Images/Grafana.png)
+![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/c4597069-e08d-4df6-a1db-0efd6268aea8)
 
 ### Prometheus Metrics Query UI
-![Prometheus UI](Images/Prometheus.png)
+![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/2d3bffe9-de61-444b-8c41-53ba54538d5e)
 
 ### Longhorn Storage UI
-![Longhorn Storage](Images/Longhorn.png)
+![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/598cf06d-f0d5-4e44-b8ab-1e42c0c6547e)
 
 ### Groundcover UI
-![Groundcover UI - Traces](Images/Groundcover-Traces.png)
+![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/7adda57b-d831-49f9-bf7d-c228e5d0cc53)
 
 ### Hubble eBFP Observability UI
-![Hubble UI (Ingress-Nginx Namespace)](Images/Hubble-UI-Ingress-Nginx.png)
+![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/ab3af8d2-b867-4d9d-a042-b1c10393bf60)
 
-![Hubble UI (Monitoring Namespace)](Images/Hubble-UI-Monitoring.png)
+![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/c52ed90c-9186-4380-8a06-c3638c5a9d34)
+
 
