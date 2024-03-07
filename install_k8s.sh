@@ -10,7 +10,7 @@ trap 'echo "An error occurred. Cleaning up..."; cleanup_function' ERR
 pushd ./ansible
 
 cleanup_function() {
-  rm \
+  rm -f \
     ansible/tmp/wrkr_join_command.sh \
     ansible/tmp/cp_join_command.sh \
     >&/dev/null
