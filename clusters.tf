@@ -46,9 +46,9 @@ variable "clusters" {
     cluster_issuer                 : string # should be either prod-issuer or staging-issuer - see ansible/helpers/clusterissuers.yaml.j2
     ingress_nginx_chart_version    : string # helm chart version for ingress-nginx
     groundcover_enable             : bool   # whether or not to install groundcover. Provided because the free tier only lets you have 1 cluster
-    kubernetes_version_short       : string # major version of kubernetes
-    kubernetes_version_medium      : string # major.minor version of kubernetes
-    kubernetes_version_long        : string # major.minor.patch version of kubernetes
+    kubernetes_version_short       : string # major version of kubernetes (example: 1.28)
+    kubernetes_version_medium      : string # major.minor version of kubernetes (example: 1.28.6)
+    kubernetes_version_long        : string # major.minor.patch version of kubernetes (example: 1.28.6-1.1)
     vip_interface                  : string # interface that faces the local lan
     vip                            : string # should not be in one if your load balancer ip cidr ranges
     vip_hostname                   : string # hostname to use when querying the api server's vip load balancer (kube-vip)
@@ -115,9 +115,9 @@ variable "clusters" {
       cluster_name                   = "b1-k8s"
       cluster_id                     = 1
       vlan_id                        = 100
-      cluster_subnet                 = "10.0.100"
-      load_balancer_ip_block_start_1 = "10.0.100.200"
-      load_balancer_ip_block_stop_1  = "10.0.100.254"
+      cluster_subnet                 = "10.0.1"
+      load_balancer_ip_block_start_1 = "10.0.1.200"
+      load_balancer_ip_block_stop_1  = "10.0.1.254"
       load_balancer_ip_block_start_2 = ""
       load_balancer_ip_block_stop_2  = ""
       load_balancer_ip_block_start_3 = ""
@@ -127,12 +127,12 @@ variable "clusters" {
       load_balancer_ip_cidr_3        = ""
       load_balancer_ip_cidr_4        = ""
       load_balancer_ip_cidr_5        = ""
-      vip                            = "10.0.100.100"
+      vip                            = "10.0.1.100"
       vip_hostname                   = "b1-k8s-api-server"
-      nginx_controller_ip            = "10.0.100.200"
+      nginx_controller_ip            = "10.0.1.200"
       kubeconfig_file_name           = "b1-k8s.kubeconfig"
-      ssh_user                       = "yourusername"
-      ssh_home                       = "/home/yourusername"
+      ssh_user                       = "your_username"
+      ssh_home                       = "/home/your_username"
       ssh_key_type                   = "ssh-ed25519"
       pod_cidr                       = "10.42.0.0/16"
       svc_cidr                       = "10.43.0.0/16"
@@ -150,17 +150,17 @@ variable "clusters" {
       metrics_server_version         = "v0.7.0"
       kube_prometheus_version        = "release-0.13"
       longhorn_chart_version         = "1.5.3"
-      longhorn_nfs_storage           = "nfs://10.0.0.2:/mnt/HDD_POOL/k8s/longhorn/"
-      longhorn_domain_name           = "longhorn-b1.yourdomain.com"
-      longhorn_tls_secret_name       = "longhorn-b1-yourdomain.com-tls"
-      grafana_domain_name            = "grafana-b1.yourdomain.com"
-      grafana_tls_secret_name        = "grafana-b1-yourdomain.com-tls"
-      prometheus_domain_name         = "prometheus-b1.yourdomain.com"
-      prometheus_tls_secret_name     = "prometheus-b1-yourdomain.com-tls"
-      hubble_domain_name             = "hubble-b1.yourdomain.com"
-      hubble_tls_secret_name         = "hubble-b1-yourdomain.com-tls"
+      longhorn_nfs_storage           = "nfs://10.0.1.2:/mnt/HDD_POOL/k8s/longhorn/"
+      longhorn_domain_name           = "longhorn-b1.example.com"
+      longhorn_tls_secret_name       = "longhorn-b1-example.com-tls"
+      grafana_domain_name            = "grafana-b1.example.com"
+      grafana_tls_secret_name        = "grafana-b1-example.com-tls"
+      prometheus_domain_name         = "prometheus-b1.example.com"
+      prometheus_tls_secret_name     = "prometheus-b1-example.com-tls"
+      hubble_domain_name             = "hubble-b1.example.com"
+      hubble_tls_secret_name         = "hubble-b1-example.com-tls"
       cert_manager_chart_version     = "v1.14.2"
-      cert_manager_email             = "youremail@gmail.com"
+      cert_manager_email             = "your_email@gmail.com"
       cluster_issuer                 = "staging-issuer"
       ingress_nginx_chart_version    = "4.10.0"
       groundcover_enable             = false
@@ -215,10 +215,10 @@ variable "clusters" {
     "g1" = {
       cluster_name                   = "g1-k8s"
       cluster_id                     = 2
-      vlan_id                        = 150
-      cluster_subnet                 = "10.0.150"
-      load_balancer_ip_block_start_1 = "10.0.150.200"
-      load_balancer_ip_block_stop_1  = "10.0.150.254"
+      vlan_id                        = 200
+      cluster_subnet                 = "10.0.2"
+      load_balancer_ip_block_start_1 = "10.0.2.200"
+      load_balancer_ip_block_stop_1  = "10.0.2.254"
       load_balancer_ip_block_start_2 = ""
       load_balancer_ip_block_stop_2  = ""
       load_balancer_ip_block_start_3 = ""
@@ -228,12 +228,12 @@ variable "clusters" {
       load_balancer_ip_cidr_3        = ""
       load_balancer_ip_cidr_4        = ""
       load_balancer_ip_cidr_5        = ""
-      vip                            = "10.0.150.100"
+      vip                            = "10.0.2.100"
       vip_hostname                   = "g1-k8s-api-server"
-      nginx_controller_ip            = "10.0.150.200"
+      nginx_controller_ip            = "10.0.2.200"
       kubeconfig_file_name           = "g1-k8s.kubeconfig"
-      ssh_user                       = "yourusername"
-      ssh_home                       = "/home/yourusername"
+      ssh_user                       = "your_username"
+      ssh_home                       = "/home/your_username"
       ssh_key_type                   = "ssh-ed25519"
       pod_cidr                       = "10.42.0.0/16"
       svc_cidr                       = "10.43.0.0/16"
@@ -251,17 +251,17 @@ variable "clusters" {
       metrics_server_version         = "v0.7.0"
       kube_prometheus_version        = "release-0.13"
       longhorn_chart_version         = "1.5.3"
-      longhorn_nfs_storage           = "nfs://10.0.150.2:/mnt/HDD_POOL/k8s/longhorn/"
-      longhorn_domain_name           = "longhorn-g1.yourdomain.com"
-      longhorn_tls_secret_name       = "longhorn-g1-yourdomain.com-tls"
-      grafana_domain_name            = "grafana-g1.yourdomain.com"
-      grafana_tls_secret_name        = "grafana-g1-yourdomain.com-tls"
-      prometheus_domain_name         = "prometheus-g1.yourdomain.com"
-      prometheus_tls_secret_name     = "prometheus-g1-yourdomain.com-tls"
-      hubble_domain_name             = "hubble-g1.yourdomain.com"
-      hubble_tls_secret_name         = "hubble-g1-yourdomain.com-tls"
+      longhorn_nfs_storage           = "nfs://10.0.2.2:/mnt/HDD_POOL/k8s/longhorn/"
+      longhorn_domain_name           = "longhorn-g1.example.com"
+      longhorn_tls_secret_name       = "longhorn-g1-example.com-tls"
+      grafana_domain_name            = "grafana-g1.example.com"
+      grafana_tls_secret_name        = "grafana-g1-example.com-tls"
+      prometheus_domain_name         = "prometheus-g1.example.com"
+      prometheus_tls_secret_name     = "prometheus-g1-example.com-tls"
+      hubble_domain_name             = "hubble-g1.example.com"
+      hubble_tls_secret_name         = "hubble-g1-example.com-tls"
       cert_manager_chart_version     = "v1.14.2"
-      cert_manager_email             = "youremail@gmail.com"
+      cert_manager_email             = "your_email@gmail.com"
       cluster_issuer                 = "staging-issuer"
       ingress_nginx_chart_version    = "4.10.0"
       groundcover_enable             = false
@@ -307,7 +307,7 @@ variable "clusters" {
           count    = 3
           cores    = 4
           sockets  = 2
-          memory   = 8192
+          memory   = 4096
           disk_size = 100
           start_ip  = 150
         }
@@ -316,10 +316,10 @@ variable "clusters" {
     "z1" = {
       cluster_name                   = "z1-k8s"
       cluster_id                     = 3
-      vlan_id                        = 200
-      cluster_subnet                 = "10.0.200"
-      load_balancer_ip_block_start_1 = "10.0.200.200"
-      load_balancer_ip_block_stop_1  = "10.0.200.254"
+      vlan_id                        = 300
+      cluster_subnet                 = "10.0.3"
+      load_balancer_ip_block_start_1 = "10.0.3.200"
+      load_balancer_ip_block_stop_1  = "10.0.3.254"
       load_balancer_ip_block_start_2 = ""
       load_balancer_ip_block_stop_2  = ""
       load_balancer_ip_block_start_3 = ""
@@ -329,12 +329,12 @@ variable "clusters" {
       load_balancer_ip_cidr_3        = ""
       load_balancer_ip_cidr_4        = ""
       load_balancer_ip_cidr_5        = ""
-      vip                            = "10.0.200.100"
+      vip                            = "10.0.3.100"
       vip_hostname                   = "z1-k8s-api-server"
-      nginx_controller_ip            = "10.0.200.200"
+      nginx_controller_ip            = "10.0.3.200"
       kubeconfig_file_name           = "z1-k8s.kubeconfig"
-      ssh_user                       = "yourusername"
-      ssh_home                       = "/home/yourusername"
+      ssh_user                       = "your_username"
+      ssh_home                       = "/home/your_username"
       ssh_key_type                   = "ssh-ed25519"
       pod_cidr                       = "10.42.0.0/16"
       svc_cidr                       = "10.43.0.0/16"
@@ -352,17 +352,17 @@ variable "clusters" {
       metrics_server_version         = "v0.7.0"
       kube_prometheus_version        = "release-0.13"
       longhorn_chart_version         = "1.5.3"
-      longhorn_nfs_storage           = "nfs://10.0.210.2:/mnt/HDD_POOL/k8s/longhorn/"
-      longhorn_domain_name           = "longhorn-z1.yourdomain.com"
-      longhorn_tls_secret_name       = "longhorn-z1-yourdomain.com-tls"
-      grafana_domain_name            = "grafana-z1.yourdomain.com"
-      grafana_tls_secret_name        = "grafana-z1-yourdomain.com-tls"
-      prometheus_domain_name         = "prometheus-z1.yourdomain.com"
-      prometheus_tls_secret_name     = "prometheus-z1-yourdomain.com-tls"
-      hubble_domain_name             = "hubble-z1.yourdomain.com"
-      hubble_tls_secret_name         = "hubble-z1-yourdomain.com-tls"
+      longhorn_nfs_storage           = "nfs://10.0.3.2:/mnt/HDD_POOL/k8s/longhorn/"
+      longhorn_domain_name           = "longhorn-z1.example.com"
+      longhorn_tls_secret_name       = "longhorn-z1-example.com-tls"
+      grafana_domain_name            = "grafana-z1.example.com"
+      grafana_tls_secret_name        = "grafana-z1-example.com-tls"
+      prometheus_domain_name         = "prometheus-z1.example.com"
+      prometheus_tls_secret_name     = "prometheus-z1-example.com-tls"
+      hubble_domain_name             = "hubble-z1.example.com"
+      hubble_tls_secret_name         = "hubble-z1-example.com-tls"
       cert_manager_chart_version     = "v1.14.2"
-      cert_manager_email             = "youremail@gmail.com"
+      cert_manager_email             = "your_email@gmail.com"
       cluster_issuer                 = "staging-issuer"
       ingress_nginx_chart_version    = "4.10.0"
       groundcover_enable             = false
