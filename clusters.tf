@@ -176,7 +176,7 @@ variable "clusters" {
           sockets  = 2
           memory   = 8192
           disk_size = 100
-          start_ip   = 11
+          start_ip   = 110
         }
         etcd = {
           count    = 0
