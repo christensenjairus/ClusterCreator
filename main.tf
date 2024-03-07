@@ -36,7 +36,7 @@ locals {
           cluster_name   = cluster_name
           node_type      = node_type
           index          = i
-          vm_id          = tonumber("${cluster.vlan_id}${specs.start_ip + i}")
+          vm_id          = tonumber("${cluster.cluster_id}${specs.start_ip + i}")
           cores          = specs.cores
           sockets        = specs.sockets
           memory         = specs.memory

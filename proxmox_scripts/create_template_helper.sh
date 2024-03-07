@@ -34,7 +34,7 @@ qm create $TEMPLATE_VM_ID \
   --cores 1 \
   --sockets 1 \
   --memory 1024 \
-  --net0 virtio,bridge=vmbr0,tag=1 \
+  --net0 virtio,bridge=vmbr0 \
   --agent "enabled=1,freeze-fs-on-backup=1,fstrim_cloned_disks=1" \
   --onboot 1 \
   --autostart 1 \

@@ -2,14 +2,14 @@
 ![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/e37b5e75-990a-4931-be12-dd9d466f7c07)
 ## Create a K8S cluster in three commands or less
 
-This project will assist you in automating the creation of k8s clusters on Proxmox, each with a dedicated Unifi VLAN.
+This project will assist you in automating the creation of k8s clusters on Proxmox, optionally with a dedicated Unifi network and VLAN.
 
 Terraform & Ansible automate to create external etcd K8S clusters. Terraform creates the VMs and VLANs, and Ansible installs Kubernetes as well as various add-ons for networking, monitoring, storage, and observability.
 
 The Terraform cluster configurations allow for
 * Optional external etcd cluster
-* Optional Proxmox pool configuration (can be commented out in `main.tf`)
-Custom Network & VLAN Unifi configuration (can be commented out in `main.tf`)
+* Optional Proxmox pool configuration
+* Custom Network & VLAN Unifi configuration
 * Custom worker types (general, db, and backup are included - but you can add your own)
 * Custom quantities of control-plane, etcd, and custom worker nodes
 * Custom hardware requirements for each node type
@@ -187,6 +187,22 @@ This will remove the VMs and VLAN from Unifi.
 You may also run into errors while running `./install_k8s.sh`. This script is running `ansible/ansible-master-playbook.yaml`. If you find the issue, you should comment out the already-completed playbooks from `ansible/ansible-master-playbook.yaml` and start the script over to resume roughly where you left off. However, be smart about doing this if there was an error during the etcd node setup, the cp node setup, or the join nodes playbooks because of kubeadm's inability to be run twice without being reset.
 
 If you do need to reset `./uninstall_k8s.sh` should do the trick. But a full terraform rebuild is the best way to ensure a clean slate.
+
+### Don't have a Unifi router or don't want to use VLANs?
+To not create a network via Unifi
+* Comment out the entire `unifi_network` created `main.tf` . 
+* Comment out `depends_on = [unifi_network.vlan]` in the `proxmox_virtual_environment_pool` resource.
+* The vlan_id in `clusters.tf` will be ignored now.
+
+*Note: Remember to set your cluster to use an existing network in `clusters.tf` and that your node/lb/vip ips won't conflict with existing devices.*
+
+To use VLANs on your VMs
+* Comment out the following from `main.tf` .
+```tf
+network_device {
+    vlan_id = each.value.vlan_id
+}
+```
 
 ## Final Product
 ### A Unifi Network with VLAN Managed by Terraform
