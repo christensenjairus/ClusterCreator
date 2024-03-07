@@ -11,10 +11,12 @@ spec:
   serviceSelector:
     matchLabels:
       L2Announcement: "true"
+{% if include_node_selector %}
   nodeSelector:
     matchExpressions:
       - key: node-role.kubernetes.io/control-plane
         operator: DoesNotExist
+{% endif %}
 ---
 apiVersion: "cilium.io/v2alpha1"
 kind: CiliumLoadBalancerIPPool

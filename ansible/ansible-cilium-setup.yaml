@@ -119,6 +119,12 @@
       tags:
         - cilium_config
 
+    - name: Set include_node_selector fact for cilium L2 policy
+      set_fact:
+        include_node_selector: "{{ groups['all'] | difference(groups['kube_api_servers'] | default([])) | difference(groups['kube_etcd_servers'] | default([])) | length > 0 }}"
+      tags:
+        - cilium_l2_policy
+
     - name: Generate ciliumL2Policy.yaml configuration file
       ansible.builtin.template:
         src: helpers/cilium_l2_policy.yaml.j2
