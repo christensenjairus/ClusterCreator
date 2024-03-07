@@ -1,4 +1,4 @@
-# Cluster Creator - Terraform & Ansible K8S on Proxmox
+# ClusterCreator - Terraform & Ansible K8S on Proxmox
 ![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/e37b5e75-990a-4931-be12-dd9d466f7c07)
 ## Create a K8S cluster in three commands or less
 
