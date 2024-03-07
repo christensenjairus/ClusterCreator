@@ -14,7 +14,7 @@ variable "clusters" {
     backup                         : number # currently doesn't do anything, but it's there for future use
     ssh_user                       : string # username for the remote server
     ssh_home                       : string # path to your home directory on the remote server
-    ssh_key_type                   : string # type of key to trust for ssh on remote hosts
+    ssh_key_type                   : string # type of key to scan and trust for remote hosts. the key of this type gets added to local ~/.ssh/known_hosts.
     pod_cidr                       : string # cidr range for pod networking internal to cluster. Shouldn't overlap with lan network.
     svc_cidr                       : string # cidr range for service networking internal to cluster. Shouldn't overlap with lan network.
     containerd_version             : string # release version of containerd
