@@ -1,4 +1,29 @@
 ---
+- name: External Etcdctl healthcheck
+  hosts: kube_etcd_servers[0]
+  any_errors_fatal: true
+  gather_facts: false
+  become: true
+  tags:
+    - etcd_healthcheck
+  tasks:
+    - name: Check health for each etcd endpoint
+      ansible.builtin.shell: |
+          ETCDCTL_API=3 etcdctl \
+          --cert /etc/kubernetes/pki/etcd/peer.crt \
+          --key /etc/kubernetes/pki/etcd/peer.key \
+          --cacert /etc/kubernetes/pki/etcd/ca.crt \
+          --endpoints https://{{ host }}:2379 endpoint health
+      loop: "{{ groups['kube_etcd_servers'] }}"
+      loop_control:
+        loop_var: host
+      register: etcd_health_check
+      ignore_errors: yes
+    - name: Show etcd health check output
+      ansible.builtin.debug:
+        msg: "{{ etcd_health_check.results | map(attribute='stdout') | list }}"
+      when: etcd_health_check is defined
+
 - name: Show connected k8s nodes
   hosts: kube_api_servers[0]
   gather_facts: false
