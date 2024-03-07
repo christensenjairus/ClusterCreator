@@ -120,7 +120,7 @@ variable "unifi_password" {
 VM_USERNAME="<username_here>"
 VM_PASSWORD="<password_here>"
 NON_PASSWORD_PROTECTED_SSH_KEY="id_rsa" # assumed that this is in ~/.ssh/ and the .pub file is named similarly
-GLOBAL_CLOUDFLARE_API_KEY="<api_key_here>"
+GLOBAL_CLOUDFLARE_API_KEY="<api_key_here>" # used if you have a cloudflare domain for cert-manager clusterissuers
 PROXMOX_USERNAME=root
 PROXMOX_HOST="10.0.0.100"
 PROXMOX_ISO_PATH="/var/lib/pve/local-btrfs/template/iso/"
