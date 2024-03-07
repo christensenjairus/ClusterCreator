@@ -82,7 +82,7 @@ Raise the control plane and etcd clusters to 5. Add some custom worker types.
 
 *Note: If you add a new worker type, you will need to edit `ansible/helpers/ansible-hosts.txt.j2` to account for it so that it is added to `ansible/tmp/ansible-hosts.txt` at runtime.*
 
-![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/0bd3ac52-347d-4e3e-8d97-92c93862eee4)
+![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/45ea08c7-6bb4-4463-a01c-ba02c4301343)
 
 ## Configuration/Secrets Files
 Create the following two files.
