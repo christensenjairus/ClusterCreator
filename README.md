@@ -32,6 +32,7 @@ The Ansible playbooks are dynamic to whatever node counts you define. The ansibl
 * Longhorn distributed block storage (with ingress and with ephemeral storage class)
 * Groundcover dashboard (optional)
 * Newrelic monitoring (optional)
+* Kubernetes Dashboard (with basic-auth ingress)
 * Node labeling
 * Gateway API CRDs
 
@@ -229,6 +230,10 @@ To create a token to login, you'll need to generate a token for your user. This 
 ```bash
 kubectl -n kubernetes-dashboard create token <kube_dashboard_user>
 ```
+Or you could grab the long-lived token to put in your password manager.
+```bash
+kubectl get secret <kube_dashboard_user> -n kubernetes-dashboard -o jsonpath={".data.token"} | base64 -d
+```
 
 ## Final Product
 ### A Unifi Network with VLAN Managed by Terraform
@@ -254,4 +259,5 @@ kubectl -n kubernetes-dashboard create token <kube_dashboard_user>
 
 ![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/c52ed90c-9186-4380-8a06-c3638c5a9d34)
 
-
+### Kubernetes Dashboard
+![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/73d95fbb-6a3a-4fce-a051-3d0113367ffe)
