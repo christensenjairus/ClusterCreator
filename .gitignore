@@ -8,3 +8,5 @@ secrets.tf
 terraform.tfstate*
 ansible/tmp
 *.DS_Store
+remove_sensitive_info.sh
+restore_sensitive_info.sh

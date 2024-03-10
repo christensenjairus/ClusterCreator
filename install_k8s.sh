@@ -43,6 +43,7 @@ ansible-playbook -u $VM_USERNAME ansible-generate-ansible-hosts-txt.yaml -e "clu
 # run ansible playbooks
 ansible-playbook -i "tmp/${CLUSTER_NAME}/ansible-hosts.txt" -u $VM_USERNAME ansible-master-playbook.yaml \
   -e "cloudflare_global_api_key=${GLOBAL_CLOUDFLARE_API_KEY}" \
+  -e "newrelic_license_key=${NEWRELIC_LICENSE_KEY}" \
   -e "ssh_key_file=$HOME/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}" \
   -e "ssh_hosts_file=$HOME/.ssh/known_hosts"
 

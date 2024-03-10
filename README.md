@@ -31,6 +31,8 @@ The Ansible playbooks are dynamic to whatever node counts you define. The ansibl
 * Grafana (with ingress)
 * Longhorn distributed block storage (with ingress and with ephemeral storage class)
 * Groundcover dashboard (optional)
+* Newrelic monitoring (optional)
+* Node labeling
 * Gateway API CRDs
 
 *Note: ingresses expose services that do not have passwords, like the Hubble UI. If this is a port-forwarded or BGP setup, you should delete the resulting ingresses until you have a plan to secure them with authorization/authentication.*
@@ -129,6 +131,7 @@ VM_USERNAME="<username_here>"
 VM_PASSWORD="<password_here>"
 NON_PASSWORD_PROTECTED_SSH_KEY="id_rsa" # assumed that this is in ~/.ssh/ and the .pub file is named similarly
 GLOBAL_CLOUDFLARE_API_KEY="<api_key_here>" # used if you have a cloudflare domain for cert-manager clusterissuers
+NEWRELIC_LICENSE_KEY="<license_key_here>" # used if you want to monitor your cluster with newrelic
 PROXMOX_USERNAME=root
 PROXMOX_HOST="10.0.0.100"
 PROXMOX_ISO_PATH="/var/lib/pve/local-btrfs/template/iso/"
@@ -233,6 +236,9 @@ network_device {
 
 ### Longhorn Storage UI
 ![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/598cf06d-f0d5-4e44-b8ab-1e42c0c6547e)
+
+### NewRelic Monitoring UI
+
 
 ### Groundcover UI
 ![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/7adda57b-d831-49f9-bf7d-c228e5d0cc53)

@@ -49,6 +49,11 @@ variable "clusters" {
     cluster_issuer                 : string # should be either prod-issuer or staging-issuer - see ansible/helpers/clusterissuers.yaml.j2
     ingress_nginx_chart_version    : string # helm chart version for ingress-nginx
     groundcover_enable             : bool   # whether or not to install groundcover. Provided because the free tier only lets you have 1 cluster
+    newrelic_enabled               : bool   # whether or not to install newrelic kubernetes connector
+    newrelic_low_data_mode         : bool   # low data mode removes some less necessary data from each log record
+    newrelic_scrape_system_prom    : bool   # scrape endpoints in core kube-system namespace
+    newrelic_ksm_image_tag         : string # version of the newrelic ksm image to use. Normally the newrelic command they give you shows it.
+    newrelic_namespace             : string # namespace to install newrelic kubernetes connector into
     kubernetes_version_short       : string # major version of kubernetes (example: 1.28)
     kubernetes_version_medium      : string # major.minor version of kubernetes (example: 1.28.6)
     kubernetes_version_long        : string # major.minor.patch version of kubernetes (example: 1.28.6-1.1)
@@ -137,6 +142,7 @@ variable "clusters" {
       load_balancer_ip_cidr_5        = ""
       vip                            = "10.0.1.100"
       vip_hostname                   = "b1-k8s-api-server"
+      vip_interface                  = "eth0"
       nginx_controller_ip            = "10.0.1.200"
       kubeconfig_file_name           = "b1-k8s.yml"
       ssh_user                       = "your_username"
@@ -172,14 +178,18 @@ variable "clusters" {
       hubble_tls_secret_name         = "hubble-b1-your_domain.com-tls"
       gateway_api_version            = "v1.0.0"
       cert_manager_chart_version     = "v1.14.2"
-      cert_manager_email             = "christensenjairus@gmail.com"
+      cert_manager_email             = "your_email@gmail.com"
       cluster_issuer                 = "staging-issuer"
       ingress_nginx_chart_version    = "4.10.0"
       groundcover_enable             = false
+      newrelic_enabled               = true
+      newrelic_low_data_mode         = true
+      newrelic_scrape_system_prom    = true
+      newrelic_ksm_image_tag         = "v2.10.0"
+      newrelic_namespace             = "newrelic"
       kubernetes_version_short       = "1.28"
       kubernetes_version_medium      = "1.28.6"
       kubernetes_version_long        = "1.28.6-1.1"
-      vip_interface                  = "eth0"
       backup                         = 0
       node_classes     = {
         apiserver = {
@@ -206,7 +216,7 @@ variable "clusters" {
           cores    = 1
           sockets  = 2
           memory   = 2048
-          disk_size = 30
+          disk_size = 100
           start_ip  = 130
           labels = {
             "node_class" = "backup"
@@ -217,7 +227,7 @@ variable "clusters" {
           cores    = 2
           sockets  = 2
           memory   = 4192
-          disk_size = 30
+          disk_size = 50
           start_ip  = 140
           labels = {
             "node_class" = "db"
@@ -240,6 +250,7 @@ variable "clusters" {
       cluster_name                   = "g1-k8s"
       cluster_id                     = 2
       vlan_id                        = 200
+      vip_interface                  = "eth0"
       cluster_subnet                 = "10.0.2"
       load_balancer_ip_block_start_1 = "10.0.2.200"
       load_balancer_ip_block_stop_1  = "10.0.2.254"
@@ -289,14 +300,18 @@ variable "clusters" {
       hubble_tls_secret_name         = "hubble-g1-your_domain.com-tls"
       gateway_api_version            = "v1.0.0"
       cert_manager_chart_version     = "v1.14.2"
-      cert_manager_email             = "christensenjairus@gmail.com"
+      cert_manager_email             = "your_email@gmail.com"
       cluster_issuer                 = "staging-issuer"
       ingress_nginx_chart_version    = "4.10.0"
       groundcover_enable             = false
+      newrelic_enabled               = true
+      newrelic_low_data_mode         = true
+      newrelic_scrape_system_prom    = true
+      newrelic_ksm_image_tag         = "v2.10.0"
+      newrelic_namespace             = "newrelic"
       kubernetes_version_short       = "1.28"
       kubernetes_version_medium      = "1.28.6"
       kubernetes_version_long        = "1.28.6-1.1"
-      vip_interface                  = "eth0"
       backup                         = 0
       node_classes     = {
         apiserver = {
@@ -371,6 +386,7 @@ variable "clusters" {
       load_balancer_ip_cidr_5        = ""
       vip                            = "10.0.3.100"
       vip_hostname                   = "z1-k8s-api-server"
+      vip_interface                  = "eth0"
       nginx_controller_ip            = "10.0.3.200"
       kubeconfig_file_name           = "z1-k8s.yml"
       ssh_user                       = "your_username"
@@ -410,10 +426,14 @@ variable "clusters" {
       cluster_issuer                 = "staging-issuer"
       ingress_nginx_chart_version    = "4.10.0"
       groundcover_enable             = false
+      newrelic_enabled               = true
+      newrelic_low_data_mode         = false
+      newrelic_scrape_system_prom    = true
+      newrelic_ksm_image_tag         = "v2.10.0"
+      newrelic_namespace             = "newrelic"
       kubernetes_version_short       = "1.28"
       kubernetes_version_medium      = "1.28.6"
       kubernetes_version_long        = "1.28.6-1.1"
-      vip_interface                  = "eth0"
       backup                         = 1
       node_classes     = {
         apiserver = {
