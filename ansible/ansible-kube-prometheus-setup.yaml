@@ -94,11 +94,6 @@
       tags:
         - add_ingresses
 
-    - name: Ensure apache2-utils is installed
-      become: yes
-      ansible.builtin.apt:
-        name: apache2-utils
-        state: present
     - name: Generate htpasswd file
       ansible.builtin.command:
         cmd: "htpasswd -cb auth {{ ingress_basic_auth_username }} {{ ingress_basic_auth_password }}"
@@ -106,9 +101,9 @@
       tags:
         - add_basic_auth_secret
     - name: Create Kubernetes secret for basic auth
-      ansible.builtin.command:
-        cmd: "kubectl create secret generic basic-auth --from-file=auth -n monitoring"
-        removes: auth
+      ansible.builtin.shell: |
+        kubectl delete secret basic-auth -n monitoring --ignore-not-found
+        kubectl create secret generic basic-auth --from-file=auth -n monitoring
       tags:
         - add_basic_auth_secret
     - name: Clean up temporary htpasswd file

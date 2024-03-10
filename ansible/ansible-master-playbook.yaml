@@ -8,7 +8,7 @@
 - import_playbook: ansible-label-nodes.yaml
 - import_playbook: ansible-cilium-setup.yaml
 - import_playbook: ansible-metrics-server-setup.yaml
-- import_playbook: ansible-vertical-pod-autoscaler-setup.yaml
+#- import_playbook: ansible-vertical-pod-autoscaler-setup.yaml
 - import_playbook: ansible-cert-manager-setup.yaml
 - import_playbook: ansible-ingress-nginx-setup.yaml
 - import_playbook: ansible-kube-prometheus-setup.yaml
