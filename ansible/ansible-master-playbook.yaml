@@ -15,6 +15,7 @@
 - import_playbook: ansible-cilium-clustermesh-setup.yaml
 - import_playbook: ansible-longhorn-setup.yaml
 - import_playbook: ansible-hubble-ui-setup.yaml
+- import_playbook: ansible-kubernetes-dashboard-setup.yaml
 - import_playbook: ansible-newrelic-setup.yaml
 - import_playbook: ansible-groundcover-setup.yaml
 - import_playbook: ansible-ending-output.yaml

@@ -12,6 +12,7 @@
         service_port: 80
         tls_secret_name: "{{ cluster_config.hubble_tls_secret_name }}"
         cluster_issuer: "{{ cluster_config.cluster_issuer }}"
+        upstream_tls: false
 
   tasks:
     - name: Generate htpasswd file

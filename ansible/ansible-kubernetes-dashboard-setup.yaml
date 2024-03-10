@@ -1,0 +1,69 @@
+---
+- name: Deploy Kubernetes Dashboard
+  hosts: kube_api_servers[0]
+  gather_facts: no
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    kube_dashboard_user: "{{ cluster_config.kube_dashboard_user }}"
+  tasks:
+    - name: Apply Kubernetes Dashboard configuration from URL
+      ansible.builtin.shell: "kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/{{ cluster_config.kube_dashboard_version }}/aio/deploy/recommended.yaml"
+      args:
+        executable: /bin/bash
+
+    - name: Place kubernetes-dashboard-account manifests
+      ansible.builtin.template:
+        src: helpers/kubernetes-dashboard-account.yaml.j2
+        dest: /tmp/kubernetes-dashboard-account.yaml
+
+    - name: Apply kubernetes-dashboard-account manifests
+      ansible.builtin.shell: kubectl apply -f /tmp/kubernetes-dashboard-account.yaml
+      args:
+        executable: /bin/bash
+
+- name: Add ingress for Kubernetes Dashboard
+  hosts: kube_api_servers[0]
+  gather_facts: false
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    ingress_definitions:
+      - name: kubernetes-dashboard-ingress
+        namespace: kubernetes-dashboard
+        hostname: "{{ cluster_config.kube_dashboard_domain_name }}"
+        service_name: "kubernetes-dashboard"
+        service_port: 443
+        tls_secret_name: "{{ cluster_config.kube_dashboard_tls_secret_name }}"
+        cluster_issuer: "{{ cluster_config.cluster_issuer }}"
+        upstream_tls: true
+
+  tasks:
+    - name: Generate htpasswd file
+      ansible.builtin.command:
+        cmd: "htpasswd -cb auth {{ ingress_basic_auth_username }} {{ ingress_basic_auth_password }}"
+        creates: auth
+      tags:
+        - add_basic_auth_secret
+    - name: Create Kubernetes secret for basic auth
+      ansible.builtin.shell: |
+        kubectl delete secret basic-auth -n kubernetes-dashboard --ignore-not-found
+        kubectl create secret generic basic-auth --from-file=auth -n kubernetes-dashboard
+      tags:
+        - add_basic_auth_secret
+    - name: Clean up temporary htpasswd file
+      ansible.builtin.file:
+        path: auth
+        state: absent
+      tags:
+        - add_basic_auth_secret
+
+    - name: Generate kubernetes dashboard ingress manifests from template
+      ansible.builtin.template:
+        src: helpers/ingress_template.yaml.j2
+        dest: "/tmp/kubernetes_dashboard_ingress.yaml"
+      tags:
+        - add_ingress
+    - name: Apply kubernetes dashboard ingress manifest
+      ansible.builtin.command:
+        cmd: kubectl apply -f /tmp/kubernetes_dashboard_ingress.yaml
+      tags:
+        - add_ingress

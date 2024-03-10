@@ -15,6 +15,7 @@
         service_port: 3000
         tls_secret_name: "{{ cluster_config.grafana_tls_secret_name }}"
         cluster_issuer: "{{ cluster_config.cluster_issuer }}"
+        upstream_tls: false
       - name: prometheus-ingress
         namespace: monitoring
         hostname: "{{ cluster_config.prometheus_domain_name }}"
@@ -22,6 +23,7 @@
         service_port: 9090
         tls_secret_name: "{{ cluster_config.prometheus_tls_secret_name }}"
         cluster_issuer: "{{ cluster_config.cluster_issuer }}"
+        upstream_tls: false
 
   tasks:
     - name: Clone kube-prometheus repository

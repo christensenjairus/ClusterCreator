@@ -224,6 +224,12 @@ network_device {
 }
 ```
 
+### Kubernetes Dashboard
+To create a token to login, you'll need to generate a token for your user. This is done with the following command.
+```bash
+kubectl -n kubernetes-dashboard create token <kube_dashboard_user>
+```
+
 ## Final Product
 ### A Unifi Network with VLAN Managed by Terraform
 ![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/7529eb65-7aa3-478d-a46f-ff1bafa6c45f)

@@ -33,6 +33,8 @@ variable "clusters" {
     metrics_server_version         : string # release version for metrics-server
     autoscaler_version             : string # release version for cluster-autoscaler. Used to figure out right branch to clone repo from. For branch cluster-autoscaler-chart-9.35.0 use 9.35.0
     kube_prometheus_version        : string # release version for kube-prometheus
+    kube_dashboard_user            : string # username to use for kubernetes dashboard. To create a token to login, you'll need to run `kubectl -n kubernetes-dashboard create token <user> | pbcopy`
+    kube_dashboard_version         : string # release version for kubernetes dashboard
     longhorn_chart_version         : string # helm chart version for longhorn
     longhorn_nfs_storage           : string # I use TrueNAS with another network device with the associated vlan tag.
     longhorn_domain_name           : string # domain name to use for longhorn ui ingress
@@ -43,6 +45,8 @@ variable "clusters" {
     prometheus_tls_secret_name     : string # secret name for prometheus ui ingress
     hubble_domain_name             : string # domain name to use for hubble ui ingress
     hubble_tls_secret_name         : string # secret name for longhorn ui ingress
+    kube_dashboard_domain_name     : string # domain name to use for kubernetes dashboard ui ingress
+    kube_dashboard_tls_secret_name : string # secret name for kubernetes dashboard ui ingress
     gateway_api_version            : string # version of the gateway api to install. This is more of a future-proofing thing, none of the ingresses in this project use it.
     cert_manager_chart_version     : string # helm chart version for cert-manager
     cert_manager_email             : string # your let's encrypt email for certificates
@@ -166,6 +170,8 @@ variable "clusters" {
       metrics_server_version         = "v0.7.0"
       autoscaler_version             = "9.35.0"
       kube_prometheus_version        = "release-0.13"
+      kube_dashboard_user            = "your_username"
+      kube_dashboard_version         = "v2.7.0"
       longhorn_chart_version         = "1.5.3"
       longhorn_nfs_storage           = "nfs://10.0.1.2:/mnt/HDD_POOL/k8s/b1-k8s/longhorn/"
       longhorn_domain_name           = "longhorn-b1.your_domain.com"
@@ -176,6 +182,8 @@ variable "clusters" {
       prometheus_tls_secret_name     = "prometheus-b1-your_domain.com-tls"
       hubble_domain_name             = "hubble-b1.your_domain.com"
       hubble_tls_secret_name         = "hubble-b1-your_domain.com-tls"
+      kube_dashboard_domain_name     = "kubernetes-dashboard-b1.your_domain.com"
+      kube_dashboard_tls_secret_name = "kubernetes-dashboard-b1-your_domain.com-tls"
       gateway_api_version            = "v1.0.0"
       cert_manager_chart_version     = "v1.14.2"
       cert_manager_email             = "your_email@gmail.com"
@@ -288,6 +296,8 @@ variable "clusters" {
       metrics_server_version         = "v0.7.0"
       autoscaler_version             = "9.35.0"
       kube_prometheus_version        = "release-0.13"
+      kube_dashboard_user            = "your_username"
+      kube_dashboard_version         = "v2.7.0"
       longhorn_chart_version         = "1.5.3"
       longhorn_nfs_storage           = "nfs://10.0.2.2:/mnt/HDD_POOL/k8s/g1-k8s/longhorn/"
       longhorn_domain_name           = "longhorn-g1.your_domain.com"
@@ -298,6 +308,8 @@ variable "clusters" {
       prometheus_tls_secret_name     = "prometheus-g1-your_domain.com-tls"
       hubble_domain_name             = "hubble-g1.your_domain.com"
       hubble_tls_secret_name         = "hubble-g1-your_domain.com-tls"
+      kube_dashboard_domain_name     = "kubernetes-dashboard-g1.your_domain.com"
+      kube_dashboard_tls_secret_name = "kubernetes-dashboard-g1-your_domain.com-tls"
       gateway_api_version            = "v1.0.0"
       cert_manager_chart_version     = "v1.14.2"
       cert_manager_email             = "your_email@gmail.com"
@@ -410,6 +422,8 @@ variable "clusters" {
       metrics_server_version         = "v0.7.0"
       autoscaler_version             = "9.35.0"
       kube_prometheus_version        = "release-0.13"
+      kube_dashboard_user            = "your_username"
+      kube_dashboard_version         = "v2.7.0"
       longhorn_chart_version         = "1.5.3"
       longhorn_nfs_storage           = "nfs://10.0.3.2:/mnt/HDD_POOL/k8s/z1-k8s/longhorn/"
       longhorn_domain_name           = "longhorn-z1.your_domain.com"
@@ -420,6 +434,8 @@ variable "clusters" {
       prometheus_tls_secret_name     = "prometheus-z1-your_domain.com-tls"
       hubble_domain_name             = "hubble-z1.your_domain.com"
       hubble_tls_secret_name         = "hubble-z1-your_domain.com-tls"
+      kube_dashboard_domain_name     = "kubernetes-dashboard-z1.your_domain.com"
+      kube_dashboard_tls_secret_name = "kubernetes-dashboard-z1-your_domain.com-tls"
       gateway_api_version            = "v1.0.0"
       cert_manager_chart_version     = "v1.14.2"
       cert_manager_email             = "your_email@gmail.com"
