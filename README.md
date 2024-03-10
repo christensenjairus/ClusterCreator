@@ -238,7 +238,7 @@ network_device {
 ![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/598cf06d-f0d5-4e44-b8ab-1e42c0c6547e)
 
 ### NewRelic Monitoring UI
-
+![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/6176acdd-252a-4b32-bdbe-ab80d0fe8f38)
 
 ### Groundcover UI
 ![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/7adda57b-d831-49f9-bf7d-c228e5d0cc53)
