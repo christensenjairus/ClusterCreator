@@ -423,7 +423,7 @@ variable "clusters" {
       gateway_api_version            = "v1.0.0"
       cert_manager_chart_version     = "v1.14.2"
       cert_manager_email             = "your_email@gmail.com"
-      cluster_issuer                 = "staging-issuer"
+      cluster_issuer                 = "prod-issuer"
       ingress_nginx_chart_version    = "4.10.0"
       groundcover_enable             = false
       newrelic_enabled               = true

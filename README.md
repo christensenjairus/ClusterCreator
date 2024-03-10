@@ -20,22 +20,20 @@ The Ansible playbooks are dynamic to whatever node counts you define. The ansibl
 * External ETCD cluster (optional)
 * Highly available control plane using Kube-VIP
 * Containerd CRI
-* Cilium CNI with L2 ARP announcements, networking encryption, and Hubble (replacing kube-router, providing eBPF)
+* Cilium CNI with L2 ARP announcements, networking encryption, and Hubble UI (with basic-auth ingress) (replacing kube-router, providing eBPF)
 * Cluster mesh (optional)
 * K8S metrics server
 * Vertical pod autoscaler
 * Cert-manager with Lets-Encrypt production and staging clusterissuers
 * Nginx ingress controller (with custom static ip)
 * Kube-state-metrics
-* Prometheus (with ingress)
-* Grafana (with ingress)
+* Prometheus (with basic-auth ingress)
+* Grafana (with basic-auth ingress)
 * Longhorn distributed block storage (with ingress and with ephemeral storage class)
 * Groundcover dashboard (optional)
 * Newrelic monitoring (optional)
 * Node labeling
 * Gateway API CRDs
-
-*Note: ingresses expose services that do not have passwords, like the Hubble UI. If this is a port-forwarded or BGP setup, you should delete the resulting ingresses until you have a plan to secure them with authorization/authentication.*
 
 ## Dynamic configurations
 The dynamic nature of terraform + ansible allows the following
@@ -127,11 +125,13 @@ variable "unifi_password" {
 ### For the proxmox bash scripts
 ```bash
 ### .env (placed in topmost directory)
-VM_USERNAME="<username_here>"
-VM_PASSWORD="<password_here>"
-NON_PASSWORD_PROTECTED_SSH_KEY="id_rsa" # assumed that this is in ~/.ssh/ and the .pub file is named similarly
-GLOBAL_CLOUDFLARE_API_KEY="<api_key_here>" # used if you have a cloudflare domain for cert-manager clusterissuers
-NEWRELIC_LICENSE_KEY="<license_key_here>" # used if you want to monitor your cluster with newrelic
+VM_USERNAME="<username_here>"                 # username for all proxmox VMs managed by terraform
+VM_PASSWORD="<password_here>"                 # user password for all proxmox VMs managed by terraform
+NON_PASSWORD_PROTECTED_SSH_KEY="id_rsa"       # assumed that this is in ~/.ssh/ and the .pub file is named similarly
+GLOBAL_CLOUDFLARE_API_KEY="<api_key_here>"    # used if you have a cloudflare domain for cert-manager clusterissuers
+NEWRELIC_LICENSE_KEY="<license_key_here>"     # used if you want to monitor your cluster with newrelic
+INGRESS_BASIC_AUTH_USERNAME="<username_here>" # used to secure your ingresses
+INGRESS_BASIC_AUTH_PASSWORD="<password_here"  # used to secure your ingresses
 PROXMOX_USERNAME=root
 PROXMOX_HOST="10.0.0.100"
 PROXMOX_ISO_PATH="/var/lib/pve/local-btrfs/template/iso/"

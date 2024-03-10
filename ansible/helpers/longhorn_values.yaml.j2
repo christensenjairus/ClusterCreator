@@ -22,12 +22,3 @@ persistence:
     joblist: '[{\"name\":\"6hourssnap\", \"isGroup\":true},{\"name\":\"dailybackup\", \"isGroup\":true}]'
   removeSnapshotsDuringFilesystemTrim: enabled
 
-ingress:
-  enabled: true
-  ingressClassName: nginx
-  host: "{{ longhorn_domain_name }}"
-  tls: true
-  tlsSecret: "{{ longhorn_tls_secret_name }}"
-  path: /
-  annotations:
-    cert-manager.io/cluster-issuer: {{ cluster_issuer }}

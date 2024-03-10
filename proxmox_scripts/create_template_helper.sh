@@ -14,7 +14,7 @@ rm -f ./$IMAGE_NAME*
 wget $IMAGE_LINK
 
 # add packages to image
-virt-customize -a ./$IMAGE_NAME --install qemu-guest-agent,bash,curl,grep,nfs-common,open-iscsi,lsscsi,sg3-utils,multipath-tools,scsitools,jq,apparmor,apparmor-utils,iperf,apt-transport-https,ca-certificates,gpg,gnupg-agent,software-properties-common,ipvsadm,python3-pip
+virt-customize -a ./$IMAGE_NAME --install qemu-guest-agent,bash,curl,grep,nfs-common,open-iscsi,lsscsi,sg3-utils,multipath-tools,scsitools,jq,apparmor,apparmor-utils,iperf,apt-transport-https,ca-certificates,gpg,gnupg-agent,software-properties-common,ipvsadm,python3-pip,apache2-utils
 
 # enable services
 virt-customize -a ./$IMAGE_NAME --run-command 'sudo systemctl enable open-iscsi && sudo systemctl enable iscsid && sudo systemctl enable multipathd && sudo systemctl enable qemu-guest-agent'

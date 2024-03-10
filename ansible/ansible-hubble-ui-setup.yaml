@@ -14,13 +14,36 @@
         cluster_issuer: "{{ cluster_config.cluster_issuer }}"
 
   tasks:
+    - name: Ensure apache2-utils is installed
+      become: yes
+      ansible.builtin.apt:
+        name: apache2-utils
+        state: present
+    - name: Generate htpasswd file
+      ansible.builtin.command:
+        cmd: "htpasswd -cb auth {{ ingress_basic_auth_username }} {{ ingress_basic_auth_password }}"
+        creates: auth
+      tags:
+        - add_basic_auth_secret
+    - name: Create Kubernetes secret for basic auth
+      ansible.builtin.command:
+        cmd: "kubectl create secret generic basic-auth --from-file=auth -n kube-system"
+        removes: auth
+      tags:
+        - add_basic_auth_secret
+    - name: Clean up temporary htpasswd file
+      ansible.builtin.file:
+        path: auth
+        state: absent
+      tags:
+        - add_basic_auth_secret
+
     - name: Generate Hubble ui ingress manifests from template
       ansible.builtin.template:
         src: helpers/ingress_template.yaml.j2
         dest: "/tmp/hubble_ingress.yaml"
       tags:
         - add_ingress
-
     - name: Apply Hubble ui ingress manifest
       ansible.builtin.command:
         cmd: kubectl apply -f /tmp/hubble_ingress.yaml

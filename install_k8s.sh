@@ -22,6 +22,25 @@ echo "Running ansible on cluster: $CLUSTER_NAME"
 
 source .env
 
+required_vars=(
+  "VM_USERNAME"
+  "NON_PASSWORD_PROTECTED_SSH_KEY"
+  "GLOBAL_CLOUDFLARE_API_KEY"
+  "NEWRELIC_LICENSE_KEY"
+  "INGRESS_BASIC_AUTH_USERNAME"
+  "INGRESS_BASIC_AUTH_PASSWORD"
+)
+
+# Check if each required environment variable is set
+for var in "${required_vars[@]}"; do
+  if [ -z "${!var}" ]; then  # Using indirect parameter expansion to check variable by name
+    echo "Error: Environment variable $var is not set." >&2
+    exit 1
+  fi
+done
+
+echo "All required environment variables are set."
+
 ansible-galaxy collection install kubernetes.core
 
 set -e
@@ -45,7 +64,9 @@ ansible-playbook -i "tmp/${CLUSTER_NAME}/ansible-hosts.txt" -u $VM_USERNAME ansi
   -e "cloudflare_global_api_key=${GLOBAL_CLOUDFLARE_API_KEY}" \
   -e "newrelic_license_key=${NEWRELIC_LICENSE_KEY}" \
   -e "ssh_key_file=$HOME/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}" \
-  -e "ssh_hosts_file=$HOME/.ssh/known_hosts"
+  -e "ssh_hosts_file=$HOME/.ssh/known_hosts" \
+  -e "ingress_basic_auth_username=${INGRESS_BASIC_AUTH_USERNAME}" \
+  -e "ingress_basic_auth_password=${INGRESS_BASIC_AUTH_PASSWORD}"
 
 echo "CLUSTER COMPLETE"
 
