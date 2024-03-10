@@ -47,7 +47,7 @@ The dynamic nature of terraform + ansible allows the following
 
 * `b1` cluster (single node cluster)
   * 1 control plane node
-    * 8 cores, 8GB RAM, 100GB disk
+    * 16 cores, 16GB RAM, 100GB disk
 
 *Note: Having less than 1 worker node will make ansible untaint the control plane node(s), allowing it to run workloads.*
 

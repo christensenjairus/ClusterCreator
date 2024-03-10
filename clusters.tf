@@ -194,9 +194,9 @@ variable "clusters" {
       node_classes     = {
         apiserver = {
           count    = 1
-          cores    = 4
+          cores    = 8
           sockets  = 2
-          memory   = 8192
+          memory   = 16384
           disk_size = 30
           start_ip   = 110
           labels = {
