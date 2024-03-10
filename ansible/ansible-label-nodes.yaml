@@ -1,0 +1,38 @@
+---
+- name: Label Kubernetes Nodes
+  hosts: localhost
+  vars:
+    cluster_name: "{{ cluster_name }}"
+    ansible_hosts_path: "tmp/{{ cluster_name }}/ansible-hosts.txt"
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+  tasks:
+    - name: Read Ansible Hosts File
+      ansible.builtin.slurp:
+        src: "{{ ansible_hosts_path }}"
+      register: hosts_file_content
+
+    - name: Convert Hosts File Content to String
+      set_fact:
+        hosts_content: "{{ hosts_file_content.content | b64decode }}"
+
+    - name: Initialize an empty list for nodes and labels
+      set_fact:
+        nodes_and_labels: []
+
+    - name: Parse Nodes and Labels
+      set_fact:
+        nodes_and_labels: "{{ nodes_and_labels | default([]) + [{'hostname': item.split()[3].split('=')[1], 'labels': (item.split('labels=\"')[1].split('\"')[0] if 'labels=\"' in item else '').split(',')}] }}"
+      loop: "{{ hosts_content.splitlines() }}"
+      when: item | length > 0 and 'hostname=' in item and not item.startswith('#') and not 'labels=""' in item
+
+#    - name: Debug Nodes and Labels
+#      debug:
+#        var: nodes_and_labels
+
+    - name: Apply Labels to Nodes
+      ansible.builtin.command:
+        cmd: "kubectl label nodes {{ item.hostname }} {{ item.labels | join(' ') }} --overwrite"
+      loop: "{{ nodes_and_labels }}"
+      when: item.labels | length > 0
+      environment:
+        KUBECONFIG: "{{ lookup('env', 'HOME') }}/.kube/{{ cluster_config.kubeconfig_file_name }}"

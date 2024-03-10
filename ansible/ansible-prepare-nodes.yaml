@@ -4,7 +4,7 @@
   any_errors_fatal: true
   become: true  # This ensures all tasks are run with elevated privileges
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
   tasks:
     - name: Update apt cache
       ansible.builtin.apt:
@@ -34,6 +34,27 @@
       command: sysctl --system
       tags:
         - sysmodule_install
+
+    - name: Set inotify max_user_watches
+      tags:
+        - raise_inotify_limits
+      ansible.builtin.sysctl:
+        name: fs.inotify.max_user_watches
+        value: '616890' # default is 61689. This is 10x the default.
+        state: present
+        reload: yes
+        sysctl_set: yes
+        sysctl_file: /etc/sysctl.d/99-inotify-limits.conf
+    - name: Set inotify max_user_instances
+      tags:
+        - raise_inotify_limits
+      ansible.builtin.sysctl:
+        name: fs.inotify.max_user_instances
+        value: '1280' # default is 120. This is 10x the default.
+        state: present
+        reload: yes
+        sysctl_set: yes
+        sysctl_file: /etc/sysctl.d/99-inotify-limits.conf
 
     - name: Check if containerd is already installed
       ansible.builtin.stat:

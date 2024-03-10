@@ -3,22 +3,22 @@
   hosts: kube_api_servers[0]
   gather_facts: no
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
   tasks:
     - name: Generate cert-manager configuration from template
       ansible.builtin.template:
-        src: "./helpers/cert_manager.yaml.j2"
-        dest: "./cert-manager.yaml"
+        src: "helpers/cert_manager.yaml.j2"
+        dest: "/tmp/cert-manager.yaml"
 
     - name: Generate ClusterIssuers configuration from template
       ansible.builtin.template:
-        src: "./helpers/clusterissuers.yaml.j2"
-        dest: "./clusterissuers.yaml"
+        src: "helpers/clusterissuers.yaml.j2"
+        dest: "/tmp/clusterissuers.yaml"
 
     - name: Generate Cloudflare secret configuration from template
       ansible.builtin.template:
-        src: "./helpers/secret_cloudflare.yaml.j2"
-        dest: "./secret-cloudflare.yaml"
+        src: "helpers/secret_cloudflare.yaml.j2"
+        dest: "/tmp/secret-cloudflare.yaml"
 
     - name: Add Jetstack Helm repository and update
       ansible.builtin.shell:
@@ -30,17 +30,17 @@
           helm upgrade --install cert-manager jetstack/cert-manager
           --namespace cert-manager --create-namespace
           --version "{{ cluster_config.cert_manager_chart_version }}"
-          -f ./cert-manager.yaml
+          -f /tmp/cert-manager.yaml
 
     - name: Apply ClusterIssuers and Secret configuration
       ansible.builtin.shell:
-        cmd: kubectl apply -f ./clusterissuers.yaml -f ./secret-cloudflare.yaml -n cert-manager
+        cmd: kubectl apply -f /tmp/clusterissuers.yaml -f /tmp/secret-cloudflare.yaml -n cert-manager
 
     - name: Remove configuration files
       ansible.builtin.file:
         path: "{{ item }}"
         state: absent
       loop:
-        - "./secret-cloudflare.yaml"
-        - "./clusterissuers.yaml"
-        - "./cert-manager.yaml"
+        - "/tmp/secret-cloudflare.yaml"
+        - "/tmp/clusterissuers.yaml"
+        - "/tmp/cert-manager.yaml"

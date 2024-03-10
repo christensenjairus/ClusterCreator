@@ -31,10 +31,10 @@ provider "proxmox" {
 locals {
   all_nodes = flatten([
     for cluster_name, cluster in var.clusters : [
-      for node_type, specs in cluster.node_specs : [
+      for node_class, specs in cluster.node_classes : [
         for i in range(specs.count) : {
           cluster_name   = cluster_name
-          node_type      = node_type
+          node_class     = node_class
           index          = i
           vm_id          = tonumber("${cluster.cluster_id}${specs.start_ip + i}")
           cores          = specs.cores
@@ -58,7 +58,7 @@ locals {
 # Local file resource to write the clusters config to a JSON file
 resource "local_file" "cluster_config_json" {
   content  = jsonencode(local.cluster_config)
-  filename = "ansible/tmp/cluster_config.json"
+  filename = "ansible/tmp/${local.cluster_config.cluster_name}/cluster_config.json"
 }
 
 # create a network with a vlan for each cluster
@@ -100,15 +100,15 @@ output "filtered_nodes" {
 # https://registry.terraform.io/providers/bpg/proxmox/latest/docs/resources/virtual_environment_vm
 resource "proxmox_virtual_environment_vm" "node" {
   depends_on = [proxmox_virtual_environment_pool.operations_pool]
-  for_each = { for node in local.nodes : "${node.cluster_name}-${node.node_type}-${node.index}" => node }
+  for_each = { for node in local.nodes : "${node.cluster_name}-${node.node_class}-${node.index}" => node }
 
-  description  = "Managed by Terraform - ${each.value.node_type}"
+  description  = "Managed by Terraform - ${each.value.node_class}"
   vm_id = each.value.vm_id
-  name = "${each.value.cluster_name}-k8s-${each.value.node_type}-${each.value.index}"
+  name = "${each.value.cluster_name}-k8s-${each.value.node_class}-${each.value.index}"
   tags = [
     "k8s",
     each.value.cluster_name,
-    each.value.node_type
+    each.value.node_class
   ]
   node_name = var.proxmox_node_name
   clone {

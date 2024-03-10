@@ -21,14 +21,24 @@ ipv6:
   enabled: false
 ipam:
   mode: kubernetes
-#gatewayAPI:
-#  enabled: true
+gatewayAPI: # this is future proofing, we won't use it
+  enabled: true
+clustermesh: # enabled later in ansible, after crds for monitoring exist
+  apiserver:
+    kvstoremesh:
+      enabled: true
+    metrics:
+      enabled: true
+      serviceMonitor:
+        enabled: true
+  service:
+    type: LoadBalancer
 externalIPs:
   enabled: true
-#nodePort:
-#  enabled: true
-#hostPort:
-#  enabled: true
+nodePort:
+  enabled: true
+hostPort:
+  enabled: true
 l2announcements:
   enabled: true
   leaseDuration: 6s

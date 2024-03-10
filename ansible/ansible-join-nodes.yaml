@@ -5,7 +5,7 @@
   tasks:
   - name: read control plane join command
     set_fact:
-      join_command_local: "{{ lookup('file', 'tmp/cp_join_command.sh') }}"
+      join_command_local: "{{ lookup('file', 'tmp/{{ cluster_name }}/cp_join_command.sh') }}"
     tags:
       - kubeadm_join_cps
 
@@ -21,7 +21,7 @@
   tasks:
   - name: read worker join command
     set_fact:
-      join_command_local: "{{ lookup('file', 'tmp/wrkr_join_command.sh') }}"
+      join_command_local: "{{ lookup('file', 'tmp/{{ cluster_name }}/wrkr_join_command.sh') }}"
     when: "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
     tags:
       - kubeadm_join_wrkrs

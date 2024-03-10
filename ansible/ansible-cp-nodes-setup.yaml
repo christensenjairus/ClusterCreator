@@ -4,7 +4,7 @@
   gather_facts: false
   any_errors_fatal: true
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
   tags:
     - vip_manifest
   tasks:
@@ -53,7 +53,7 @@
   gather_facts: false
   any_errors_fatal: true
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
   tasks:
     - name: Deploy kubeadm config file
       ansible.builtin.template:
@@ -104,13 +104,13 @@
         - kubeadm_init
       when: not kube_config_exists.stat.exists
     - name: Save worker node join command to file
-      local_action: copy content="{{ worker_join_command }}" dest="tmp/wrkr_join_command.sh"
+      local_action: copy content="{{ worker_join_command }}" dest="tmp/{{ cluster_name }}/wrkr_join_command.sh"
       run_once: true
       tags:
         - kubeadm_init
       when: not kube_config_exists.stat.exists
     - name: Save control plane join command to file
-      local_action: copy content="{{ control_plane_join_command }}" dest="tmp/cp_join_command.sh"
+      local_action: copy content="{{ control_plane_join_command }}" dest="tmp/{{ cluster_name }}/cp_join_command.sh"
       run_once: true
       tags:
         - kubeadm_init

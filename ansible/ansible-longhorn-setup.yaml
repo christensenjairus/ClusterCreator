@@ -3,7 +3,7 @@
   hosts: kube_api_servers[0]
   gather_facts: false
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
     longhorn_chart_version: "{{ cluster_config.longhorn_chart_version }}"
     longhorn_nfs_storage: "{{ cluster_config.longhorn_nfs_storage }}"
     longhorn_domain_name: "{{ cluster_config.longhorn_domain_name }}"

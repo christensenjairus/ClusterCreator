@@ -1,0 +1,31 @@
+---
+- name: Enable Cilium Clustermesh if necessary
+  hosts: kube_api_servers[0]
+  become: yes
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+  tags:
+    - cilium_clustermesh_enable
+  tasks:
+    - name: Enable cilium clustermesh
+      ansible.builtin.shell:
+          cmd: "cilium clustermesh enable --service-type=LoadBalancer --enable-kvstoremesh"
+      become: no
+      when: cluster_config.cilium_clustermesh_enabled
+    - name: Create cilium clustermesh loadbalancer service patch file
+      ansible.builtin.copy:
+        content: |
+          metadata:
+            annotations:
+              io.cilium/lb-ipam-ips: "{{ cluster_config.cilium_clustermesh_api_ip }}"
+            labels:
+              L2Announcement: "true"
+        dest: "/tmp/clustermesh-lb-patch.yaml"
+      when: cluster_config.cilium_clustermesh_enabled
+      tags:
+        - patch_cilium_clustermesh_lb
+    - name: Patch cilium clustermesh loadbalancer
+      ansible.builtin.shell:
+        cmd: kubectl patch -n kube-system svc clustermesh-apiserver --patch-file /tmp/clustermesh-lb-patch.yaml
+      become: no
+      when: cluster_config.cilium_clustermesh_enabled

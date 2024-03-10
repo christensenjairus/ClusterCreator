@@ -1,6 +1,6 @@
 # ClusterCreator - Terraform & Ansible K8S on Proxmox
 ![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/e37b5e75-990a-4931-be12-dd9d466f7c07)
-## Create a K8S cluster in three commands or less
+## Automate the creation of fully functional K8S clusters of any size
 
 This project will assist you in automating the creation of k8s clusters on Proxmox, optionally with a dedicated Unifi network and VLAN.
 
@@ -10,9 +10,9 @@ The Terraform cluster configurations allow for
 * Optional external etcd cluster
 * Optional Proxmox pool configuration
 * Custom Network & VLAN Unifi configuration
-* Custom worker types (general, db, and backup are included - but you can add your own)
+* Custom worker classes (general, db, and backup are included - but you can add your own)
 * Custom quantities of control-plane, etcd, and custom worker nodes
-* Custom hardware requirements for each node type
+* Custom hardware requirements for each node class
 * Custom node IPs
 * Custom proxmox tags
 
@@ -21,6 +21,7 @@ The Ansible playbooks are dynamic to whatever node counts you define. The ansibl
 * Highly available control plane using Kube-VIP
 * Containerd CRI
 * Cilium CNI with L2 ARP announcements, networking encryption, and Hubble (replacing kube-router, providing eBPF)
+* Cluster mesh (optional)
 * K8S metrics server
 * Vertical pod autoscaler
 * Cert-manager with Lets-Encrypt production and staging clusterissuers
@@ -30,6 +31,7 @@ The Ansible playbooks are dynamic to whatever node counts you define. The ansibl
 * Grafana (with ingress)
 * Longhorn distributed block storage (with ingress and with ephemeral storage class)
 * Groundcover dashboard (optional)
+* Gateway API CRDs
 
 *Note: ingresses expose services that do not have passwords, like the Hubble UI. If this is a port-forwarded or BGP setup, you should delete the resulting ingresses until you have a plan to secure them with authorization/authentication.*
 
@@ -37,52 +39,58 @@ The Ansible playbooks are dynamic to whatever node counts you define. The ansibl
 The dynamic nature of terraform + ansible allows the following
 * 1 - ∞ control plane nodes
 * 0 - ∞ etcd nodes
-* 0 - ∞ worker nodes of different types. The 'types' are defined by name, cpu, memory, and disk requirements.
+* 0 - ∞ worker nodes of different classes. The 'classes' are defined by name, cpu, memory, and disk requirements.
 
-## Examples:
+## Included Examples
 
-Simplest cluster possible - single node.
+##### Simplest cluster possible - single node, much like the defaults for minikube or kind.
 
 * `b1` cluster (single node cluster)
   * 1 control plane node
     * 8 cores, 8GB RAM, 100GB disk
 
-*Note: Having less than 1 worker node will make ansible untaint the control plane node, allowing it to run workloads.*
+*Note: Having less than 1 worker node will make ansible untaint the control plane node(s), allowing it to run workloads.*
 
-![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/e2130a29-efea-4f6a-bd71-819becac3b07)
-
-Make the control plane highly available, add an external etcd cluster, and 3 worker nodes...
-
+##### Add worker nodes of varying types for different workload needs.
 
 * `g1` cluster
-  * 3 control plane node
+  * 1 control plane node
     * 4 cores, 4GB RAM, 30GB disk
-  * 3 external etcd node
-    * 2 cores, 2GB RAM, 30GB disk
-  * 3 worker nodes of type `general`
-    * 8 cores, 8GB RAM, 100GB disk
+  * 1 worker node of class `backup`
+    * 2 cores, 2GB RAM, 100GB disk
+  * 1 worker node of class `db`
+    * 4 cores, 8GB RAM, 50GB disk
+  * 1 worker node of class `general`
+    * 8 cores, 4GB RAM, 100GB disk
 
 *Note: etcd nodes are not shown in cluster, but they are used by the control plane nodes.*
 
-![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/fd35e1c7-a011-488e-b0f4-ca881dc7732c)
-
-Raise the control plane and etcd clusters to 5. Add some custom worker types.
+##### Make the control plane highly available. Add an external etcd cluster. Add more custom workers.
 
 * `z1` cluster
-  * 5 control plane nodes
+  * 3 control plane nodes
     * 4 cores, 4GB RAM, 30GB disk
-  * 5 external etcd nodes
+  * 3 external etcd nodes
     * 2 cores, 2GB RAM, 30GB disk
-  * 5 worker nodes of type `general`
-    * 16 cores, 4GB RAM, 30GB disk
-  * 3 worker nodes of type `db`
-    * 8 cores, 4GB RAM, 30GB disk
-  * 2 worker nodes of type `backup`
-    * 4 cores, 2GB RAM, 30GB disk
+  * 2 worker nodes of class `backup`
+    * 2 cores, 2GB RAM, 100GB disk
+  * 3 worker nodes of class `db`
+    * 8 cores, 4GB RAM, 50GB disk
+  * 5 worker nodes of class `general`
+    * 16 cores, 4GB RAM, 100GB disk
 
-*Note: If you add a new worker type, you will need to edit `ansible/helpers/ansible-hosts.txt.j2` to account for it so that it is added to `ansible/tmp/ansible-hosts.txt` at runtime.*
+*Note: If you add a new worker class, you will need to edit `ansible/helpers/ansible-hosts.txt.j2` to account for it so that it is added to `ansible/tmp/ansible-hosts.txt` at runtime.*
 
-![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/45ea08c7-6bb4-4463-a01c-ba02c4301343)
+##### Add your own worker types for more flexible node configurations.
+
+* Theoretical overkill cluster
+  * 9 control plane nodes
+  * 7 external etcd nodes
+  * 5 worker nodes of class `backup`
+  * 15 worker nodes of class `db`
+  * 20 worker nodes of class `general`
+  * 5 worker nodes of class `sandbox` # new class
+  * 5 worker nodes of class `fedramp` # new class
 
 ## Configuration/Secrets Files
 Create the following two files.
@@ -148,36 +156,45 @@ The other configuration files, listed below, need to be looked through and tweak
 ```
 This will ssh into proxmox and create you a cloud-init ready template.
 
+### Initialize Terraform
+```bash
+terraform init
+```
+
+### Create your cluster's Terraform workspace
+```bash
+terraform workspace new <short_cluster_name>
+```
+This will ensure that your terraform commands only work on the cluster of your choosing. The Terraform configuration relies on the workspace name to know which cluster you'll be working with. You can later use `terraform workspace switch <short_cluster_name>` to switch between clusters.
+
 ### Create the VMs with Terraform
 ```bash
-terraform workspace new <cluster_name>
-````` 
-This will create a new workspace for the cluster. 
-
-*Note: Terraform relies on its workspaces to manage the cluster configurations, meaning you will need to run `terraform workspace select <cluster_name>` to select the cluster you want to manage. (`g1` is the default workspace)*
-
-```bash
-terraform apply
+terraform apply [--auto-approve]
 ``` 
-This will clone the template using terraform, create a VLAN in Unifi, and the cluster specifications.
+This will clone the template using terraform, create a VLAN in Unifi, and the cluster specifications. This will also create a file called `ansible/tmp/<cluster_name>/cluster_config.json` that tells ansible how the cluster should be configured.
 
 ### Install K8S with Ansible
 ```bash
-./create_cluster.sh
+./create_cluster.sh --cluster_name <full_cluster_name>
 ```
-This will run a series of ansible playbooks to create the cluster.
+This will run a series of ansible playbooks to create the cluster. This is independent of the Terraform workspace and uses the `cluster_config.json` file and creates its own `ansible-hosts.txt` file based on the cluster configuration.
 
-*Note: `terraform apply` controls the cluster configuration file that ansible uses, found at `ansible/tmp/cluster_config.json`. If you plan on switching which cluster you want Ansible to interact with, you must run `terraform workspace select <cluster_name>` then re-run `terraform apply` again with the new cluster name.*
+### Run Ansible playbooks one at a time
+```bash
+cd ansible
+ansible-playbook -i tmp/$CLUSTER_NAME/ansible-hosts.txt -u $VM_USERNAME <ansible-playbook-name>.yaml
+````
+Normally all playbooks are run in `./install_k8s.sh`, but you can run them individually if you want to see the output or if you want to run them one at a time. The hosts file has the configuration needed for your cluster, including the cluster name. You should always run these from inside the ansible folder because of various relative paths.
 
 ### Uninstall K8S with Ansible
 ```bash
-./uninstall_k8s.sh
+./uninstall_k8s.sh --cluster_name <full_cluster_name>
 ```
 This will run an ansible playbook to remove k8s the virtual machines.
 
 ### Destroy the VMs with Terraform
 ```bash
-terraform destroy
+terraform destroy [--auto-approve]
 ```
 This will remove the VMs and VLAN from Unifi.
 
@@ -186,7 +203,7 @@ This will remove the VMs and VLAN from Unifi.
 
 You may also run into errors while running `./install_k8s.sh`. This script is running `ansible/ansible-master-playbook.yaml`. If you find the issue, you should comment out the already-completed playbooks from `ansible/ansible-master-playbook.yaml` and start the script over to resume roughly where you left off. However, be smart about doing this if there was an error during the etcd node setup, the cp node setup, or the join nodes playbooks because of kubeadm's inability to be run twice without being reset.
 
-If you do need to reset `./uninstall_k8s.sh` should do the trick. But a full terraform rebuild is the best way to ensure a clean slate.
+If you do need to reset `./uninstall_k8s.sh` should work, but a full terraform rebuild is the best way to ensure a clean slate.
 
 ### Don't have a Unifi router or don't want to use VLANs?
 To not create a network via Unifi

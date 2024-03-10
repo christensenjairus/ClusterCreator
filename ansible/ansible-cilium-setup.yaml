@@ -3,7 +3,7 @@
   hosts: kube_api_servers
   become: yes
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
     cilium_cli_version: "{{ cluster_config.cilium_cli_version }}"
     cilium_cli_arch: "{{ cluster_config.cilium_cli_arch }}"
   tags:
@@ -73,7 +73,7 @@
   hosts: kube_api_servers
   become: yes
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
   tags:
     - hubble_install
   tasks:
@@ -103,7 +103,7 @@
   hosts: kube_api_servers[0]
   become: yes
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
   tags:
     - cilium_install
   tasks:
@@ -116,6 +116,7 @@
         cluster_id: "{{ cluster_config.cluster_id }}"
         pod_cidr: "{{ cluster_config.pod_cidr }}"
         vip: "{{ cluster_config.vip }}"
+        cilium_clustermesh_enabled: "{{ cluster_config.cilium_clustermesh_enabled }}"
       tags:
         - cilium_config
 
@@ -146,17 +147,12 @@
       tags:
         - cilium_l2_policy
 
-#    - name: Install gateway-api CRDs
-#      ansible.builtin.shell:
-#        cmd: |
-#          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/{{ cluster_config.gateway_api_version }}/config/crd/standard/gateway.networking.k8s.io_gateways.yaml &&
-#          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/{{ cluster_config.gateway_api_version }}/config/crd/standard/gateway.networking.k8s.io_httproutes.yaml &&
-#          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/{{ cluster_config.gateway_api_version }}/config/crd/standard/gateway.networking.k8s.io_referencegrants.yaml &&
-#          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/{{ cluster_config.gateway_api_version }}/config/crd/experimental/gateway.networking.k8s.io_grpcroutes.yaml &&
-#          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/{{ cluster_config.gateway_api_version }}/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
-#      become: no
-#      tags:
-#        - gateway_api_crds
+    - name: Install gateway-api CRDs
+      ansible.builtin.shell:
+        cmd: kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/{{ cluster_config.gateway_api_version }}/experimental-install.yaml  # experimental is needed for tlsroutes and grpcroutes
+      become: no
+      tags:
+        - gateway_api_crds
 
     - name: Install Cilium
       ansible.builtin.shell:

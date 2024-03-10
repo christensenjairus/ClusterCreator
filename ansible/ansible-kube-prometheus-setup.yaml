@@ -3,7 +3,7 @@
   hosts: kube_api_servers[0]
   gather_facts: false
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
     release: "{{ cluster_config.kube_prometheus_version }}"
     git_repo: "https://github.com/prometheus-operator/kube-prometheus.git"
     repo_dir: "/tmp/kube-prometheus"
