@@ -1,0 +1,82 @@
+prometheus:
+  prometheusSpec:
+    # Monitor all Namespaces by default
+    ruleSelectorNilUsesHelmValues: false
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    scrapeConfigSelectorNilUsesHelmValues: false
+
+    storageSpec:
+     volumeClaimTemplate:
+        spec:
+          storageClassName: longhorn-ephemeral
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 50Gi
+
+     additionalScrapeConfigs:
+       # scrape all cilium agent metrics
+       - job_name: 'kubernetes-pods'
+         kubernetes_sd_configs:
+           - role: pod
+         relabel_configs:
+           - source_labels: [ __meta_kubernetes_pod_annotation_prometheus_io_scrape ]
+             action: keep
+             regex: true
+           - source_labels: [ __address__, __meta_kubernetes_pod_annotation_prometheus_io_port ]
+             action: replace
+             regex: (.+):(?:\d+);(\d+)
+             replacement: ${1}:${2}
+             target_label: __address__
+       # scrape all hubble metrics
+       - job_name: 'kubernetes-endpoints'
+         scrape_interval: 30s
+         kubernetes_sd_configs:
+           - role: endpoints
+         relabel_configs:
+           - source_labels: [ __meta_kubernetes_service_annotation_prometheus_io_scrape ]
+             action: keep
+             regex: true
+           - source_labels: [ __address__, __meta_kubernetes_service_annotation_prometheus_io_port ]
+             action: replace
+             target_label: __address__
+             regex: (.+)(?::\d+);(\d+)
+             replacement: $1:$2
+
+alertmanager:
+  alertManagerSpec:
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: longhorn-ephemeral
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi
+
+grafana:
+  adminPassword: admin # change me!
+  defaultDashboardsTimezone: {{ timezone }}
+  sidecar:
+    dashboards:
+      multicluster:
+        global:
+          enabled: true
+        etcd:
+          enabled: true
+      provider:
+        allowUIUpdates: true
+  persistence:
+    enabled: true
+    type: sts
+    storageClassName: longhorn-ephemeral
+    accessModes:
+      - ReadWriteOnce
+    size: 20Gi
+    finalizers:
+      - kubernetes.io/pvc-protection
+

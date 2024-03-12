@@ -34,7 +34,9 @@
         service_port: 443
         tls_secret_name: "{{ cluster_config.kube_dashboard_tls_secret_name }}"
         cluster_issuer: "{{ cluster_config.cluster_issuer }}"
+        ingress_class: "nginx-local"
         upstream_tls: true
+        basic_auth: true
 
   tasks:
     - name: Generate htpasswd file

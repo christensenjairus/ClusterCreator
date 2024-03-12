@@ -44,3 +44,24 @@
         - "/tmp/secret-cloudflare.yaml"
         - "/tmp/clusterissuers.yaml"
         - "/tmp/cert-manager.yaml"
+
+# This dashboard doesn't seem to work with this version of cert-manager
+#- name: Deploy Grafana Dashboard
+#  hosts: kube_api_servers[0]
+#  gather_facts: no
+#  tags:
+#    - deploy-grafana-dashboard
+#  vars:
+#    dashboards:
+#      - configmap_name: cert-manager-overview-dashboard
+#        url: https://grafana.com/api/dashboards/20340/revisions/1/download
+#        dashboard_name: "Cert-Manager / Overview"
+#  tasks:
+#    - name: Deploy dashboard to cert-manager namespace
+#      include_tasks: helpers/ansible_import_dashboard.yaml
+#      vars:
+#        dashboard_url: "{{ item.url }}"
+#        configmap_name: "{{ item.configmap_name }}"
+#        dashboard_name: "{{ item.dashboard_name }}"
+#        namespace: cert-manager
+#      loop: "{{ dashboards }}"

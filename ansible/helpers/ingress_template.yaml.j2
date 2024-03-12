@@ -7,14 +7,16 @@ metadata:
   namespace: {{ ingress.namespace }}
   annotations:
     cert-manager.io/cluster-issuer: {{ ingress.cluster_issuer }}
+{% if ingress.basic_auth %}
     nginx.ingress.kubernetes.io/auth-type: basic
     nginx.ingress.kubernetes.io/auth-secret: basic-auth
-    nginx.ingress.kubernetes.io/auth-realm: 'Authentication Required - Administrator Access'
+    nginx.ingress.kubernetes.io/auth-realm: 'Authentication Required'
+{% endif %}
 {% if ingress.upstream_tls %}
     nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
 {% endif %}
 spec:
-  ingressClassName: nginx
+  ingressClassName: {{ ingress.ingress_class }}
   tls:
     - hosts:
         - {{ ingress.hostname }}

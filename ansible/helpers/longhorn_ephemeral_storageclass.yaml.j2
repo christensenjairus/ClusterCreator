@@ -10,7 +10,7 @@ parameters:
   dataLocality: best-effort
   fromBackup: ""
   fsType: ext4
-  numberOfReplicas: "2"
+  numberOfReplicas: "{{ longhorn_ephemeral_replica_count }}"
   staleReplicaTimeout: "30"
 provisioner: driver.longhorn.io
 reclaimPolicy: Delete

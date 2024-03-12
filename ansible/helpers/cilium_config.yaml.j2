@@ -5,9 +5,45 @@ hubble:
   enabled: true
   relay:
     enabled: true
+    prometheus:
+      serviceMonitor:
+        enabled: true
   ui:
     enabled: true
+  metrics:
+    serviceMonitor:
+      enabled: true
+    enabled:
+      - dns
+      - drop
+      - flow
+      - flows-to-world
+      - httpV2
+      - icmp
+      - kafka
+      - port-distribution
+      - tcp
+    dashboards:
+      enabled: true
 envoy:
+  enabled: true
+  prometheus:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+prometheus:
+  serviceMonitor:
+    enabled: true
+operator:
+  prometheus:
+    serviceMonitor:
+      enabled: true
+  dashboards:
+    enabled: true
+proxy:
+  prometheus:
+    enabled: true
+dashboards:
   enabled: true
 loadBalancer:
   l7:
@@ -23,12 +59,16 @@ ipam:
   mode: kubernetes
 gatewayAPI: # this is future proofing, we won't use it
   enabled: true
-clustermesh: # enabled later in ansible, after crds for monitoring exist
+clustermesh:
   apiserver:
     kvstoremesh:
       enabled: true
     metrics:
       enabled: true
+      kvstoremesh:
+        enabled: true
+      etcd:
+        enabled: true
       serviceMonitor:
         enabled: true
   service:

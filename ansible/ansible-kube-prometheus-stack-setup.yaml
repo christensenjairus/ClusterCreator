@@ -1,0 +1,107 @@
+---
+- name: Deploy kube-prometheus on Kubernetes
+  hosts: kube_api_servers[0]
+  gather_facts: false
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    kube_prometheus_stack_version: "{{ cluster_config.kube_prometheus_stack_version }}"
+    ingress_definitions:
+      - name: grafana-ingress
+        namespace: monitoring
+        hostname: "{{ cluster_config.grafana_domain_name }}"
+        service_name: kube-prometheus-stack-grafana
+        service_port: 80
+        tls_secret_name: "{{ cluster_config.grafana_tls_secret_name }}"
+        cluster_issuer: "{{ cluster_config.cluster_issuer }}"
+        ingress_class: "nginx-local"
+        upstream_tls: false
+        basic_auth: true
+      - name: prometheus-ingress
+        namespace: monitoring
+        hostname: "{{ cluster_config.prometheus_domain_name }}"
+        service_name: kube-prometheus-stack-prometheus
+        service_port: 9090
+        tls_secret_name: "{{ cluster_config.prometheus_tls_secret_name }}"
+        cluster_issuer: "{{ cluster_config.cluster_issuer }}"
+        ingress_class: "nginx-local"
+        upstream_tls: false
+        basic_auth: true
+      - name: alert-manager-ingress
+        namespace: monitoring
+        hostname: "{{ cluster_config.alert_manager_domain_name }}"
+        service_name: kube-prometheus-stack-alertmanager
+        service_port: 9093
+        tls_secret_name: "{{ cluster_config.alert_manager_tls_secret_name }}"
+        cluster_issuer: "{{ cluster_config.cluster_issuer }}"
+        ingress_class: "nginx-local"
+        upstream_tls: false
+        basic_auth: true
+
+  tasks:
+    - name: Add Kube-Prometheus-Stack's Helm repository
+      ansible.builtin.shell:
+        cmd: helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+      args:
+        executable: /bin/bash
+      tags:
+        - install-kube-prometheus-stack
+
+    - name: Update Helm repositories
+      ansible.builtin.shell:
+        cmd: helm repo update
+      args:
+        executable: /bin/bash
+      tags:
+        - install-kube-prometheus-stack
+
+    - name: Generate Kube Prometheus Stack Helm values file
+      ansible.builtin.template:
+        src: helpers/kube_prometheus_stack_values.yaml.j2
+        dest: "/tmp/kube_prometheus_stack_values.yaml"
+      tags:
+        - install-kube-prometheus-stack
+
+    - name: Install or upgrade Kube Prometheus Stack
+      ansible.builtin.shell:
+        cmd: >
+          helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack
+          --namespace monitoring
+          --create-namespace
+          --values /tmp/kube_prometheus_stack_values.yaml
+          --version {{ kube_prometheus_stack_version }}
+      args:
+        executable: /bin/bash
+      tags:
+        - install-kube-prometheus-stack
+
+    - name: Generate htpasswd file
+      ansible.builtin.command:
+        cmd: "htpasswd -cb auth {{ ingress_basic_auth_username }} {{ ingress_basic_auth_password }}"
+        creates: auth
+      tags:
+        - add_basic_auth_secret
+    - name: Create Kubernetes secret for basic auth
+      ansible.builtin.shell: |
+        kubectl delete secret basic-auth -n monitoring --ignore-not-found
+        kubectl create secret generic basic-auth --from-file=auth -n monitoring
+      tags:
+        - add_basic_auth_secret
+    - name: Clean up temporary htpasswd file
+      ansible.builtin.file:
+        path: auth
+        state: absent
+      tags:
+        - add_basic_auth_secret
+
+    - name: Generate Grafana, Prometheus, and Alert Manager Ingress manifests from template
+      ansible.builtin.template:
+        src: helpers/ingress_template.yaml.j2
+        dest: "/tmp/ingresses.yaml"
+      tags:
+        - add_ingresses
+
+    - name: Apply Grafana, Prometheus, and Alert Manager Ingress manifests
+      ansible.builtin.command:
+        cmd: kubectl apply -f /tmp/ingresses.yaml
+      tags:
+        - add_ingresses

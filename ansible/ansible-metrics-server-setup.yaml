@@ -19,7 +19,7 @@
 
     - name: Determine if needing HA based on non-API/ETCD server count
       set_fact:
-        metrics_server_replica_count: "{{ 1 if non_api_etcd_server_count == \"1\" else 2 }}"
+        metrics_server_replica_count: "{{ 1 if non_api_etcd_server_count <= \"1\" else 2 }}"
 
     - name: Apply standard metrics-server manifest
       kubernetes.core.k8s:

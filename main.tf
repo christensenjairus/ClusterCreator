@@ -43,6 +43,8 @@ locals {
           disk_size      = specs.disk_size
           vm_ip          = "${cluster.cluster_subnet}.${specs.start_ip + i}"
           gateway        = "${cluster.cluster_subnet}.1"
+          dns1           = cluster.dns1
+          dns2           = cluster.dns2
           vlan_id        = cluster.vlan_id
         }
       ]
@@ -78,6 +80,7 @@ resource "unifi_network" "vlan" {
   dhcp_enabled = true
   igmp_snooping = false
   multicast_dns = false
+  dhcp_dns = [each.value.dns1, each.value.dns2]
 }
 
 resource "proxmox_virtual_environment_pool" "operations_pool" {
@@ -161,7 +164,7 @@ resource "proxmox_virtual_environment_vm" "node" {
     }
     dns {
       domain = "lan"
-      servers =  ["1.1.1.1", "1.0.0.1", "${each.value.gateway}"]
+      servers =  ["${each.value.dns1}", "${each.value.dns2}", "${each.value.gateway}"]
     }
   }
   network_device {

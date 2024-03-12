@@ -25,7 +25,8 @@ The Ansible playbooks are dynamic to whatever node counts you define. The ansibl
 * K8S metrics server
 * Vertical pod autoscaler
 * Cert-manager with Lets-Encrypt production and staging clusterissuers
-* Nginx ingress controller (with custom static ip)
+* World-Facing Nginx ingress controller (with custom static ip, port forward this one to your router)
+* Local-Facing Nginx ingress controller (with custom static ip, create local dns records for this one. Enforces VPN.)
 * Kube-state-metrics
 * Prometheus (with basic-auth ingress)
 * Grafana (with basic-auth ingress)

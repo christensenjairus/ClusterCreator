@@ -11,6 +11,15 @@
     cluster_issuer: "{{ cluster_config.cluster_issuer }}"
 
   tasks:
+    - name: Calculate the count of non-API/ETCD servers
+      set_fact:
+        non_api_etcd_server_count: "{{ groups['all'] | length - (groups['kube_api_servers'] | default([]) | length + groups['kube_etcd_servers'] | default([]) | length) }}"
+
+    - name: Determine if needing replicated longhorn volumes based on non-API/ETCD server count
+      set_fact:
+        longhorn_ephemeral_replica_count: "{{ 1 if non_api_etcd_server_count <= \"1\" else 2 }}"
+        longhorn_replica_count: "{{ (non_api_etcd_server_count | int <= 1) | ternary(1, ((non_api_etcd_server_count | int <= 2) | ternary(2, 3))) }}"
+
     - name: Add Longhorn Helm repository
       ansible.builtin.shell:
         cmd: helm repo add longhorn https://charts.longhorn.io
@@ -73,7 +82,9 @@
         service_port: 80
         tls_secret_name: "{{ cluster_config.longhorn_tls_secret_name }}"
         cluster_issuer: "{{ cluster_config.cluster_issuer }}"
+        ingress_class: "nginx-local"
         upstream_tls: false
+        basic_auth: true
 
   tasks:
     - name: Generate htpasswd file
@@ -106,3 +117,23 @@
         cmd: kubectl apply -f /tmp/longhorn_ingress.yaml
       tags:
         - add_ingress
+
+- name: Deploy Grafana Dashboard
+  hosts: kube_api_servers[0]
+  gather_facts: no
+  tags:
+    - deploy-grafana-dashboard
+  vars:
+    dashboards:
+      - configmap_name: longhorn-overview-dashboard
+        url: https://grafana.com/api/dashboards/16888/revisions/8/download
+        dashboard_name: "Longhorn / Overview"
+  tasks:
+    - name: Deploy dashboard to longhorn-system
+      include_tasks: helpers/ansible_import_dashboard.yaml
+      vars:
+        dashboard_url: "{{ item.url }}"
+        configmap_name: "{{ item.configmap_name }}"
+        dashboard_name: "{{ item.dashboard_name }}"
+        namespace: longhorn-system
+      loop: "{{ dashboards }}"

@@ -12,7 +12,9 @@
         service_port: 80
         tls_secret_name: "{{ cluster_config.hubble_tls_secret_name }}"
         cluster_issuer: "{{ cluster_config.cluster_issuer }}"
+        ingress_class: "nginx-local"
         upstream_tls: false
+        basic_auth: true
 
   tasks:
     - name: Generate htpasswd file

@@ -11,6 +11,8 @@ variable "clusters" {
     cluster_id                     : number # used for cluster mesh and also acts as the vm_id prefix
     vlan_id                        : number # vlan id for the cluster. See README on how to not use vlans
     cluster_subnet                 : string # first three octets of the network's subnet (assuming its a /24)
+    dns1                           : string # primary dns server for vm hosts
+    dns2                           : string # secondary dns server for vm hosts
     backup                         : number # currently doesn't do anything, but it's there for future use
     ssh_user                       : string # username for the remote server
     ssh_home                       : string # path to your home directory on the remote server
@@ -32,7 +34,7 @@ variable "clusters" {
     hubble_arch                    : string # most likely amd64
     metrics_server_version         : string # release version for metrics-server
     autoscaler_version             : string # release version for cluster-autoscaler. Used to figure out right branch to clone repo from. For branch cluster-autoscaler-chart-9.35.0 use 9.35.0
-    kube_prometheus_version        : string # release version for kube-prometheus
+    kube_prometheus_stack_version  : string # helm chart version for kube-prometheus from prometheus-community helm repo
     kube_dashboard_user            : string # username to use for kubernetes dashboard. To create a token to login, you'll need to run `kubectl -n kubernetes-dashboard create token <user> | pbcopy`
     kube_dashboard_version         : string # release version for kubernetes dashboard
     longhorn_chart_version         : string # helm chart version for longhorn
@@ -43,6 +45,8 @@ variable "clusters" {
     grafana_tls_secret_name        : string # secret name for grafana ui ingress
     prometheus_domain_name         : string # domain name to use for prometheus ui ingress
     prometheus_tls_secret_name     : string # secret name for prometheus ui ingress
+    alert_manager_domain_name      : string # domain name to use for alert manager ui ingress
+    alert_manager_tls_secret_name  : string # secret name for alert manager ui ingress
     hubble_domain_name             : string # domain name to use for hubble ui ingress
     hubble_tls_secret_name         : string # secret name for longhorn ui ingress
     kube_dashboard_domain_name     : string # domain name to use for kubernetes dashboard ui ingress
@@ -64,7 +68,8 @@ variable "clusters" {
     vip_interface                  : string # interface that faces the local lan
     vip                            : string # should not be in one if your load balancer ip cidr ranges
     vip_hostname                   : string # hostname to use when querying the api server's vip load balancer (kube-vip)
-    nginx_controller_ip            : string # must be inside one if your load balancer ip cidr ranges
+    nginx_controller_external_ip   : string # IP for external hosts to connect to to reach ingress resources. must be inside one if your load balancer ip cidr ranges
+    nginx_controller_internal_ip   : string # IP for internal services to connect to to reach ingress resources. must be inside one if your load balancer ip cidr ranges
     load_balancer_ip_block_start_1 : string # any of these can be blank if not in use
     load_balancer_ip_block_stop_1  : string # must have both start and stop defined or neither will be used
     load_balancer_ip_block_start_2 : string
@@ -123,7 +128,7 @@ variable "clusters" {
         start_ip : number        # last octet of the ip address for the first general node.
         labels: map(string)      # labels to apply to the nodes
       })
-      # you can add more node classes here if you need to. You only need to add them to ansible/helpers/ansible-hosts.txt.j2
+      # you can add more node classes here if you need to. You only need to add them to ansible/helpers/ansible_hosts.txt.j2
       # but don't change the name of the apiserver or etcd nodes unless you do a full find-replace in ansible.
     })
   }))
@@ -133,6 +138,8 @@ variable "clusters" {
       cluster_id                     = 1
       vlan_id                        = 100
       cluster_subnet                 = "10.0.1"
+      dns1                           = "10.0.1.3"
+      dns2                           = "10.0.1.4"
       load_balancer_ip_block_start_1 = "10.0.1.200"
       load_balancer_ip_block_stop_1  = "10.0.1.254"
       load_balancer_ip_block_start_2 = ""
@@ -147,7 +154,8 @@ variable "clusters" {
       vip                            = "10.0.1.100"
       vip_hostname                   = "b1-k8s-api-server"
       vip_interface                  = "eth0"
-      nginx_controller_ip            = "10.0.1.200"
+      nginx_controller_external_ip   = "10.0.1.200"
+      nginx_controller_internal_ip   = "10.0.1.201"
       kubeconfig_file_name           = "b1-k8s.yml"
       ssh_user                       = "your_username"
       ssh_home                       = "/home/your_username"
@@ -169,10 +177,10 @@ variable "clusters" {
       hubble_arch                    = "amd64"
       metrics_server_version         = "v0.7.0"
       autoscaler_version             = "9.35.0"
-      kube_prometheus_version        = "release-0.13"
+      kube_prometheus_stack_version  = "57.0.1"
       kube_dashboard_user            = "your_username"
       kube_dashboard_version         = "v2.7.0"
-      longhorn_chart_version         = "1.5.3"
+      longhorn_chart_version         = "1.5.4"
       longhorn_nfs_storage           = "nfs://10.0.1.2:/mnt/HDD_POOL/k8s/b1-k8s/longhorn/"
       longhorn_domain_name           = "longhorn-b1.your_domain.com"
       longhorn_tls_secret_name       = "longhorn-b1-your_domain.com-tls"
@@ -180,6 +188,8 @@ variable "clusters" {
       grafana_tls_secret_name        = "grafana-b1-your_domain.com-tls"
       prometheus_domain_name         = "prometheus-b1.your_domain.com"
       prometheus_tls_secret_name     = "prometheus-b1-your_domain.com-tls"
+      alert_manager_domain_name      = "alert-manager-b1.your_domain.com"
+      alert_manager_tls_secret_name  = "alert-manager-b1-your_domain.com-tls"
       hubble_domain_name             = "hubble-b1.your_domain.com"
       hubble_tls_secret_name         = "hubble-b1-your_domain.com-tls"
       kube_dashboard_domain_name     = "kubernetes-dashboard-b1.your_domain.com"
@@ -190,7 +200,7 @@ variable "clusters" {
       cluster_issuer                 = "staging-issuer"
       ingress_nginx_chart_version    = "4.10.0"
       groundcover_enable             = false
-      newrelic_enabled               = true
+      newrelic_enabled               = false
       newrelic_low_data_mode         = true
       newrelic_scrape_system_prom    = true
       newrelic_ksm_image_tag         = "v2.10.0"
@@ -205,7 +215,7 @@ variable "clusters" {
           cores    = 8
           sockets  = 2
           memory   = 16384
-          disk_size = 30
+          disk_size = 100
           start_ip   = 110
           labels = {
             "node_class" = "apiserver"
@@ -260,6 +270,8 @@ variable "clusters" {
       vlan_id                        = 200
       vip_interface                  = "eth0"
       cluster_subnet                 = "10.0.2"
+      dns1                           = "10.0.2.3"
+      dns2                           = "10.0.2.4"
       load_balancer_ip_block_start_1 = "10.0.2.200"
       load_balancer_ip_block_stop_1  = "10.0.2.254"
       load_balancer_ip_block_start_2 = ""
@@ -273,7 +285,8 @@ variable "clusters" {
       load_balancer_ip_cidr_5        = ""
       vip                            = "10.0.2.100"
       vip_hostname                   = "g1-k8s-api-server"
-      nginx_controller_ip            = "10.0.2.200"
+      nginx_controller_external_ip   = "10.0.2.200"
+      nginx_controller_internal_ip   = "10.0.2.201"
       kubeconfig_file_name           = "g1-k8s.yml"
       ssh_user                       = "your_username"
       ssh_home                       = "/home/your_username"
@@ -295,10 +308,10 @@ variable "clusters" {
       hubble_arch                    = "amd64"
       metrics_server_version         = "v0.7.0"
       autoscaler_version             = "9.35.0"
-      kube_prometheus_version        = "release-0.13"
+      kube_prometheus_stack_version  = "57.0.1"
       kube_dashboard_user            = "your_username"
       kube_dashboard_version         = "v2.7.0"
-      longhorn_chart_version         = "1.5.3"
+      longhorn_chart_version         = "1.5.4"
       longhorn_nfs_storage           = "nfs://10.0.2.2:/mnt/HDD_POOL/k8s/g1-k8s/longhorn/"
       longhorn_domain_name           = "longhorn-g1.your_domain.com"
       longhorn_tls_secret_name       = "longhorn-g1-your_domain.com-tls"
@@ -306,6 +319,8 @@ variable "clusters" {
       grafana_tls_secret_name        = "grafana-g1-your_domain.com-tls"
       prometheus_domain_name         = "prometheus-g1.your_domain.com"
       prometheus_tls_secret_name     = "prometheus-g1-your_domain.com-tls"
+      alert_manager_domain_name      = "alert-manager-g1.your_domain.com"
+      alert_manager_tls_secret_name  = "alert-manager-g1-your_domain.com-tls"
       hubble_domain_name             = "hubble-g1.your_domain.com"
       hubble_tls_secret_name         = "hubble-g1-your_domain.com-tls"
       kube_dashboard_domain_name     = "kubernetes-dashboard-g1.your_domain.com"
@@ -316,7 +331,7 @@ variable "clusters" {
       cluster_issuer                 = "staging-issuer"
       ingress_nginx_chart_version    = "4.10.0"
       groundcover_enable             = false
-      newrelic_enabled               = true
+      newrelic_enabled               = false
       newrelic_low_data_mode         = true
       newrelic_scrape_system_prom    = true
       newrelic_ksm_image_tag         = "v2.10.0"
@@ -385,6 +400,8 @@ variable "clusters" {
       cluster_id                     = 3
       vlan_id                        = 300
       cluster_subnet                 = "10.0.3"
+      dns1                           = "10.0.3.3"
+      dns2                           = "10.0.3.4"
       load_balancer_ip_block_start_1 = "10.0.3.200"
       load_balancer_ip_block_stop_1  = "10.0.3.254"
       load_balancer_ip_block_start_2 = ""
@@ -399,7 +416,8 @@ variable "clusters" {
       vip                            = "10.0.3.100"
       vip_hostname                   = "z1-k8s-api-server"
       vip_interface                  = "eth0"
-      nginx_controller_ip            = "10.0.3.200"
+      nginx_controller_external_ip   = "10.0.3.200"
+      nginx_controller_internal_ip   = "10.0.3.201"
       kubeconfig_file_name           = "z1-k8s.yml"
       ssh_user                       = "your_username"
       ssh_home                       = "/home/your_username"
@@ -421,10 +439,10 @@ variable "clusters" {
       hubble_arch                    = "amd64"
       metrics_server_version         = "v0.7.0"
       autoscaler_version             = "9.35.0"
-      kube_prometheus_version        = "release-0.13"
+      kube_prometheus_stack_version  = "57.0.1"
       kube_dashboard_user            = "your_username"
       kube_dashboard_version         = "v2.7.0"
-      longhorn_chart_version         = "1.5.3"
+      longhorn_chart_version         = "1.5.4"
       longhorn_nfs_storage           = "nfs://10.0.3.2:/mnt/HDD_POOL/k8s/z1-k8s/longhorn/"
       longhorn_domain_name           = "longhorn-z1.your_domain.com"
       longhorn_tls_secret_name       = "longhorn-z1-your_domain.com-tls"
@@ -432,6 +450,8 @@ variable "clusters" {
       grafana_tls_secret_name        = "grafana-z1-your_domain.com-tls"
       prometheus_domain_name         = "prometheus-z1.your_domain.com"
       prometheus_tls_secret_name     = "prometheus-z1-your_domain.com-tls"
+      alert_manager_domain_name      = "alert-manager-z1.your_domain.com"
+      alert_manager_tls_secret_name  = "alert-manager-z1-your_domain.com-tls"
       hubble_domain_name             = "hubble-z1.your_domain.com"
       hubble_tls_secret_name         = "hubble-z1-your_domain.com-tls"
       kube_dashboard_domain_name     = "kubernetes-dashboard-z1.your_domain.com"
@@ -441,9 +461,9 @@ variable "clusters" {
       cert_manager_email             = "your_email@gmail.com"
       cluster_issuer                 = "prod-issuer"
       ingress_nginx_chart_version    = "4.10.0"
-      groundcover_enable             = false
-      newrelic_enabled               = true
-      newrelic_low_data_mode         = false
+      groundcover_enable             = true
+      newrelic_enabled               = false
+      newrelic_low_data_mode         = true
       newrelic_scrape_system_prom    = true
       newrelic_ksm_image_tag         = "v2.10.0"
       newrelic_namespace             = "newrelic"

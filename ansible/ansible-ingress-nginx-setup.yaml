@@ -4,7 +4,8 @@
   gather_facts: false
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
-    nginx_controller_ip: "{{ cluster_config.nginx_controller_ip }}"
+    nginx_controller_external_ip: "{{ cluster_config.nginx_controller_external_ip }}"
+    nginx_controller_internal_ip: "{{ cluster_config.nginx_controller_internal_ip }}"
     ingress_nginx_chart_version: "{{ cluster_config.ingress_nginx_chart_version }}"
   tags:
     - install-ingress-nginx
@@ -22,38 +23,75 @@
       args:
         executable: /bin/bash
 
-    - name: Generate ingress-nginx Helm values file
+    - name: Generate ingress-nginx Helm values file (external)
+      vars:
+        nginx_controller_ip: "{{ nginx_controller_external_ip }}"
+        is_default_class: true
+        nginx_class_name: "nginx-world"
+        use_internal_service: false
+        use_external_service: true
       ansible.builtin.template:
         src: helpers/ingress_nginx_values.yaml.j2
-        dest: "/tmp/ingress-nginx-values.yaml"
+        dest: "/tmp/ingress-external-nginx-values.yaml"
 
-    - name: Install or upgrade ingress-nginx
+    - name: Generate ingress-nginx Helm values file (internal)
+      vars:
+        nginx_controller_ip: "{{ nginx_controller_internal_ip }}"
+        is_default_class: false
+        nginx_class_name: "nginx-local"
+        use_internal_service: true
+        use_external_service: false
+      ansible.builtin.template:
+        src: helpers/ingress_nginx_values.yaml.j2
+        dest: "/tmp/ingress-internal-nginx-values.yaml"
+
+    - name: Install or upgrade ingress-nginx (external)
       ansible.builtin.shell:
         cmd: >
-          helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx
+          helm upgrade --install ingress-nginx-world ingress-nginx/ingress-nginx
           --version {{ ingress_nginx_chart_version }}
-          --create-namespace --namespace ingress-nginx
-          --values /tmp/ingress-nginx-values.yaml
+          --create-namespace --namespace ingress-nginx-world
+          --values /tmp/ingress-external-nginx-values.yaml
       args:
         executable: /bin/bash
 
-    - name: Create ingress-nginx service patch file
-      ansible.builtin.copy:
-        content: |
-          metadata:
-            annotations:
-              io.cilium/lb-ipam-ips: "{{ nginx_controller_ip }}"
-            labels:
-              L2Announcement: "true"
-        dest: "/tmp/ingress-nginx-svc-patch.yaml"
-      tags:
-        - patch-ingress-nginx-svc
-
-    - name: Patch ingress-nginx-controller service
+    - name: Install or upgrade ingress-nginx (internal)
       ansible.builtin.shell:
-        cmd: |
-          kubectl patch -n ingress-nginx svc ingress-nginx-controller --patch-file /tmp/ingress-nginx-svc-patch.yaml
+        cmd: >
+          helm upgrade --install ingress-nginx-local ingress-nginx/ingress-nginx
+          --version {{ ingress_nginx_chart_version }}
+          --create-namespace --namespace ingress-nginx-local
+          --values /tmp/ingress-internal-nginx-values.yaml
       args:
         executable: /bin/bash
-      tags:
-        - patch-ingress-nginx-svc
+
+- name: Deploy Grafana Dashboards to Specific Namespaces
+  hosts: kube_api_servers[0]
+  gather_facts: no
+  tags:
+    - deploy-grafana-dashboards
+  vars:
+    dashboards:
+      - configmap_name: nginx-request-handling-performance-dashboard
+        url: https://github.com/kubernetes/ingress-nginx/raw/main/deploy/grafana/dashboards/request-handling-performance.json
+        dashboard_name: "NGINX / Request Handling Performance"
+      - configmap_name: nginx-dashboard
+        url: https://github.com/kubernetes/ingress-nginx/raw/main/deploy/grafana/dashboards/nginx.json
+        dashboard_name: "NGINX / Overview"
+  tasks:
+    - name: Deploy dashboards to ingress-nginx-local
+      include_tasks: helpers/ansible_import_dashboard.yaml
+      vars:
+        dashboard_url: "{{ item.url }}"
+        configmap_name: "{{ item.configmap_name }}"
+        dashboard_name: "{{ item.dashboard_name }}"
+        namespace: ingress-nginx-local
+      loop: "{{ dashboards }}"
+    - name: Deploy dashboards to ingress-nginx-world
+      include_tasks: helpers/ansible_import_dashboard.yaml
+      vars:
+        dashboard_url: "{{ item.url }}"
+        configmap_name: "{{ item.configmap_name }}"
+        dashboard_name: "{{ item.dashboard_name }}"
+        namespace: ingress-nginx-world
+      loop: "{{ dashboards }}"

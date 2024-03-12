@@ -9,3 +9,9 @@ podDnsConfig:
   nameservers:
     - "1.1.1.1" # cloudflare
     - "1.0.0.1" # cloudflare
+
+prometheus:
+  enabled: true
+  servicemonitor:
+    enabled: true
+    prometheusInstance: kube-prometheus-stack

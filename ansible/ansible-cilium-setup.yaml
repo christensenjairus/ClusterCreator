@@ -107,16 +107,20 @@
   tags:
     - cilium_install
   tasks:
+    - name: Install ServiceMonitor & PrometheusRule CRDs Early (overridden when kube-prometheus-stack is installed)
+      become: no
+      ansible.builtin.shell: |
+        kubectl apply -f https://raw.githubusercontent.com/prometheus-community/helm-charts/kube-prometheus-stack-{{ cluster_config.kube_prometheus_stack_version }}/charts/kube-prometheus-stack/charts/crds/crds/crd-servicemonitors.yaml
+        kubectl apply -f https://raw.githubusercontent.com/prometheus-community/helm-charts/kube-prometheus-stack-{{ cluster_config.kube_prometheus_stack_version }}/charts/kube-prometheus-stack/charts/crds/crds/crd-prometheusrules.yaml
+
     - name: Generate cilium.yaml configuration file
       ansible.builtin.template:
         src: helpers/cilium_config.yaml.j2
         dest: "/tmp/cilium.yaml"
       vars:
-        cluster_name: "{{ cluster_config.cluster_name }}"
         cluster_id: "{{ cluster_config.cluster_id }}"
         pod_cidr: "{{ cluster_config.pod_cidr }}"
         vip: "{{ cluster_config.vip }}"
-        cilium_clustermesh_enabled: "{{ cluster_config.cilium_clustermesh_enabled }}"
       tags:
         - cilium_config
 
@@ -131,7 +135,6 @@
         src: helpers/cilium_l2_policy.yaml.j2
         dest: "/tmp/ciliumL2Policy.yaml"
       vars:
-        cluster_name: "{{ cluster_config.cluster_name }}"
         cilium_interface: "{{ cluster_config.cilium_interface }}"
         load_balancer_ip_cidr_1: "{{ cluster_config.load_balancer_ip_cidr_1 }}"
         load_balancer_ip_cidr_2: "{{ cluster_config.load_balancer_ip_cidr_2 }}"
@@ -174,3 +177,26 @@
       become: no
       tags:
         - cilium_l2_policy
+
+    - name: Enable cilium clustermesh
+      ansible.builtin.shell:
+          cmd: "cilium clustermesh enable --service-type=LoadBalancer --enable-kvstoremesh"
+      become: no
+      when: cluster_config.cilium_clustermesh_enabled
+    - name: Create cilium clustermesh loadbalancer service patch file
+      ansible.builtin.copy:
+        content: |
+          metadata:
+            annotations:
+              io.cilium/lb-ipam-ips: "{{ cluster_config.cilium_clustermesh_api_ip }}"
+            labels:
+              L2Announcement: "true"
+        dest: "/tmp/clustermesh-lb-patch.yaml"
+      when: cluster_config.cilium_clustermesh_enabled
+      tags:
+        - patch_cilium_clustermesh_lb
+    - name: Patch cilium clustermesh loadbalancer
+      ansible.builtin.shell:
+        cmd: kubectl patch -n kube-system svc clustermesh-apiserver --patch-file /tmp/clustermesh-lb-patch.yaml
+      become: no
+      when: cluster_config.cilium_clustermesh_enabled

@@ -25,9 +25,9 @@ source .env
 pushd ./ansible
 
 cleanup_function() {
-  rm \
-    "ansible/tmp/${CLUSTER_NAME}/wrkr_join_command.sh" \
-    "ansible/tmp/${CLUSTER_NAME}/cp_join_command.sh" \
+  rm -f \
+    "tmp/${CLUSTER_NAME}/wrkr_join_command.sh" \
+    "tmp/${CLUSTER_NAME}/cp_join_command.sh" \
     >&/dev/null
   popd
   echo "Cleanup complete."

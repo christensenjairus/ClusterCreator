@@ -8,5 +8,5 @@
   tasks:
     - name: "Template Ansible Hosts File"
       template:
-        src: "helpers/ansible-hosts.txt.j2"
+        src: "helpers/ansible_hosts.txt.j2"
         dest: "tmp/{{ cluster_name }}/ansible-hosts.txt"

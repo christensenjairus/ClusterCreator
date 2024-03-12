@@ -29,6 +29,7 @@ required_vars=(
   "NEWRELIC_LICENSE_KEY"
   "INGRESS_BASIC_AUTH_USERNAME"
   "INGRESS_BASIC_AUTH_PASSWORD"
+  "TIMEZONE"
 )
 
 # Check if each required environment variable is set
@@ -49,9 +50,9 @@ trap 'echo "An error occurred. Cleaning up..."; cleanup_function' ERR
 pushd ./ansible
 
 cleanup_function() {
-  rm \
-    "ansible/tmp/${CLUSTER_NAME}/wrkr_join_command.sh" \
-    "ansible/tmp/${CLUSTER_NAME}/cp_join_command.sh" \
+  rm -f \
+    "tmp/${CLUSTER_NAME}/wrkr_join_command.sh" \
+    "tmp/${CLUSTER_NAME}/cp_join_command.sh" \
     >&/dev/null
   popd
   echo "Cleanup complete."
@@ -66,7 +67,8 @@ ansible-playbook -i "tmp/${CLUSTER_NAME}/ansible-hosts.txt" -u $VM_USERNAME ansi
   -e "ssh_key_file=$HOME/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}" \
   -e "ssh_hosts_file=$HOME/.ssh/known_hosts" \
   -e "ingress_basic_auth_username=${INGRESS_BASIC_AUTH_USERNAME}" \
-  -e "ingress_basic_auth_password=${INGRESS_BASIC_AUTH_PASSWORD}"
+  -e "ingress_basic_auth_password=${INGRESS_BASIC_AUTH_PASSWORD}" \
+  -e "timezone=${TIMEZONE}"
 
 echo "CLUSTER COMPLETE"
 

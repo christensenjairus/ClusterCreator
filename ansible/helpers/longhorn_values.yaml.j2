@@ -16,9 +16,13 @@ longhorn:
 
 persistence:
   defaultDataLocality: best-effort
+  defaultClassReplicaCount: {{ longhorn_replica_count }}
   reclaimPolicy: Retain
   recurringJobSelector:
     enable: true
     joblist: '[{\"name\":\"6hourssnap\", \"isGroup\":true},{\"name\":\"dailybackup\", \"isGroup\":true}]'
   removeSnapshotsDuringFilesystemTrim: enabled
 
+metrics:
+  serviceMonitor:
+    enabled: true
