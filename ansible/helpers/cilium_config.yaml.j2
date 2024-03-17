@@ -10,6 +10,7 @@ hubble:
         enabled: true
   ui:
     enabled: true
+    # ingress: leave to ansible-hubble-ui-setup.yaml
   metrics:
     serviceMonitor:
       enabled: true
@@ -35,6 +36,7 @@ prometheus:
   serviceMonitor:
     enabled: true
 operator:
+  replicas: {{ replica_count }}
   prometheus:
     serviceMonitor:
       enabled: true
@@ -57,10 +59,14 @@ ipv6:
   enabled: false
 ipam:
   mode: kubernetes
-gatewayAPI: # this is future proofing, we won't use it
+gatewayAPI:
   enabled: true
+externalWorkloads:
+  enabled:  {{  cilium_clustermesh_enabled }}
 clustermesh:
+  useAPIServer: {{  cilium_clustermesh_enabled }}
   apiserver:
+    replicas: {{ replica_count }}
     kvstoremesh:
       enabled: true
     metrics:

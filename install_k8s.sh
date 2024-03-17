@@ -20,16 +20,15 @@ fi
 
 echo "Running ansible on cluster: $CLUSTER_NAME"
 
+set -a # automatically export all variables
 source .env
+source k8s.env
+set +a # stop automatically exporting
 
 required_vars=(
   "VM_USERNAME"
   "NON_PASSWORD_PROTECTED_SSH_KEY"
-  "GLOBAL_CLOUDFLARE_API_KEY"
-  "NEWRELIC_LICENSE_KEY"
-  "INGRESS_BASIC_AUTH_USERNAME"
-  "INGRESS_BASIC_AUTH_PASSWORD"
-  "TIMEZONE"
+  "KUBERNETES_MEDIUM_VERSION"
 )
 
 # Check if each required environment variable is set
@@ -62,15 +61,12 @@ ansible-playbook -u $VM_USERNAME ansible-generate-ansible-hosts-txt.yaml -e "clu
 
 # run ansible playbooks
 ansible-playbook -i "tmp/${CLUSTER_NAME}/ansible-hosts.txt" -u $VM_USERNAME ansible-master-playbook.yaml \
-  -e "cloudflare_global_api_key=${GLOBAL_CLOUDFLARE_API_KEY}" \
-  -e "newrelic_license_key=${NEWRELIC_LICENSE_KEY}" \
   -e "ssh_key_file=$HOME/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}" \
   -e "ssh_hosts_file=$HOME/.ssh/known_hosts" \
-  -e "ingress_basic_auth_username=${INGRESS_BASIC_AUTH_USERNAME}" \
-  -e "ingress_basic_auth_password=${INGRESS_BASIC_AUTH_PASSWORD}" \
-  -e "timezone=${TIMEZONE}"
-
-echo "CLUSTER COMPLETE"
+  -e "kubernetes_version=${KUBERNETES_MEDIUM_VERSION}"
 
 # cleanup join commands
 cleanup_function
+
+echo ""
+echo "BASE CLUSTER COMPLETE"

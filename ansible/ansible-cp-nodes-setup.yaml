@@ -15,10 +15,10 @@
       become: true
     - name: Pull Kube-Vip image and generate manifest
       ansible.builtin.shell: |
-        ctr image pull ghcr.io/kube-vip/kube-vip:{{ cluster_config.kube_vip_version }}
-        ctr run --rm --net-host ghcr.io/kube-vip/kube-vip:{{ cluster_config.kube_vip_version }} vip /kube-vip manifest pod \
-            --interface {{ cluster_config.vip_interface }} \
-            --address {{ cluster_config.vip }} \
+        ctr image pull ghcr.io/kube-vip/kube-vip:v{{ cluster_config.kube_vip.kube_vip_version }}
+        ctr run --rm --net-host ghcr.io/kube-vip/kube-vip:v{{ cluster_config.kube_vip.kube_vip_version }} vip /kube-vip manifest pod \
+            --interface {{ cluster_config.kube_vip.vip_interface }} \
+            --address {{ cluster_config.kube_vip.vip }} \
             --controlplane \
             --arp \
             --leaderElection > /tmp/kube-vip.yaml
@@ -71,7 +71,7 @@
       ansible.builtin.shell:
         cmd: >
           kubeadm init
-          --config {{ cluster_config.ssh_home }}/kubeadm-config.yaml
+          --config {{ cluster_config.ssh.ssh_home }}/kubeadm-config.yaml
           --upload-certs
           --skip-phases=addon/kube-proxy
       become: true
@@ -117,7 +117,7 @@
       when: not kube_config_exists.stat.exists
     - name: Remove kubeadm-config.yaml
       ansible.builtin.file:
-        path: "{{ cluster_config.ssh_home }}/kubeadm-config.yaml"
+        path: "{{ cluster_config.ssh.ssh_home }}/kubeadm-config.yaml"
         state: absent
       become: true
       when: not kube_config_exists.stat.exists

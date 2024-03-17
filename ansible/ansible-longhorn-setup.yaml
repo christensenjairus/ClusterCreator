@@ -1,16 +1,45 @@
 ---
+- name: Unset Default StorageClass
+  hosts: kube_api_servers[0]
+  gather_facts: false
+  tasks:
+    - name: Get all storage classes
+      kubernetes.core.k8s_info:
+        api_version: storage.k8s.io/v1
+        kind: StorageClass
+      register: storage_classes
+    - name: Remove default annotation from all storage classes
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: storage.k8s.io/v1
+          kind: StorageClass
+          metadata:
+            name: "{{ item.metadata.name }}"
+            annotations:
+              storageclass.kubernetes.io/is-default-class: "false"
+      loop: "{{ storage_classes.resources }}"
+      when: "'storageclass.kubernetes.io/is-default-class' in item.metadata.annotations and item.metadata.annotations['storageclass.kubernetes.io/is-default-class'] == 'true'"
+      loop_control:
+        label: "{{ item.metadata.name }}"
+
 - name: Deploy Longhorn on Kubernetes
   hosts: kube_api_servers[0]
   gather_facts: false
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
-    longhorn_chart_version: "{{ cluster_config.longhorn_chart_version }}"
-    longhorn_nfs_storage: "{{ cluster_config.longhorn_nfs_storage }}"
-    longhorn_domain_name: "{{ cluster_config.longhorn_domain_name }}"
-    longhorn_tls_secret_name: "{{ cluster_config.longhorn_tls_secret_name }}"
-    cluster_issuer: "{{ cluster_config.cluster_issuer }}"
+    longhorn_chart_version: "{{ cluster_config.longhorn.longhorn_chart_version }}"
+    longhorn_nfs_storage: "{{ cluster_config.longhorn.longhorn_nfs_storage }}"
+    longhorn_domain_name: "{{ cluster_config.longhorn.longhorn_domain_name }}"
+    longhorn_tls_secret_name: "{{ cluster_config.longhorn.longhorn_tls_secret_name }}"
+    cluster_issuer: "{{ cluster_config.cert_manager.cluster_issuer }}"
 
   tasks:
+    - name: Install ServiceMonitor & PrometheusRule CRDs
+      ansible.builtin.shell: |
+        kubectl apply -f https://raw.githubusercontent.com/prometheus-community/helm-charts/kube-prometheus-stack-{{ cluster_config.kube_prometheus_stack.kube_prometheus_stack_version }}/charts/kube-prometheus-stack/charts/crds/crds/crd-servicemonitors.yaml
+        kubectl apply -f https://raw.githubusercontent.com/prometheus-community/helm-charts/kube-prometheus-stack-{{ cluster_config.kube_prometheus_stack.kube_prometheus_stack_version }}/charts/kube-prometheus-stack/charts/crds/crds/crd-prometheusrules.yaml
+
     - name: Calculate the count of non-API/ETCD servers
       set_fact:
         non_api_etcd_server_count: "{{ groups['all'] | length - (groups['kube_api_servers'] | default([]) | length + groups['kube_etcd_servers'] | default([]) | length) }}"
@@ -77,11 +106,11 @@
     ingress_definitions:
       - name: longhorn-ingress
         namespace: longhorn-system
-        hostname: "{{ cluster_config.longhorn_domain_name }}"
+        hostname: "{{ cluster_config.longhorn.longhorn_domain_name }}"
         service_name: "longhorn-frontend"
         service_port: 80
-        tls_secret_name: "{{ cluster_config.longhorn_tls_secret_name }}"
-        cluster_issuer: "{{ cluster_config.cluster_issuer }}"
+        tls_secret_name: "{{ cluster_config.longhorn.longhorn_tls_secret_name }}"
+        cluster_issuer: "{{ cluster_config.cert_manager.cluster_issuer }}"
         ingress_class: "nginx-local"
         upstream_tls: false
         basic_auth: true

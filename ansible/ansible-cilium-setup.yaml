@@ -1,126 +1,135 @@
 ---
-- name: Install Cilium-CLI on Control Plane Servers
-  hosts: kube_api_servers
-  become: yes
-  vars:
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
-    cilium_cli_version: "{{ cluster_config.cilium_cli_version }}"
-    cilium_cli_arch: "{{ cluster_config.cilium_cli_arch }}"
-  tags:
-    - cilium_cli_install
-  tasks:
-    - name: Check if Cilium CLI is already installed
-      ansible.builtin.command:
-        cmd: "cilium version"
-      register: cilium_cli_check
-      ignore_errors: true
-      changed_when: false
-      failed_when: false
+#- name: Install Cilium-CLI on Control Plane Servers
+#  hosts: kube_api_servers
+#  become: yes
+#  vars:
+#    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+#    cilium_cli_version: "{{ cluster_config.cilium_cli_version }}"
+#    cilium_cli_arch: "{{ cluster_config.cilium_cli_arch }}"
+#  tags:
+#    - cilium_cli_install
+#  tasks:
+#    - name: Check if Cilium CLI is already installed
+#      ansible.builtin.command:
+#        cmd: "cilium version"
+#      register: cilium_cli_check
+#      ignore_errors: true
+#      changed_when: false
+#      failed_when: false
+#
+#    - name: Set fact for Cilium CLI installation requirement
+#      set_fact:
+#        cilium_cli_missing: "{{ cilium_cli_check.rc != 0 }}"
+#
+#    - block:
+#        - name: Download Cilium CLI
+#          ansible.builtin.get_url:
+#            url: "https://github.com/cilium/cilium-cli/releases/download/{{ cilium_cli_version }}/cilium-linux-{{ cilium_cli_arch }}.tar.gz"
+#            dest: "/tmp/cilium-linux-{{ cilium_cli_arch }}.tar.gz"
+#            mode: '0755'
+#
+#        - name: Download Cilium CLI checksum
+#          ansible.builtin.get_url:
+#            url: "https://github.com/cilium/cilium-cli/releases/download/{{ cilium_cli_version }}/cilium-linux-{{ cilium_cli_arch }}.tar.gz.sha256sum"
+#            dest: "/tmp/cilium-linux-{{ cilium_cli_arch }}.tar.gz.sha256sum"
+#            mode: '0644'
+#
+#        - name: Verify Cilium CLI checksum
+#          ansible.builtin.shell:
+#            cmd: "sha256sum --check /tmp/cilium-linux-{{ cilium_cli_arch }}.tar.gz.sha256sum"
+#            chdir: /tmp
+#          register: checksum_verification
+#          failed_when: checksum_verification.stdout.find("FAILED") != -1
+#
+#        - name: Create a temporary directory for Cilium CLI
+#          ansible.builtin.tempfile:
+#            state: directory
+#          register: tmpdir
+#
+#        - name: Extract Cilium CLI to temporary directory
+#          ansible.builtin.unarchive:
+#            src: "/tmp/cilium-linux-{{ cilium_cli_arch }}.tar.gz"
+#            dest: "{{ tmpdir.path }}"
+#            remote_src: yes
+#
+#        - name: Move Cilium CLI to /usr/local/bin
+#          ansible.builtin.shell:
+#            cmd: "mv {{ tmpdir.path }}/cilium /usr/local/bin/cilium"
+#          args:
+#            creates: "/usr/local/bin/cilium"
+#
+#        - name: Remove the temporary directory
+#          ansible.builtin.file:
+#            path: "{{ tmpdir.path }}"
+#            state: absent
+#
+#        - name: Clean up downloaded cilium files
+#          ansible.builtin.file:
+#            path: "/tmp/cilium-linux-{{ cilium_cli_arch }}*"
+#            state: absent
+#      when: cilium_cli_missing
 
-    - name: Set fact for Cilium CLI installation requirement
-      set_fact:
-        cilium_cli_missing: "{{ cilium_cli_check.rc != 0 }}"
-
-    - block:
-        - name: Download Cilium CLI
-          ansible.builtin.get_url:
-            url: "https://github.com/cilium/cilium-cli/releases/download/{{ cilium_cli_version }}/cilium-linux-{{ cilium_cli_arch }}.tar.gz"
-            dest: "/tmp/cilium-linux-{{ cilium_cli_arch }}.tar.gz"
-            mode: '0755'
-
-        - name: Download Cilium CLI checksum
-          ansible.builtin.get_url:
-            url: "https://github.com/cilium/cilium-cli/releases/download/{{ cilium_cli_version }}/cilium-linux-{{ cilium_cli_arch }}.tar.gz.sha256sum"
-            dest: "/tmp/cilium-linux-{{ cilium_cli_arch }}.tar.gz.sha256sum"
-            mode: '0644'
-
-        - name: Verify Cilium CLI checksum
-          ansible.builtin.shell:
-            cmd: "sha256sum --check /tmp/cilium-linux-{{ cilium_cli_arch }}.tar.gz.sha256sum"
-            chdir: /tmp
-          register: checksum_verification
-          failed_when: checksum_verification.stdout.find("FAILED") != -1
-
-        - name: Create a temporary directory for Cilium CLI
-          ansible.builtin.tempfile:
-            state: directory
-          register: tmpdir
-
-        - name: Extract Cilium CLI to temporary directory
-          ansible.builtin.unarchive:
-            src: "/tmp/cilium-linux-{{ cilium_cli_arch }}.tar.gz"
-            dest: "{{ tmpdir.path }}"
-            remote_src: yes
-
-        - name: Move Cilium CLI to /usr/local/bin
-          ansible.builtin.shell:
-            cmd: "mv {{ tmpdir.path }}/cilium /usr/local/bin/cilium"
-          args:
-            creates: "/usr/local/bin/cilium"
-
-        - name: Remove the temporary directory
-          ansible.builtin.file:
-            path: "{{ tmpdir.path }}"
-            state: absent
-
-        - name: Clean up downloaded cilium files
-          ansible.builtin.file:
-            path: "/tmp/cilium-linux-{{ cilium_cli_arch }}*"
-            state: absent
-      when: cilium_cli_missing
-
-- name: Install Hubble on Control Plane Servers
-  hosts: kube_api_servers
-  become: yes
-  vars:
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
-  tags:
-    - hubble_install
-  tasks:
-    - name: Download Hubble binary and checksum
-      ansible.builtin.get_url:
-        url: "https://github.com/cilium/hubble/releases/download/{{ cluster_config.hubble_version }}/hubble-linux-{{ cluster_config.hubble_arch }}.tar.gz{{ item }}"
-        dest: "/tmp/hubble-linux-{{ cluster_config.hubble_arch }}.tar.gz{{ item }}"
-        mode: "{{ '0644' if item == '.sha256sum' else '0755' }}"
-      loop:
-        - ""
-        - ".sha256sum"
-    - name: Verify Hubble binary checksum
-      ansible.builtin.shell:
-        cmd: "sha256sum --check /tmp/hubble-linux-{{ cluster_config.hubble_arch }}.tar.gz.sha256sum"
-        chdir: /tmp
-      ignore_errors: true
-    - name: Extract Hubble binary to /usr/local/bin
-      ansible.builtin.command:
-        cmd: "tar xzf /tmp/hubble-linux-{{ cluster_config.hubble_arch }}.tar.gz -C /usr/local/bin"
-      become: yes
-    - name: Clean up downloaded Hubble files
-      ansible.builtin.file:
-        path: "/tmp/hubble-linux-{{ cluster_config.hubble_arch }}*"
-        state: absent
+#- name: Install Hubble on Control Plane Servers
+#  hosts: kube_api_servers
+#  become: yes
+#  vars:
+#    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+#  tags:
+#    - hubble_install
+#  tasks:
+#    - name: Download Hubble binary and checksum
+#      ansible.builtin.get_url:
+#        url: "https://github.com/cilium/hubble/releases/download/{{ cluster_config.hubble_version }}/hubble-linux-{{ cluster_config.hubble_arch }}.tar.gz{{ item }}"
+#        dest: "/tmp/hubble-linux-{{ cluster_config.hubble_arch }}.tar.gz{{ item }}"
+#        mode: "{{ '0644' if item == '.sha256sum' else '0755' }}"
+#      loop:
+#        - ""
+#        - ".sha256sum"
+#    - name: Verify Hubble binary checksum
+#      ansible.builtin.shell:
+#        cmd: "sha256sum --check /tmp/hubble-linux-{{ cluster_config.hubble_arch }}.tar.gz.sha256sum"
+#        chdir: /tmp
+#      ignore_errors: true
+#    - name: Extract Hubble binary to /usr/local/bin
+#      ansible.builtin.command:
+#        cmd: "tar xzf /tmp/hubble-linux-{{ cluster_config.hubble_arch }}.tar.gz -C /usr/local/bin"
+#      become: yes
+#    - name: Clean up downloaded Hubble files
+#      ansible.builtin.file:
+#        path: "/tmp/hubble-linux-{{ cluster_config.hubble_arch }}*"
+#        state: absent
 
 - name: Install Cilium on Kubernetes Cluster
   hosts: kube_api_servers[0]
-  become: yes
+  become: no
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
   tags:
     - cilium_install
   tasks:
-    - name: Install ServiceMonitor & PrometheusRule CRDs Early (overridden when kube-prometheus-stack is installed)
-      become: no
+    - name: Install ServiceMonitor & PrometheusRule CRDs
       ansible.builtin.shell: |
-        kubectl apply -f https://raw.githubusercontent.com/prometheus-community/helm-charts/kube-prometheus-stack-{{ cluster_config.kube_prometheus_stack_version }}/charts/kube-prometheus-stack/charts/crds/crds/crd-servicemonitors.yaml
-        kubectl apply -f https://raw.githubusercontent.com/prometheus-community/helm-charts/kube-prometheus-stack-{{ cluster_config.kube_prometheus_stack_version }}/charts/kube-prometheus-stack/charts/crds/crds/crd-prometheusrules.yaml
+        kubectl apply -f https://raw.githubusercontent.com/prometheus-community/helm-charts/kube-prometheus-stack-{{ cluster_config.kube_prometheus_stack.kube_prometheus_stack_version }}/charts/kube-prometheus-stack/charts/crds/crds/crd-servicemonitors.yaml
+        kubectl apply -f https://raw.githubusercontent.com/prometheus-community/helm-charts/kube-prometheus-stack-{{ cluster_config.kube_prometheus_stack.kube_prometheus_stack_version }}/charts/kube-prometheus-stack/charts/crds/crds/crd-prometheusrules.yaml
+
+    - name: Calculate the count of non-API/ETCD servers
+      set_fact:
+        non_api_etcd_server_count: "{{ groups['all'] | length - (groups['kube_api_servers'] | default([]) | length + groups['kube_etcd_servers'] | default([]) | length) }}"
+
+    - name: Determine if needing replicated longhorn volumes based on non-API/ETCD server count
+      set_fact:
+        replica_count: "{{ 1 if non_api_etcd_server_count <= \"1\" else 2 }}"
 
     - name: Generate cilium.yaml configuration file
+      become: yes
       ansible.builtin.template:
         src: helpers/cilium_config.yaml.j2
         dest: "/tmp/cilium.yaml"
       vars:
         cluster_id: "{{ cluster_config.cluster_id }}"
-        pod_cidr: "{{ cluster_config.pod_cidr }}"
-        vip: "{{ cluster_config.vip }}"
+        pod_cidr: "{{ cluster_config.cluster_networking.pod_cidr }}"
+        vip: "{{ cluster_config.kube_vip.vip }}"
+        cilium_clustermesh_enabled: "{{ cluster_config.cilium.cilium_clustermesh_enabled }}"
       tags:
         - cilium_config
 
@@ -135,68 +144,85 @@
         src: helpers/cilium_l2_policy.yaml.j2
         dest: "/tmp/ciliumL2Policy.yaml"
       vars:
-        cilium_interface: "{{ cluster_config.cilium_interface }}"
-        load_balancer_ip_cidr_1: "{{ cluster_config.load_balancer_ip_cidr_1 }}"
-        load_balancer_ip_cidr_2: "{{ cluster_config.load_balancer_ip_cidr_2 }}"
-        load_balancer_ip_cidr_3: "{{ cluster_config.load_balancer_ip_cidr_3 }}"
-        load_balancer_ip_cidr_4: "{{ cluster_config.load_balancer_ip_cidr_4 }}"
-        load_balancer_ip_cidr_5: "{{ cluster_config.load_balancer_ip_cidr_5 }}"
-        load_balancer_ip_block_start_1: "{{ cluster_config.load_balancer_ip_block_start_1 }}"
-        load_balancer_ip_block_stop_1: "{{ cluster_config.load_balancer_ip_block_stop_1 }}"
-        load_balancer_ip_block_start_2: "{{ cluster_config.load_balancer_ip_block_start_2 }}"
-        load_balancer_ip_block_stop_2: "{{ cluster_config.load_balancer_ip_block_stop_2 }}"
-        load_balancer_ip_block_start_3: "{{ cluster_config.load_balancer_ip_block_start_3 }}"
-        load_balancer_ip_block_stop_3: "{{ cluster_config.load_balancer_ip_block_stop_3 }}"
+        cilium_interface: "{{ cluster_config.cilium.cilium_interface }}"
+        load_balancer_ip_cidr_1: "{{ cluster_config.cilium.load_balancer_ip_cidr_1 }}"
+        load_balancer_ip_cidr_2: "{{ cluster_config.cilium.load_balancer_ip_cidr_2 }}"
+        load_balancer_ip_block_start_1: "{{ cluster_config.cilium.load_balancer_ip_block_start_1 }}"
+        load_balancer_ip_block_stop_1: "{{ cluster_config.cilium.load_balancer_ip_block_stop_1 }}"
+        load_balancer_ip_block_start_2: "{{ cluster_config.cilium.load_balancer_ip_block_start_2 }}"
+        load_balancer_ip_block_stop_2: "{{ cluster_config.cilium.load_balancer_ip_block_stop_2 }}"
       tags:
         - cilium_l2_policy
 
     - name: Install gateway-api CRDs
       ansible.builtin.shell:
-        cmd: kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/{{ cluster_config.gateway_api_version }}/experimental-install.yaml  # experimental is needed for tlsroutes and grpcroutes
-      become: no
+        cmd: kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v{{ cluster_config.cilium.gateway_api_version }}/experimental-install.yaml  # experimental is needed for tlsroutes and grpcroutes
       tags:
         - gateway_api_crds
 
-    - name: Install Cilium
+    - name: Add Cilium Helm repository
       ansible.builtin.shell:
-        cmd: "cilium install --version={{ cluster_config.cilium_version }} --helm-values /tmp/cilium.yaml"
-      become: no
+        cmd: helm repo add cilium https://helm.cilium.io/
+      args:
+        executable: /bin/bash
       tags:
-        - cilium_install
+        - install-cilium
+
+    - name: Update Helm repositories
+      ansible.builtin.shell:
+        cmd: helm repo update
+      args:
+        executable: /bin/bash
+      tags:
+        - install-cilium
+
+    - name: Install or upgrade Cilium
+      ansible.builtin.shell:
+        cmd: >
+          helm upgrade --install cilium cilium/cilium
+          --namespace kube-system
+          --values /tmp/cilium.yaml
+          --version v{{ cluster_config.cilium.cilium_version }}
+      args:
+        executable: /bin/bash
+      tags:
+        - install-cilium
+
+#    - name: Install Cilium
+#      ansible.builtin.shell:
+#        cmd: "cilium install --version=v{{ cluster_config.cilium.cilium_version }} --helm-values /tmp/cilium.yaml"
+#      tags:
+#        - cilium_install
 
     - name: Check Cilium status until all green 'OK's
       ansible.builtin.shell:
         cmd: "cilium status --wait"
-      become: no
       tags:
         - cilium_status
 
     - name: Apply L2 announcement policy
       ansible.builtin.shell:
         cmd: "kubectl apply -f /tmp/ciliumL2Policy.yaml"
-      become: no
       tags:
         - cilium_l2_policy
 
-    - name: Enable cilium clustermesh
-      ansible.builtin.shell:
-          cmd: "cilium clustermesh enable --service-type=LoadBalancer --enable-kvstoremesh"
-      become: no
-      when: cluster_config.cilium_clustermesh_enabled
-    - name: Create cilium clustermesh loadbalancer service patch file
-      ansible.builtin.copy:
-        content: |
-          metadata:
-            annotations:
-              io.cilium/lb-ipam-ips: "{{ cluster_config.cilium_clustermesh_api_ip }}"
-            labels:
-              L2Announcement: "true"
-        dest: "/tmp/clustermesh-lb-patch.yaml"
-      when: cluster_config.cilium_clustermesh_enabled
-      tags:
-        - patch_cilium_clustermesh_lb
-    - name: Patch cilium clustermesh loadbalancer
-      ansible.builtin.shell:
-        cmd: kubectl patch -n kube-system svc clustermesh-apiserver --patch-file /tmp/clustermesh-lb-patch.yaml
-      become: no
-      when: cluster_config.cilium_clustermesh_enabled
+#    - name: Enable cilium clustermesh
+#      ansible.builtin.shell:
+#          cmd: "cilium clustermesh enable --service-type=LoadBalancer --enable-kvstoremesh"
+#      when: cluster_config.cilium.cilium_clustermesh_enabled == "true"
+#    - name: Create cilium clustermesh loadbalancer service patch file
+#      ansible.builtin.copy:
+#        content: |
+#          metadata:
+#            annotations:
+#              io.cilium/lb-ipam-ips: "{{ cluster_config.cilium.cilium_clustermesh_api_ip }}"
+#            labels:
+#              L2Announcement: "true"
+#        dest: "/tmp/clustermesh-lb-patch.yaml"
+#      when: cluster_config.cilium.cilium_clustermesh_enabled == "true"
+#      tags:
+#        - patch_cilium_clustermesh_lb
+#    - name: Patch cilium clustermesh loadbalancer
+#      ansible.builtin.shell:
+#        cmd: kubectl patch -n kube-system svc clustermesh-apiserver --patch-file /tmp/clustermesh-lb-patch.yaml
+#      when: cluster_config.cilium.cilium_clustermesh_enabled == "true"

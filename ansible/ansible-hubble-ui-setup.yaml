@@ -7,11 +7,11 @@
     ingress_definitions:
       - name: hubble-ingress
         namespace: kube-system
-        hostname: "{{ cluster_config.hubble_domain_name }}"
+        hostname: "{{ cluster_config.cilium.hubble_domain_name }}"
         service_name: hubble-ui
         service_port: 80
-        tls_secret_name: "{{ cluster_config.hubble_tls_secret_name }}"
-        cluster_issuer: "{{ cluster_config.cluster_issuer }}"
+        tls_secret_name: "{{ cluster_config.cilium.hubble_tls_secret_name }}"
+        cluster_issuer: "{{ cluster_config.cert_manager.cluster_issuer }}"
         ingress_class: "nginx-local"
         upstream_tls: false
         basic_auth: true

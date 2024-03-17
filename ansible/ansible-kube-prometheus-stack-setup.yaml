@@ -4,35 +4,35 @@
   gather_facts: false
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
-    kube_prometheus_stack_version: "{{ cluster_config.kube_prometheus_stack_version }}"
+    kube_prometheus_stack_version: "{{ cluster_config.kube_prometheus_stack.kube_prometheus_stack_version }}"
     ingress_definitions:
       - name: grafana-ingress
         namespace: monitoring
-        hostname: "{{ cluster_config.grafana_domain_name }}"
+        hostname: "{{ cluster_config.kube_prometheus_stack.grafana_domain_name }}"
         service_name: kube-prometheus-stack-grafana
         service_port: 80
-        tls_secret_name: "{{ cluster_config.grafana_tls_secret_name }}"
-        cluster_issuer: "{{ cluster_config.cluster_issuer }}"
+        tls_secret_name: "{{ cluster_config.kube_prometheus_stack.grafana_tls_secret_name }}"
+        cluster_issuer: "{{ cluster_config.cert_manager.cluster_issuer }}"
         ingress_class: "nginx-local"
         upstream_tls: false
         basic_auth: true
       - name: prometheus-ingress
         namespace: monitoring
-        hostname: "{{ cluster_config.prometheus_domain_name }}"
+        hostname: "{{ cluster_config.kube_prometheus_stack.prometheus_domain_name }}"
         service_name: kube-prometheus-stack-prometheus
         service_port: 9090
-        tls_secret_name: "{{ cluster_config.prometheus_tls_secret_name }}"
-        cluster_issuer: "{{ cluster_config.cluster_issuer }}"
+        tls_secret_name: "{{ cluster_config.kube_prometheus_stack.prometheus_tls_secret_name }}"
+        cluster_issuer: "{{ cluster_config.cert_manager.cluster_issuer }}"
         ingress_class: "nginx-local"
         upstream_tls: false
         basic_auth: true
       - name: alert-manager-ingress
         namespace: monitoring
-        hostname: "{{ cluster_config.alert_manager_domain_name }}"
+        hostname: "{{ cluster_config.kube_prometheus_stack.alert_manager_domain_name }}"
         service_name: kube-prometheus-stack-alertmanager
         service_port: 9093
-        tls_secret_name: "{{ cluster_config.alert_manager_tls_secret_name }}"
-        cluster_issuer: "{{ cluster_config.cluster_issuer }}"
+        tls_secret_name: "{{ cluster_config.kube_prometheus_stack.alert_manager_tls_secret_name }}"
+        cluster_issuer: "{{ cluster_config.cert_manager.cluster_issuer }}"
         ingress_class: "nginx-local"
         upstream_tls: false
         basic_auth: true

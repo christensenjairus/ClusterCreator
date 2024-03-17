@@ -4,10 +4,10 @@
   gather_facts: no
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
-    kube_dashboard_user: "{{ cluster_config.kube_dashboard_user }}"
+    kube_dashboard_user: "{{ cluster_config.kube_dashboard.kube_dashboard_user }}"
   tasks:
     - name: Apply Kubernetes Dashboard configuration from URL
-      ansible.builtin.shell: "kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/{{ cluster_config.kube_dashboard_version }}/aio/deploy/recommended.yaml"
+      ansible.builtin.shell: "kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v{{ cluster_config.kube_dashboard.kube_dashboard_version }}/aio/deploy/recommended.yaml"
       args:
         executable: /bin/bash
 
@@ -29,11 +29,11 @@
     ingress_definitions:
       - name: kubernetes-dashboard-ingress
         namespace: kubernetes-dashboard
-        hostname: "{{ cluster_config.kube_dashboard_domain_name }}"
+        hostname: "{{ cluster_config.kube_dashboard.kube_dashboard_domain_name }}"
         service_name: "kubernetes-dashboard"
         service_port: 443
-        tls_secret_name: "{{ cluster_config.kube_dashboard_tls_secret_name }}"
-        cluster_issuer: "{{ cluster_config.cluster_issuer }}"
+        tls_secret_name: "{{ cluster_config.kube_dashboard.kube_dashboard_tls_secret_name }}"
+        cluster_issuer: "{{ cluster_config.cert_manager.cluster_issuer }}"
         ingress_class: "nginx-local"
         upstream_tls: true
         basic_auth: true

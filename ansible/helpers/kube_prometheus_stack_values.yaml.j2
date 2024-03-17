@@ -6,57 +6,44 @@ prometheus:
     podMonitorSelectorNilUsesHelmValues: false
     probeSelectorNilUsesHelmValues: false
     scrapeConfigSelectorNilUsesHelmValues: false
-
+    externalUrl: "https://{{ cluster_config.kube_prometheus_stack.prometheus_domain_name }}"
     storageSpec:
-     volumeClaimTemplate:
-        spec:
-          storageClassName: longhorn-ephemeral
-          accessModes:
-            - ReadWriteOnce
-          resources:
-            requests:
-              storage: 50Gi
-
-     additionalScrapeConfigs:
-       # scrape all cilium agent metrics
-       - job_name: 'kubernetes-pods'
-         kubernetes_sd_configs:
-           - role: pod
-         relabel_configs:
-           - source_labels: [ __meta_kubernetes_pod_annotation_prometheus_io_scrape ]
-             action: keep
-             regex: true
-           - source_labels: [ __address__, __meta_kubernetes_pod_annotation_prometheus_io_port ]
-             action: replace
-             regex: (.+):(?:\d+);(\d+)
-             replacement: ${1}:${2}
-             target_label: __address__
-       # scrape all hubble metrics
-       - job_name: 'kubernetes-endpoints'
-         scrape_interval: 30s
-         kubernetes_sd_configs:
-           - role: endpoints
-         relabel_configs:
-           - source_labels: [ __meta_kubernetes_service_annotation_prometheus_io_scrape ]
-             action: keep
-             regex: true
-           - source_labels: [ __address__, __meta_kubernetes_service_annotation_prometheus_io_port ]
-             action: replace
-             target_label: __address__
-             regex: (.+)(?::\d+);(\d+)
-             replacement: $1:$2
-
-alertmanager:
-  alertManagerSpec:
-    storage:
       volumeClaimTemplate:
-        spec:
-          storageClassName: longhorn-ephemeral
-          accessModes:
-            - ReadWriteOnce
-          resources:
-            requests:
-              storage: 10Gi
+         spec:
+           storageClassName: longhorn-ephemeral
+           accessModes:
+             - ReadWriteOnce
+           resources:
+             requests:
+               storage: 50Gi
+      additionalScrapeConfigs:
+        # scrape all cilium agent metrics
+        - job_name: 'kubernetes-pods'
+          kubernetes_sd_configs:
+            - role: pod
+          relabel_configs:
+            - source_labels: [ __meta_kubernetes_pod_annotation_prometheus_io_scrape ]
+              action: keep
+              regex: true
+            - source_labels: [ __address__, __meta_kubernetes_pod_annotation_prometheus_io_port ]
+              action: replace
+              regex: (.+):(?:\d+);(\d+)
+              replacement: ${1}:${2}
+              target_label: __address__
+        # scrape all hubble metrics
+        - job_name: 'kubernetes-endpoints'
+          scrape_interval: 30s
+          kubernetes_sd_configs:
+            - role: endpoints
+          relabel_configs:
+            - source_labels: [ __meta_kubernetes_service_annotation_prometheus_io_scrape ]
+              action: keep
+              regex: true
+            - source_labels: [ __address__, __meta_kubernetes_service_annotation_prometheus_io_port ]
+              action: replace
+              target_label: __address__
+              regex: (.+)(?::\d+);(\d+)
+              replacement: $1:$2
 
 grafana:
   adminPassword: admin # change me!
@@ -80,3 +67,90 @@ grafana:
     finalizers:
       - kubernetes.io/pvc-protection
 
+alertmanager:
+  config:
+    global:
+      resolve_timeout: 5m
+      slack_api_url: 'https://slack.com/api/chat.postMessage'
+      http_config:
+        authorization:
+          credentials: '{{ slack_bot_token }}'
+    inhibit_rules: # these are the default inhibit rules
+      - source_matchers:
+          - 'severity = critical'
+        target_matchers:
+          - 'severity =~ warning|info'
+        equal:
+          - 'namespace'
+          - 'alertname'
+      - source_matchers:
+          - 'severity = warning'
+        target_matchers:
+          - 'severity = info'
+        equal:
+          - 'namespace'
+          - 'alertname'
+      - source_matchers:
+          - 'alertname = InfoInhibitor'
+        target_matchers:
+          - 'severity = info'
+        equal:
+          - 'namespace'
+      - target_matchers:
+          - 'alertname = InfoInhibitor'
+    route:
+      group_wait: 30s
+      group_by:
+        - namespace
+        - service
+        - alertname
+      group_interval: 5m
+      repeat_interval: 8h # lowered to 8h from 12h
+      receiver: 'slack'   # send alerts to Slack by default
+      routes:
+      - receiver: 'null'  # silence watchdog alerts
+        matchers:
+          - alertname = "Watchdog"
+      - receiver: 'slack'
+        continue: true
+    receivers:
+    - name: 'null'
+    - name: 'slack'
+      slack_configs:
+      - channel: '{{ cluster_config.kube_prometheus_stack.alert_manager_slack_channel }}'
+{% raw %} # allows you to do {{ }} without .j2 replacements
+        username: Prometheus
+        icon_url: https://avatars3.githubusercontent.com/u/3380462 # prometheus icon
+        link_names: true
+        short_fields: true
+        # modified version of this: https://grafana.com/blog/2020/02/25/step-by-step-guide-to-setting-up-prometheus-alertmanager-with-slack-pagerduty-and-gmail/
+        title: |-
+         {{ .CommonLabels.alertname }}
+        text: >-
+         {{ range .Alerts -}}
+         *Alert:* {{ .Annotations.title }}{{ if .Labels.severity }} - `{{ .Labels.severity }}`{{ end }}
+
+         *Description:* {{ .Annotations.description }}
+
+         *Graph:* <{{ .GeneratorURL }}|:chart_with_upwards_trend:>
+
+         *Details:*
+           {{ range .Labels.SortedPairs }} • *{{ .Name }}:* `{{ .Value }}`
+           {{ end }}
+         {{ end }}
+{% endraw %}
+        send_resolved: true
+    templates:
+    - '/etc/alertmanager/config/*.tmpl'
+  alertManagerSpec:
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: longhorn-ephemeral
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi
+    externalUrl: "https://{{ cluster_config.kube_prometheus_stack.alert_manager_domain_name }}"
+    scheme: http

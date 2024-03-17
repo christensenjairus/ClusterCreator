@@ -7,16 +7,17 @@
   tasks:
     - name: Check if Groundcover is already installed
       ansible.builtin.stat:
-        path: "{{ cluster_config.ssh_home }}/.groundcover/bin/groundcover"
+        path: "{{ cluster_config.ssh.ssh_home }}/.groundcover/bin/groundcover"
       register: groundcover_bin
       become: true
       tags:
         - install_groundcover_cli
-      when: cluster_config.groundcover_enable
+#      when: cluster_config.groundcover_enabled == "true"
 
     - name: Execute the Groundcover install script
       ansible.builtin.shell: "curl -fsSL https://groundcover.com/install.sh | bash"
-      when: cluster_config.groundcover_enable and not groundcover_bin.stat.exists
+#      when: cluster_config.groundcover_enabled == "true" and not groundcover_bin.stat.exists
+      when: not groundcover_bin.stat.exists
       tags:
         - install_groundcover_cli
 
@@ -26,11 +27,11 @@
           ********************************************************************************
           In another terminal, run the following command:
     
-          ssh {{ cluster_config.ssh_user }}@{{ ansible_host }} '$HOME/.groundcover/bin/groundcover auth login'
+          ssh {{ cluster_config.ssh.ssh_user }}@{{ ansible_host }} '$HOME/.groundcover/bin/groundcover auth login'
     
           Press enter here once you have completed the authentication process.
           ********************************************************************************
-      when: cluster_config.groundcover_enable
+#      when: cluster_config.groundcover_enabled == "true"
       tags:
         - deploy_groundcover
 
@@ -38,7 +39,7 @@
       ansible.builtin.template:
         src: "helpers/groundcover_values.yaml.j2"
         dest: "/tmp/groundcover.yaml"
-      when: cluster_config.groundcover_enable
+#      when: cluster_config.groundcover_enabled
       tags:
         - deploy_groundcover
 
@@ -46,6 +47,6 @@
       ansible.builtin.shell: "$HOME/.groundcover/bin/groundcover deploy --yes -f /tmp/groundcover.yaml"
       register: deploy_output
       changed_when: "'Deployment succeeded' in deploy_output.stdout"
-      when: cluster_config.groundcover_enable
+#      when: cluster_config.groundcover_enabled == "true"
       tags:
         - deploy_groundcover

@@ -1,0 +1,75 @@
+---
+- name: Deploy Local StorageClasses
+  hosts: kube_api_servers[0]
+  gather_facts: false
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    default_storage_class_name: "local-path"
+  tasks:
+    - name: Generate Non-Auto-Provisioning Local StorageClass Yaml
+      ansible.builtin.template:
+        src: helpers/local_storageclass.yaml.j2
+        dest: "/tmp/local_storageclass.yaml"
+    - name: Create Non-Auto-Provisioning Local StorageClass
+      ansible.builtin.command:
+        cmd: kubectl apply -f /tmp/local_storageclass.yaml
+
+    - name: Create Auto-Provisioning Local StorageClass
+      ansible.builtin.command:
+        cmd: kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v{{ cluster_config.local_path_provisioner.local_path_provisioner_version }}/deploy/local-path-storage.yaml
+
+    - name: Get all storage classes
+      kubernetes.core.k8s_info:
+        api_version: storage.k8s.io/v1
+        kind: StorageClass
+      register: storage_classes
+    - name: Remove default annotation from all storage classes
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: storage.k8s.io/v1
+          kind: StorageClass
+          metadata:
+            name: "{{ item.metadata.name }}"
+            annotations:
+              storageclass.kubernetes.io/is-default-class: "false"
+      loop: "{{ storage_classes.resources }}"
+      when: "'storageclass.kubernetes.io/is-default-class' in item.metadata.annotations and item.metadata.annotations['storageclass.kubernetes.io/is-default-class'] == 'true'"
+      loop_control:
+        label: "{{ item.metadata.name }}"
+
+- name: Set Default StorageClass
+  hosts: kube_api_servers[0]
+  gather_facts: false
+  vars:
+    default_storage_class_name: "local-path"
+  tasks:
+    - name: Get all storage classes
+      kubernetes.core.k8s_info:
+        api_version: storage.k8s.io/v1
+        kind: StorageClass
+      register: storage_classes
+    - name: Remove default annotation from all storage classes
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: storage.k8s.io/v1
+          kind: StorageClass
+          metadata:
+            name: "{{ item.metadata.name }}"
+            annotations:
+              storageclass.kubernetes.io/is-default-class: "false"
+      loop: "{{ storage_classes.resources }}"
+      when: "'storageclass.kubernetes.io/is-default-class' in item.metadata.annotations and item.metadata.annotations['storageclass.kubernetes.io/is-default-class'] == 'true'"
+      loop_control:
+        label: "{{ item.metadata.name }}"
+    - name: Set default storage class
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: storage.k8s.io/v1
+          kind: StorageClass
+          metadata:
+            name: "{{ default_storage_class_name }}"
+            annotations:
+              storageclass.kubernetes.io/is-default-class: "true"

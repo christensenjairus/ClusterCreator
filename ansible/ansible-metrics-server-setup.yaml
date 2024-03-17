@@ -5,13 +5,13 @@
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
   tasks:
-    - name: Ensure kubernetes Python package is installed for Python3
-      ansible.builtin.pip:
-        name: kubernetes
-        state: present
-        executable: pip
-      tags:
-        - k8s_python_package
+#    - name: Ensure kubernetes Python package is installed for Python3
+#      ansible.builtin.pip:
+#        name: kubernetes
+#        state: present
+#        executable: pip
+#      tags:
+#        - k8s_python_package
 
     - name: Calculate the count of non-API/ETCD servers
       set_fact:
@@ -24,13 +24,13 @@
     - name: Apply standard metrics-server manifest
       kubernetes.core.k8s:
         state: present
-        src: "https://github.com/kubernetes-sigs/metrics-server/releases/download/{{ cluster_config.metrics_server_version }}/components.yaml"
+        src: "https://github.com/kubernetes-sigs/metrics-server/releases/download/v{{ cluster_config.metrics_server.metrics_server_version }}/components.yaml"
       when: metrics_server_replica_count == "1"
 
     - name: Apply HA metrics-server manifest
       kubernetes.core.k8s:
         state: present
-        src: "https://github.com/kubernetes-sigs/metrics-server/releases/download/{{ cluster_config.metrics_server_version }}/high-availability-1.21+.yaml"
+        src: "https://github.com/kubernetes-sigs/metrics-server/releases/download/v{{ cluster_config.metrics_server.metrics_server_version }}/high-availability-1.21+.yaml"
       when: metrics_server_replica_count == "2"
 
     - name: Scale down metrics-server deployment to zero replicas

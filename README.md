@@ -6,6 +6,14 @@ This project will assist you in automating the creation of k8s clusters on Proxm
 
 Terraform & Ansible automate to create external etcd K8S clusters. Terraform creates the VMs and VLANs, and Ansible installs Kubernetes as well as various add-ons for networking, monitoring, storage, and observability.
 
+The `create_template.sh` script will create a cloud-init ready virtual machine template for Terraform to use. The template VM includes...
+* Install apt packages kubeadm, kubelet, kubectl, helm, containerd, nfs tools, iscsi-tools, qemu-guest-agent, mysql-client, etc
+* Installed from source packages cilium cli, hubble cli, cni plugins, etcdctl and vtctldclient
+* Updates to operating system
+* Various necessary system configurations for k8s, like kernel modules and sysctl settings
+* Multipath configuration for Longhorn
+* Supports both Ubuntu and Debian images
+
 The Terraform cluster configurations allow for
 * Optional external etcd cluster
 * Optional Proxmox pool configuration
@@ -16,12 +24,16 @@ The Terraform cluster configurations allow for
 * Custom node IPs
 * Custom proxmox tags
 
-The Ansible playbooks are dynamic to whatever node counts you define. The ansible playbooks include configuration and installation of
+The base Ansible playbooks are dynamic to whatever node counts you define. The Ansible playbooks include configuration and installation of
 * External ETCD cluster (optional)
 * Highly available control plane using Kube-VIP
-* Containerd CRI
-* Cilium CNI with L2 ARP announcements, networking encryption, and Hubble UI (with basic-auth ingress) (replacing kube-router, providing eBPF)
-* Cluster mesh (optional)
+* Cilium CNI with L2 ARP announcements, networking encryption, optional clustermesh, and Hubble UI (replacing kube-router, providing eBPF)
+* Gateway API CRDs
+* Node labeling
+* Auto-Provisioning Local StorageClass (rancher) (set as default storageclass)
+* Non-Auto-Provisioning Local StorageClass (k8s built-in)
+
+The Ansible playbooks are dynamic to whatever node counts you define. The Ansible playbooks include configuration and installation of
 * K8S metrics server
 * Vertical pod autoscaler
 * Cert-manager with Lets-Encrypt production and staging clusterissuers
@@ -30,15 +42,14 @@ The Ansible playbooks are dynamic to whatever node counts you define. The ansibl
 * Kube-state-metrics
 * Prometheus (with basic-auth ingress)
 * Grafana (with basic-auth ingress)
-* Longhorn distributed block storage (with ingress and with ephemeral storage class)
+* Longhorn distributed block storage (with ingress and with ephemeral storage class) (set as default storageclass)
 * Groundcover dashboard (optional)
 * Newrelic monitoring (optional)
 * Kubernetes Dashboard (with basic-auth ingress)
-* Node labeling
-* Gateway API CRDs
+* Hubble UI basic-auth ingress
 
 ## Dynamic configurations
-The dynamic nature of terraform + ansible allows the following
+The dynamic nature of terraform + Ansible allows the following
 * 1 - ∞ control plane nodes
 * 0 - ∞ etcd nodes
 * 0 - ∞ worker nodes of different classes. The 'classes' are defined by name, cpu, memory, and disk requirements.
@@ -51,7 +62,7 @@ The dynamic nature of terraform + ansible allows the following
   * 1 control plane node
     * 16 cores, 16GB RAM, 100GB disk
 
-*Note: Having less than 1 worker node will make ansible untaint the control plane node(s), allowing it to run workloads.*
+*Note: Having less than 1 worker node will make Ansible untaint the control plane node(s), allowing it to run workloads.*
 
 ##### Add worker nodes of varying types for different workload needs.
 
@@ -77,9 +88,9 @@ The dynamic nature of terraform + ansible allows the following
   * 2 worker nodes of class `backup`
     * 2 cores, 2GB RAM, 100GB disk
   * 3 worker nodes of class `db`
-    * 8 cores, 4GB RAM, 50GB disk
+    * 4 cores, 8GB RAM, 50GB disk
   * 5 worker nodes of class `general`
-    * 16 cores, 4GB RAM, 100GB disk
+    * 8 cores, 4GB RAM, 100GB disk
 
 *Note: If you add a new worker class, you will need to edit `ansible/helpers/ansible-hosts.txt.j2` to account for it so that it is added to `ansible/tmp/ansible-hosts.txt` at runtime.*
 
@@ -91,16 +102,17 @@ The dynamic nature of terraform + ansible allows the following
   * 5 worker nodes of class `backup`
   * 15 worker nodes of class `db`
   * 20 worker nodes of class `general`
-  * 5 worker nodes of class `sandbox` # new class
-  * 5 worker nodes of class `fedramp` # new class
+  * 5 worker nodes of class `sandbox` # possible new class
+  * 5 worker nodes of class `fedramp` # possible new class
 
 ## Configuration/Secrets Files
 Create the following two files.
 
 ### For terraform
 See [here](https://registry.terraform.io/providers/bpg/proxmox/latest/docs#api-token-authentication) for info on how to get a proxmox user and api token set up for this.
+##### `secrets.tf`
+Placed in topmost directory
 ```tf
-# secrets.tf (placed in topmost directory)
 variable "vm_username" {
     default = "<username here>"
 }
@@ -125,33 +137,27 @@ variable "unifi_password" {
 ```
 
 ### For the proxmox bash scripts
+##### `.env`
+Placed in topmost directory.
 ```bash
-### .env (placed in topmost directory)
-VM_USERNAME="<username_here>"                 # username for all proxmox VMs managed by terraform
-VM_PASSWORD="<password_here>"                 # user password for all proxmox VMs managed by terraform
-NON_PASSWORD_PROTECTED_SSH_KEY="id_rsa"       # assumed that this is in ~/.ssh/ and the .pub file is named similarly
+# Secrets for ./create_template.sh and ./install_k8s.sh
+VM_USERNAME="<username_here>"                 # username for all k8s_vm_template VMs managed by terraform
+VM_PASSWORD="<password_here>"                 # user password for all k8s_vm_template VMs managed by terraform
+
+# Secrets for ./install_k8s_addons.sh. All must be defined, but do not have to be valid.
 GLOBAL_CLOUDFLARE_API_KEY="<api_key_here>"    # used if you have a cloudflare domain for cert-manager clusterissuers
 NEWRELIC_LICENSE_KEY="<license_key_here>"     # used if you want to monitor your cluster with newrelic
+SLACK_BOT_TOKEN="xoxb-<rest_of_token_here>"   # used if you want to send alertmanager alerts to slack. Bot must already be in channel.
 INGRESS_BASIC_AUTH_USERNAME="<username_here>" # used to secure your ingresses
-INGRESS_BASIC_AUTH_PASSWORD="<password_here"  # used to secure your ingresses
-PROXMOX_USERNAME=root
-PROXMOX_HOST="10.0.0.100"
-PROXMOX_ISO_PATH="/var/lib/pve/local-btrfs/template/iso/"
-IMAGE_NAME="jammy-server-cloudimg-amd64.img" # normally the kvm.img would be fine, but cilium needs a full kernel for eBPF
-IMAGE_LINK="https://cloud-images.ubuntu.com/jammy/current/${IMAGE_NAME}"
-TIMEZONE="America/Denver"
-TEMPLATE_VM_ID=9000
-TEMPLATE_VM_GATEWAY="10.0.0.1"
-TEMPLATE_VM_IP="10.0.0.10/24"
-TEMPLATE_VM_SEARCH_DOMAIN="lan"
-TWO_DNS_SERVERS="1.1.1.1 1.0.0.1"
+INGRESS_BASIC_AUTH_PASSWORD="<password_here>" # used to secure your ingresses
 ```
 
 ### Other files that need editing
-The other configuration files, listed below, need to be looked through and tweaked to your needs. Much of the information in these files is redundant to the .env file. Change both.
+The other configuration files, listed below, need to be looked through and tweaked to your needs.
+* `k8s.env` holds versions of k8s and other software as well as the template vm configuration.
 * `vars.tf` holds non-sensitive info for terraform.
-* `clusters.tf` holds the cluster configurations. You will need edit this to your needs!
-* `main.tf` holds vm configurations.
+* `clusters.tf` holds the cluster configurations.
+* `main.tf` holds vm/vlan/pool terraform resources.
 
 ## Usage
 
@@ -159,12 +165,13 @@ The other configuration files, listed below, need to be looked through and tweak
 ```bash
 ./create_template.sh
 ```
-This will ssh into proxmox and create you a cloud-init ready template.
+This will ssh into proxmox and create you a cloud-init ready template. This template is based on the files found in `k8s_vm_template`, `.env`, and `k8s.env`. The vm that is created will start for few minutes install all the necessary packages, then will reset the cloud-init configuration and shut down. The packages installed include containerd, runc, kubeadm, kubelet, kubectl, etcdctl, cilium cli, hubble cli, helm, and other necessary system packages.
 
 ### Initialize Terraform
 ```bash
 terraform init
 ```
+This only has to be done once to initialize the terraform modules.
 
 ### Create your cluster's Terraform workspace
 ```bash
@@ -174,34 +181,39 @@ This will ensure that your terraform commands only work on the cluster of your c
 
 ### Create the VMs with Terraform
 ```bash
-terraform apply [--auto-approve]
+terraform apply [--auto-approve] [-var="template_vm_id=<vm_id>"]
 ``` 
-This will clone the template using terraform, create a VLAN in Unifi, and the cluster specifications. This will also create a file called `ansible/tmp/<cluster_name>/cluster_config.json` that tells ansible how the cluster should be configured.
+This will clone the template using terraform and set cloud-init parameters, as well as create a pool in proxmox, create a VLAN in Unifi, and create the cluster specifications file `ansible/tmp/<cluster_name>/cluster_config.json`. The cluster config file tells Ansible how the cluster should be configured. Default template_vm_id is 9000. 
 
 ### Install K8S with Ansible
 ```bash
-./create_cluster.sh --cluster_name <full_cluster_name>
+./install_k8s.sh --cluster_name <full_cluster_name>
 ```
-This will run a series of ansible playbooks to create the cluster. This is independent of the Terraform workspace and uses the `cluster_config.json` file and creates its own `ansible-hosts.txt` file based on the cluster configuration.
+This will run a series of Ansible playbooks to create a fresh, minimal cluster. This is independent of the Terraform workspace and uses the `cluster_config.json` file and creates its own `ansible-hosts.txt` file based on the cluster configuration.
 
-### Run Ansible playbooks one at a time
+### Install K8S Addons with Ansible
 ```bash
-cd ansible
-ansible-playbook -i tmp/$CLUSTER_NAME/ansible-hosts.txt -u $VM_USERNAME <ansible-playbook-name>.yaml
-````
-Normally all playbooks are run in `./install_k8s.sh`, but you can run them individually if you want to see the output or if you want to run them one at a time. The hosts file has the configuration needed for your cluster, including the cluster name. You should always run these from inside the ansible folder because of various relative paths.
+./install_k8s_addons.sh --cluster_name <full_cluster_name>
+```
+This will guide you through the addons you could install with Ansible. These include features like an ingress controller, metrics server, monitoring, distributed storage, etc.
 
 ### Uninstall K8S with Ansible
 ```bash
 ./uninstall_k8s.sh --cluster_name <full_cluster_name>
 ```
-This will run an ansible playbook to remove k8s the virtual machines.
+This will run an Ansible playbook to reset k8s.
 
 ### Destroy the VMs with Terraform
 ```bash
 terraform destroy [--auto-approve]
 ```
-This will remove the VMs and VLAN from Unifi.
+This will remove the VMs, Pool, and VLAN.
+
+### Power on/off your cluster
+```bash
+./pool_powerctl.sh [--start/--stop] <POOL_NAME> [--timeout <timeout_in_seconds>]
+```
+This will power on or off the VMs in the specified pool. The timeout is optional and defaults to 300 seconds.
 
 ### Installation Errors
 `terraform apply` may exit with errors because it is difficult for Proxmox to clone the same template over and over. You may need to run `terraform apply` a few times with larger clusters because of this. Proxmox may also need help if it says that configs already exist or if a VM is not responding. In the worst case scenario, you could manually delete all the VMs, the pool, and the VLAN, and start over.
@@ -237,6 +249,9 @@ kubectl get secret <kube_dashboard_user> -n kubernetes-dashboard -o jsonpath={".
 ```
 
 ## Final Product
+### Proxmox Pools with VMs Managed by Terraform
+![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/2857b24a-eaa5-4951-8b5b-9a9ce358e797)
+
 ### A Unifi Network with VLAN Managed by Terraform
 ![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/7529eb65-7aa3-478d-a46f-ff1bafa6c45f)
 

@@ -2,7 +2,10 @@
 
 set -a # automatically export all variables
 source .env
+source k8s.env
 set +a # stop automatically exporting
+
+echo "Creating k8s template vm with id: $TEMPLATE_VM_ID"
 
 required_vars=(
   "VM_USERNAME"
@@ -14,10 +17,23 @@ required_vars=(
   "IMAGE_LINK"
   "TIMEZONE"
   "TEMPLATE_VM_ID"
+  "TEMPLATE_VM_NAME"
+  "TEMPLATE_DISK_SIZE"
   "TEMPLATE_VM_GATEWAY"
   "TEMPLATE_VM_IP"
   "TEMPLATE_VM_SEARCH_DOMAIN"
   "TWO_DNS_SERVERS"
+  "CONTAINERD_VERSION"
+  "CNI_PLUGINS_VERSION"
+  "CILIUM_CLI_VERSION"
+  "HUBBLE_CLI_VERSION"
+  "HELM_VERSION"
+  "ETCDCTL_VERSION"
+  "VITESS_VERSION"
+  "VITESS_DOWNLOAD_FILENAME"
+  "KUBERNETES_SHORT_VERSION"
+  "KUBERNETES_MEDIUM_VERSION"
+  "KUBERNETES_LONG_VERSION"
 )
 
 # Check if each required environment variable is set
@@ -30,6 +46,7 @@ done
 
 echo "All required environment variables are set."
 
-scp ./.env ./proxmox_scripts/create_template_helper.sh ~/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}.pub $PROXMOX_USERNAME@$PROXMOX_HOST:
-ssh $PROXMOX_USERNAME@$PROXMOX_HOST "chmod +x ./create_template_helper.sh && ./create_template_helper.sh"
-ssh $PROXMOX_USERNAME@$PROXMOX_HOST "rm .env create_template_helper.sh ${NON_PASSWORD_PROTECTED_SSH_KEY}.pub"
+scp -q -r ./k8s_vm_template $PROXMOX_USERNAME@$PROXMOX_HOST:
+scp -q -r ./.env ./k8s.env ~/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}.pub $PROXMOX_USERNAME@$PROXMOX_HOST:k8s_vm_template/
+ssh $PROXMOX_USERNAME@$PROXMOX_HOST "cd k8s_vm_template && chmod +x ./create_template_helper.sh && ./create_template_helper.sh"
+ssh $PROXMOX_USERNAME@$PROXMOX_HOST "rm -rf k8s_vm_template"

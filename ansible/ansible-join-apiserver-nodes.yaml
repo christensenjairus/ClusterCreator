@@ -1,0 +1,16 @@
+---
+- name: Join other control plane nodes to the cluster
+  hosts: kube_api_servers[1:]
+  any_errors_fatal: true
+  tasks:
+  - name: read control plane join command
+    set_fact:
+      join_command_local: "{{ lookup('file', 'tmp/{{ cluster_name }}/cp_join_command.sh') }}"
+    tags:
+      - kubeadm_join_cps
+
+  - name: join control plane agents to cluster
+    command: "{{ join_command_local }}"
+    become: true
+    tags:
+      - kubeadm_join_cps

@@ -37,26 +37,11 @@ spec:
       stop: "{{ load_balancer_ip_block_stop_2 }}"
 {% endif %}
 {% endif %}
-{% if load_balancer_ip_block_start_3 | default('') | trim %}
-{% if load_balancer_ip_block_stop_3 | default('') | trim %}
-    - start: "{{ load_balancer_ip_block_start_3 }}"
-      stop: "{{ load_balancer_ip_block_stop_3 }}"
-{% endif %}
-{% endif %}
 {% if load_balancer_ip_cidr_1 | default('') | trim %}
     - cidr: "{{ load_balancer_ip_cidr_1 }}"
 {% endif %}
 {% if load_balancer_ip_cidr_2 | default('') | trim %}
     - cidr: "{{ load_balancer_ip_cidr_2 }}"
-{% endif %}
-{% if load_balancer_ip_cidr_3 | default('') | trim %}
-    - cidr: "{{ load_balancer_ip_cidr_3 }}"
-{% endif %}
-{% if load_balancer_ip_cidr_4 | default('') | trim %}
-    - cidr: "{{ load_balancer_ip_cidr_4 }}"
-{% endif %}
-{% if load_balancer_ip_cidr_5 | default('') | trim %}
-    - cidr: "{{ load_balancer_ip_cidr_5 }}"
 {% endif %}
   serviceSelector:
     matchLabels:

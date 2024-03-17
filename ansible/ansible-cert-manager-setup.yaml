@@ -5,6 +5,11 @@
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
   tasks:
+    - name: Install ServiceMonitor & PrometheusRule CRDs
+      ansible.builtin.shell: |
+        kubectl apply -f https://raw.githubusercontent.com/prometheus-community/helm-charts/kube-prometheus-stack-{{ cluster_config.kube_prometheus_stack.kube_prometheus_stack_version }}/charts/kube-prometheus-stack/charts/crds/crds/crd-servicemonitors.yaml
+        kubectl apply -f https://raw.githubusercontent.com/prometheus-community/helm-charts/kube-prometheus-stack-{{ cluster_config.kube_prometheus_stack.kube_prometheus_stack_version }}/charts/kube-prometheus-stack/charts/crds/crds/crd-prometheusrules.yaml
+
     - name: Generate cert-manager configuration from template
       ansible.builtin.template:
         src: "helpers/cert_manager.yaml.j2"
@@ -29,7 +34,7 @@
         cmd: >
           helm upgrade --install cert-manager jetstack/cert-manager
           --namespace cert-manager --create-namespace
-          --version "{{ cluster_config.cert_manager_chart_version }}"
+          --version "v{{ cluster_config.cert_manager.cert_manager_chart_version }}"
           -f /tmp/cert-manager.yaml
 
     - name: Apply ClusterIssuers and Secret configuration

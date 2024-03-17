@@ -24,10 +24,18 @@ controller:
   ingressClassResource:
     name: "{{ nginx_class_name }}"
     default: {{ is_default_class }}
+    controllerValue: "k8s.io/{{ nginx_class_name }}"
   ingressClass: "{{ nginx_class_name }}"
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1024Mi
+    requests:
+      cpu: 500m
+      memory: 512Mi
   autoscaling:
     enabled: true
-    minReplicas: 1
+    minReplicas: "{{ minimum_hpa_replica_count }}"
     maxReplicas: 10
     targetCPUUtilizationPercentage: 50
     targetMemoryUtilizationPercentage: 50

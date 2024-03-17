@@ -5,14 +5,14 @@ metadata:
   namespace: cert-manager
 spec:
   acme:
-    email: {{ cluster_config.cert_manager_email }}
+    email: {{ cluster_config.cert_manager.cert_manager_email }}
     server: https://acme-v02.api.letsencrypt.org/directory # Letsencrypt Production
     privateKeySecretRef:
       name: acme-issuer-account-key
     solvers:
     - dns01:
         cloudflare:
-          email: {{ cluster_config.cert_manager_email }}
+          email: {{ cluster_config.cert_manager.cert_manager_email }}
           apiKeySecretRef:
             name: cloudflare-api-key-secret
             key: api-key
@@ -24,14 +24,14 @@ metadata:
   namespace: cert-manager
 spec:
   acme:
-    email: {{ cluster_config.cert_manager_email }}
+    email: {{ cluster_config.cert_manager.cert_manager_email }}
     server: https://acme-staging-v02.api.letsencrypt.org/directory # Letsencrypt Staging
     privateKeySecretRef:
       name: acme-issuer-account-key
     solvers:
     - dns01:
         cloudflare:
-          email: {{ cluster_config.cert_manager_email }}
+          email: {{ cluster_config.cert_manager.cert_manager_email }}
           apiKeySecretRef:
             name: cloudflare-api-key-secret
             key: api-key

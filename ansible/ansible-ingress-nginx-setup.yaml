@@ -4,9 +4,9 @@
   gather_facts: false
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
-    nginx_controller_external_ip: "{{ cluster_config.nginx_controller_external_ip }}"
-    nginx_controller_internal_ip: "{{ cluster_config.nginx_controller_internal_ip }}"
-    ingress_nginx_chart_version: "{{ cluster_config.ingress_nginx_chart_version }}"
+    nginx_controller_external_ip: "{{ cluster_config.ingress_nginx.nginx_controller_external_ip }}"
+    nginx_controller_internal_ip: "{{ cluster_config.ingress_nginx.nginx_controller_internal_ip }}"
+    ingress_nginx_chart_version: "{{ cluster_config.ingress_nginx.ingress_nginx_chart_version }}"
   tags:
     - install-ingress-nginx
 
@@ -22,6 +22,19 @@
         cmd: helm repo update
       args:
         executable: /bin/bash
+
+    - name: Install ServiceMonitor & PrometheusRule CRDs
+      ansible.builtin.shell: |
+        kubectl apply -f https://raw.githubusercontent.com/prometheus-community/helm-charts/kube-prometheus-stack-{{ cluster_config.kube_prometheus_stack.kube_prometheus_stack_version }}/charts/kube-prometheus-stack/charts/crds/crds/crd-servicemonitors.yaml
+        kubectl apply -f https://raw.githubusercontent.com/prometheus-community/helm-charts/kube-prometheus-stack-{{ cluster_config.kube_prometheus_stack.kube_prometheus_stack_version }}/charts/kube-prometheus-stack/charts/crds/crds/crd-prometheusrules.yaml
+
+    - name: Calculate the count of non-API/ETCD servers
+      set_fact:
+        non_api_etcd_server_count: "{{ groups['all'] | length - (groups['kube_api_servers'] | default([]) | length + groups['kube_etcd_servers'] | default([]) | length) }}"
+
+    - name: Determine if needing HA based on non-API/ETCD server count
+      set_fact:
+        minimum_hpa_replica_count: "{{ 1 if non_api_etcd_server_count <= \"1\" else 2 }}"
 
     - name: Generate ingress-nginx Helm values file (external)
       vars:

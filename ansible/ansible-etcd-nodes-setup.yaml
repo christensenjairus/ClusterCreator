@@ -176,14 +176,14 @@
   tasks:
     - name: Remove the PKI directory if it exists
       ansible.builtin.file:
-        path: "{{ cluster_config.ssh_home }}/pki"
+        path: "{{ cluster_config.ssh.ssh_home }}/pki"
         state: absent
       become: true
       tags:
         - etcd_cert_copy
     - name: Remove the kubeadmcfg.yaml file if it exists
       ansible.builtin.file:
-        path: "{{ cluster_config.ssh_home }}/kubeadmcfg.yaml"
+        path: "{{ cluster_config.ssh.ssh_home }}/kubeadmcfg.yaml"
         state: absent
       become: true
       tags:
@@ -220,7 +220,7 @@
         - etcd_cert_copy
     - name: Copy PKI directory to each etcd node
       ansible.builtin.shell:
-        cmd: "scp -i /root/.ssh/ssh_key -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /tmp/{{ item }}/* {{ cluster_config.ssh_user }}@{{ item }}:~/"
+        cmd: "scp -i /root/.ssh/ssh_key -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /tmp/{{ item }}/* {{ cluster_config.ssh.ssh_user }}@{{ item }}:~/"
       loop: "{{ groups['kube_etcd_servers'][1:] }}"
       become: true
       tags:
@@ -235,19 +235,19 @@
   tasks:
     - name: Set correct permissions for PKI files and directories
       ansible.builtin.shell: |
-        find {{ cluster_config.ssh_home }}/pki -type f -exec chmod 600 {} \;
+        find {{ cluster_config.ssh.ssh_home }}/pki -type f -exec chmod 600 {} \;
       tags:
         - etcd_cert_copy
     - name: Ensure root ownership of the PKI directory
       ansible.builtin.file:
-        path: "{{ cluster_config.ssh_home }}/pki"
+        path: "{{ cluster_config.ssh.ssh_home }}/pki"
         owner: root
         group: root
         recurse: true
       tags:
         - etcd_cert_copy
     - name: Move PKI directory to /etc/kubernetes
-      ansible.builtin.command: "mv -f {{ cluster_config.ssh_home }}/pki /etc/kubernetes/"
+      ansible.builtin.command: "mv -f {{ cluster_config.ssh.ssh_home }}/pki /etc/kubernetes/"
       become: true
       tags:
         - etcd_cert_copy
@@ -270,7 +270,7 @@
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
   tasks:
     - name: Initialize etcd with specific configuration
-      ansible.builtin.command: sudo kubeadm init phase etcd local --config={{ cluster_config.ssh_home }}/kubeadmcfg.yaml
+      ansible.builtin.command: sudo kubeadm init phase etcd local --config={{ cluster_config.ssh.ssh_home }}/kubeadmcfg.yaml
       become: true
       tags:
         - etcd_init
@@ -284,21 +284,21 @@
   tasks:
     - name: Copy ca.crt to the control plane node
       ansible.builtin.shell:
-        cmd: "scp -i /root/.ssh/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /etc/kubernetes/pki/etcd/ca.crt {{ cluster_config.ssh_user }}@{{ groups['kube_api_servers'][0] }}:/home/{{ cluster_config.ssh_user }}/ca.crt"
+        cmd: "scp -i /root/.ssh/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /etc/kubernetes/pki/etcd/ca.crt {{ cluster_config.ssh.ssh_user }}@{{ groups['kube_api_servers'][0] }}:{{ cluster_config.ssh.ssh_home }}/ca.crt"
       become: true
       when: groups['kube_etcd_servers'] | default([]) | length > 0
       tags:
         - kubeadm_config_copy
     - name: Copy apiserver-etcd-client.crt to the control plane node
       ansible.builtin.shell:
-        cmd: "scp -i /root/.ssh/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /etc/kubernetes/pki/apiserver-etcd-client.crt {{ cluster_config.ssh_user }}@{{ groups['kube_api_servers'][0] }}:/home/{{ cluster_config.ssh_user }}/apiserver-etcd-client.crt"
+        cmd: "scp -i /root/.ssh/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /etc/kubernetes/pki/apiserver-etcd-client.crt {{ cluster_config.ssh.ssh_user }}@{{ groups['kube_api_servers'][0] }}:{{ cluster_config.ssh.ssh_home }}/apiserver-etcd-client.crt"
       become: true
       when: groups['kube_etcd_servers'] | default([]) | length > 0
       tags:
         - kubeadm_config_copy
     - name: Copy apiserver-etcd-client.key to the control plane node
       ansible.builtin.shell:
-        cmd: "scp -i /root/.ssh/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /etc/kubernetes/pki/apiserver-etcd-client.key {{ cluster_config.ssh_user }}@{{ groups['kube_api_servers'][0] }}:/home/{{ cluster_config.ssh_user }}/apiserver-etcd-client.key"
+        cmd: "scp -i /root/.ssh/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /etc/kubernetes/pki/apiserver-etcd-client.key {{ cluster_config.ssh.ssh_user }}@{{ groups['kube_api_servers'][0] }}:{{ cluster_config.ssh.ssh_home }}/apiserver-etcd-client.key"
       become: true
       when: groups['kube_etcd_servers'] | default([]) | length > 0
       tags:
@@ -324,21 +324,21 @@
         - kubeadm_config_copy
     - name: Move apiserver-etcd-client.crt and apiserver-etcd-client.key to /etc/kubernetes/pki
       ansible.builtin.shell:
-        cmd: sudo mv {{ cluster_config.ssh_home }}/apiserver-etcd-client.crt {{ cluster_config.ssh_home }}/apiserver-etcd-client.key /etc/kubernetes/pki/
+        cmd: sudo mv {{ cluster_config.ssh.ssh_home }}/apiserver-etcd-client.crt {{ cluster_config.ssh.ssh_home }}/apiserver-etcd-client.key /etc/kubernetes/pki/
       become: true
       when: groups['kube_etcd_servers'] | default([]) | length > 0
       tags:
         - kubeadm_config_copy
     - name: Move ca.crt to /etc/kubernetes/pki/etcd
       ansible.builtin.shell:
-        cmd: sudo mv {{ cluster_config.ssh_home }}/ca.crt /etc/kubernetes/pki/etcd/
+        cmd: sudo mv {{ cluster_config.ssh.ssh_home }}/ca.crt /etc/kubernetes/pki/etcd/
       become: true
       when: groups['kube_etcd_servers'] | default([]) | length > 0
       tags:
         - kubeadm_config_copy
     - name: Clean up etcd folder
       ansible.builtin.file:
-        path: "{{ cluster_config.ssh_home }}/etcd"
+        path: "{{ cluster_config.ssh.ssh_home }}/etcd"
         state: absent
       become: true
       when: groups['kube_etcd_servers'] | default([]) | length > 0
@@ -358,61 +358,61 @@
       tags:
         - remove_ssh_key
 
-- name: Install Etcdctl
-  hosts: kube_etcd_servers
-  any_errors_fatal: true
-  gather_facts: false
-  vars:
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
-  tags:
-    - etcd_install_etcdctl
-  tasks:
-    - name: Check if etcdctl is already installed
-      ansible.builtin.stat:
-        path: /usr/local/bin/etcdctl
-      register: etcdctl_exists
-      become: true
-    - name: Download etcdctl
-      ansible.builtin.get_url:
-        url: "https://github.com/etcd-io/etcd/releases/download/v{{ cluster_config.etcdctl_version }}/etcd-v{{ cluster_config.etcdctl_version }}-linux-amd64.tar.gz"
-        dest: "/tmp/etcd-v{{ cluster_config.etcdctl_version }}-linux-amd64.tar.gz"
-      when: not etcdctl_exists.stat.exists
-    - name: Ensure directory is available for unzip
-      ansible.builtin.file:
-        path: "/tmp/etcd-v{{ cluster_config.etcdctl_version }}-linux-amd64"
-        state: directory
-      become: false
-      when: not etcdctl_exists.stat.exists
-    - name: Extract etcdctl
-      ansible.builtin.unarchive:
-        src: "/tmp/etcd-v{{ cluster_config.etcdctl_version }}-linux-amd64.tar.gz"
-        dest: "/tmp/etcd-v{{ cluster_config.etcdctl_version }}-linux-amd64"
-        remote_src: yes
-        extra_opts: [--strip-components=1]
-      when: not etcdctl_exists.stat.exists
-    - name: Install etcdctl binary
-      ansible.builtin.command:
-        cmd: "sudo install -o root -g root -m 0755 /tmp/etcd-v{{ cluster_config.etcdctl_version }}-linux-amd64/etcdctl /usr/local/bin/etcdctl"
-      become: true
-      when: not etcdctl_exists.stat.exists
-    - name: Install etcdutl binary
-      ansible.builtin.command:
-        cmd: "sudo install -o root -g root -m 0755 /tmp/etcd-v{{ cluster_config.etcdctl_version }}-linux-amd64/etcdutl /usr/local/bin/etcdutl"
-      become: true
-      when: not etcdctl_exists.stat.exists
-    - name: Clean up downloaded and extracted files
-      ansible.builtin.file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - "/tmp/etcd-v{{ cluster_config.etcdctl_version }}-linux-amd64.tar.gz"
-        - "/tmp/etcd-v{{ cluster_config.etcdctl_version }}-linux-amd64"
-      become: true
-      when: not etcdctl_exists.stat.exists
-    - name: Pause for 30s to give etcd cluster time to start
-      ansible.builtin.pause:
-        seconds: 30
-      when: not etcdctl_exists.stat.exists
+#- name: Install Etcdctl
+#  hosts: kube_etcd_servers
+#  any_errors_fatal: true
+#  gather_facts: false
+#  vars:
+#    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+#  tags:
+#    - etcd_install_etcdctl
+#  tasks:
+#    - name: Check if etcdctl is already installed
+#      ansible.builtin.stat:
+#        path: /usr/local/bin/etcdctl
+#      register: etcdctl_exists
+#      become: true
+#    - name: Download etcdctl
+#      ansible.builtin.get_url:
+#        url: "https://github.com/etcd-io/etcd/releases/download/v{{ cluster_config.etcdctl_version }}/etcd-v{{ cluster_config.etcdctl_version }}-linux-amd64.tar.gz"
+#        dest: "/tmp/etcd-v{{ cluster_config.etcdctl_version }}-linux-amd64.tar.gz"
+#      when: not etcdctl_exists.stat.exists
+#    - name: Ensure directory is available for unzip
+#      ansible.builtin.file:
+#        path: "/tmp/etcd-v{{ cluster_config.etcdctl_version }}-linux-amd64"
+#        state: directory
+#      become: false
+#      when: not etcdctl_exists.stat.exists
+#    - name: Extract etcdctl
+#      ansible.builtin.unarchive:
+#        src: "/tmp/etcd-v{{ cluster_config.etcdctl_version }}-linux-amd64.tar.gz"
+#        dest: "/tmp/etcd-v{{ cluster_config.etcdctl_version }}-linux-amd64"
+#        remote_src: yes
+#        extra_opts: [--strip-components=1]
+#      when: not etcdctl_exists.stat.exists
+#    - name: Install etcdctl binary
+#      ansible.builtin.command:
+#        cmd: "sudo install -o root -g root -m 0755 /tmp/etcd-v{{ cluster_config.etcdctl_version }}-linux-amd64/etcdctl /usr/local/bin/etcdctl"
+#      become: true
+#      when: not etcdctl_exists.stat.exists
+#    - name: Install etcdutl binary
+#      ansible.builtin.command:
+#        cmd: "sudo install -o root -g root -m 0755 /tmp/etcd-v{{ cluster_config.etcdctl_version }}-linux-amd64/etcdutl /usr/local/bin/etcdutl"
+#      become: true
+#      when: not etcdctl_exists.stat.exists
+#    - name: Clean up downloaded and extracted files
+#      ansible.builtin.file:
+#        path: "{{ item }}"
+#        state: absent
+#      loop:
+#        - "/tmp/etcd-v{{ cluster_config.etcdctl_version }}-linux-amd64.tar.gz"
+#        - "/tmp/etcd-v{{ cluster_config.etcdctl_version }}-linux-amd64"
+#      become: true
+#      when: not etcdctl_exists.stat.exists
+#    - name: Pause for 30s to give etcd cluster time to start
+#      ansible.builtin.pause:
+#        seconds: 30
+#      when: not etcdctl_exists.stat.exists
 
 - name: Etcdctl healthcheck
   hosts: kube_etcd_servers[0]

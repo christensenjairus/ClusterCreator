@@ -33,19 +33,19 @@ locals {
     for cluster_name, cluster in var.clusters : [
       for node_class, specs in cluster.node_classes : [
         for i in range(specs.count) : {
-          cluster_name   = cluster_name
-          node_class     = node_class
-          index          = i
-          vm_id          = tonumber("${cluster.cluster_id}${specs.start_ip + i}")
-          cores          = specs.cores
-          sockets        = specs.sockets
-          memory         = specs.memory
-          disk_size      = specs.disk_size
-          vm_ip          = "${cluster.cluster_subnet}.${specs.start_ip + i}"
-          gateway        = "${cluster.cluster_subnet}.1"
-          dns1           = cluster.dns1
-          dns2           = cluster.dns2
-          vlan_id        = cluster.vlan_id
+          cluster_name       = cluster_name
+          node_class         = node_class
+          index              = i
+          vm_id              = tonumber("${cluster.cluster_id}${specs.start_ip + i}")
+          cores              = specs.cores
+          sockets            = specs.sockets
+          memory             = specs.memory
+          disk_size          = specs.disk_size
+          vm_ip              = "${cluster.host_networking.cluster_subnet}.${specs.start_ip + i}"
+          gateway            = "${cluster.host_networking.cluster_subnet}.1"
+          dns1               = cluster.host_networking.dns1
+          dns2               = cluster.host_networking.dns2
+          vlan_id            = cluster.host_networking.vlan_id
         }
       ]
     ]
@@ -73,14 +73,14 @@ resource "unifi_network" "vlan" {
   name    = "${upper(each.key)}-K8S" # Name the network based on the cluster name
   purpose = "corporate" # Must be one of corporate, guest, wan, or vlan-only.
 
-  subnet       = "${each.value.cluster_subnet}.0/24"
-  vlan_id      = each.value.vlan_id
-  dhcp_start   = "${each.value.cluster_subnet}.10"
-  dhcp_stop    = "${each.value.cluster_subnet}.99"
+  subnet       = "${each.value.host_networking.cluster_subnet}.0/24"
+  vlan_id      = each.value.host_networking.vlan_id
+  dhcp_start   = "${each.value.host_networking.cluster_subnet}.10"
+  dhcp_stop    = "${each.value.host_networking.cluster_subnet}.99"
   dhcp_enabled = true
   igmp_snooping = false
   multicast_dns = false
-  dhcp_dns = [each.value.dns1, each.value.dns2]
+  dhcp_dns = [each.value.host_networking.dns1, each.value.host_networking.dns2]
 }
 
 resource "proxmox_virtual_environment_pool" "operations_pool" {
@@ -105,13 +105,13 @@ resource "proxmox_virtual_environment_vm" "node" {
   depends_on = [proxmox_virtual_environment_pool.operations_pool]
   for_each = { for node in local.nodes : "${node.cluster_name}-${node.node_class}-${node.index}" => node }
 
-  description  = "Managed by Terraform - ${each.value.node_class}"
+  description  = "Managed by Terraform"
   vm_id = each.value.vm_id
   name = "${each.value.cluster_name}-k8s-${each.value.node_class}-${each.value.index}"
   tags = [
     "k8s",
     each.value.cluster_name,
-    each.value.node_class
+    each.value.node_class,
   ]
   node_name = var.proxmox_node_name
   clone {
@@ -170,7 +170,7 @@ resource "proxmox_virtual_environment_vm" "node" {
   network_device {
     vlan_id = each.value.vlan_id
   }
-  reboot = true # reboot after creation
+  reboot = false # Reboot is unnecessary. Already fully updated during template creation.
   migrate = true
   on_boot = true
   started = true
@@ -179,6 +179,7 @@ resource "proxmox_virtual_environment_vm" "node" {
     ignore_changes = [
       tags,
       description,
+      clone,
 #      initialization[0].interface,
 #      initialization[0].user_account,
 #      network_device,

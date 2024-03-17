@@ -5,22 +5,26 @@
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
   tasks:
-    - name: Stop kubelet service
-      ansible.builtin.systemd:
-        name: kubelet
-        state: stopped
-        enabled: no
+#    - name: Stop kubelet service
+#      ansible.builtin.systemd:
+#        name: kubelet
+#        state: stopped
+#        enabled: no
 
-    - name: Stop and delete all containerd containers
-      ansible.builtin.script: helpers/delete_containerd_containers.sh
-      args:
-        executable: /bin/bash
+#    - name: Stop and delete all containerd containers
+#      ansible.builtin.script: helpers/delete_containerd_containers.sh
+#      args:
+#        executable: /bin/bash
 
-    - name: Stop container runtime service (containerd used as an example)
-      ansible.builtin.systemd:
-        name: containerd
-        state: stopped
-        enabled: no
+#    - name: Stop containerd
+#      ansible.builtin.systemd:
+#        name: containerd
+#        state: stopped
+#        enabled: no
+
+    - name: Delete all PVCs and PVs
+      ansible.builtin.command: kubectl delete pvc --all --all-namespaces
+      ignore_errors: yes
 
     - name: Run kubeadm reset
       ansible.builtin.command:
@@ -39,16 +43,14 @@
       ansible.builtin.shell: ipvsadm --clear
       ignore_errors: yes
 
-    - name: Remove Kubernetes configuration directory
-      ansible.builtin.file:
-        path: /etc/kubernetes/
-        state: absent
-
-    - name: Delete manifests and pki files
+    - name: Delete k8s configurations
       ansible.builtin.file:
         path: "{{ item }}"
         state: absent
       with_items:
-        - "{{ cluster_config.ssh_home }}/.kube/"
-        - "{{ cluster_config.ssh_home }}/kubeadm-config.yaml"
-        - "{{ cluster_config.ssh_home }}/kubeadmcfg.yaml"
+        - "{{ cluster_config.ssh.ssh_home }}/.kube/"
+        - "{{ cluster_config.ssh.ssh_home }}/kubeadm-config.yaml"
+        - "{{ cluster_config.ssh.ssh_home }}/kubeadmcfg.yaml"
+        - /etc/kubernetes/
+        - /var/lib/etcd/
+        - /var/lib/kubelet/
