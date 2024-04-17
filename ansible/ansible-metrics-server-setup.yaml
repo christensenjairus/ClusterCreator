@@ -5,13 +5,6 @@
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
   tasks:
-#    - name: Ensure kubernetes Python package is installed for Python3
-#      ansible.builtin.pip:
-#        name: kubernetes
-#        state: present
-#        executable: pip
-#      tags:
-#        - k8s_python_package
 
     - name: Calculate the count of non-API/ETCD servers
       set_fact:

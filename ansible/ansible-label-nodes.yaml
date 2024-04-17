@@ -24,10 +24,6 @@
       loop: "{{ hosts_content.splitlines() }}"
       when: item | length > 0 and 'hostname=' in item and not item.startswith('#') and not 'labels=""' in item
 
-#    - name: Debug Nodes and Labels
-#      debug:
-#        var: nodes_and_labels
-
     - name: Apply Labels to Nodes
       ansible.builtin.command:
         cmd: "kubectl label nodes {{ item.hostname }} {{ item.labels | join(' ') }} --overwrite"

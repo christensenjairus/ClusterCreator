@@ -91,7 +91,7 @@ This will perform QEMU power control functions for the VMs in the specified pool
 This will run bash commands on the ansible host group you define. 'all' is the default group name. Multiple groups can be chained together with a comma and surrounding quotations.
 
 # Dynamic configurations
-The dynamic nature of tofu + Ansible allows the following
+The dynamic nature of OpenTofu + Ansible allows the following
 * 1 - ∞ control plane nodes
 * 0 - ∞ etcd nodes
 * 0 - ∞ worker nodes of different classes. The 'classes' are defined by name, cpu, memory, and disk requirements.
@@ -151,7 +151,7 @@ The dynamic nature of tofu + Ansible allows the following
 # Configuration/Secrets Files
 Create the following two files.
 
-## For tofu
+## For Tofu
 See [here](https://registry.terraform.io/providers/bpg/proxmox/latest/docs#api-token-authentication) for info on how to get a proxmox user and api token set up for this.
 #### `secrets.tf`
 Placed in topmost directory
@@ -208,3 +208,6 @@ If you do need to reset `./uninstall_k8s.sh` should work, but a full tofu rebuil
 
 ### A Unifi Network with VLAN Managed by Tofu
 ![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/7529eb65-7aa3-478d-a46f-ff1bafa6c45f)
+
+### Pods from Z1 Example Cluster
+

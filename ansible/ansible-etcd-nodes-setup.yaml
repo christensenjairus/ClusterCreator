@@ -358,62 +358,6 @@
       tags:
         - remove_ssh_key
 
-#- name: Install Etcdctl
-#  hosts: kube_etcd_servers
-#  any_errors_fatal: true
-#  gather_facts: false
-#  vars:
-#    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
-#  tags:
-#    - etcd_install_etcdctl
-#  tasks:
-#    - name: Check if etcdctl is already installed
-#      ansible.builtin.stat:
-#        path: /usr/local/bin/etcdctl
-#      register: etcdctl_exists
-#      become: true
-#    - name: Download etcdctl
-#      ansible.builtin.get_url:
-#        url: "https://github.com/etcd-io/etcd/releases/download/v{{ cluster_config.etcdctl_version }}/etcd-v{{ cluster_config.etcdctl_version }}-linux-amd64.tar.gz"
-#        dest: "/tmp/etcd-v{{ cluster_config.etcdctl_version }}-linux-amd64.tar.gz"
-#      when: not etcdctl_exists.stat.exists
-#    - name: Ensure directory is available for unzip
-#      ansible.builtin.file:
-#        path: "/tmp/etcd-v{{ cluster_config.etcdctl_version }}-linux-amd64"
-#        state: directory
-#      become: false
-#      when: not etcdctl_exists.stat.exists
-#    - name: Extract etcdctl
-#      ansible.builtin.unarchive:
-#        src: "/tmp/etcd-v{{ cluster_config.etcdctl_version }}-linux-amd64.tar.gz"
-#        dest: "/tmp/etcd-v{{ cluster_config.etcdctl_version }}-linux-amd64"
-#        remote_src: yes
-#        extra_opts: [--strip-components=1]
-#      when: not etcdctl_exists.stat.exists
-#    - name: Install etcdctl binary
-#      ansible.builtin.command:
-#        cmd: "sudo install -o root -g root -m 0755 /tmp/etcd-v{{ cluster_config.etcdctl_version }}-linux-amd64/etcdctl /usr/local/bin/etcdctl"
-#      become: true
-#      when: not etcdctl_exists.stat.exists
-#    - name: Install etcdutl binary
-#      ansible.builtin.command:
-#        cmd: "sudo install -o root -g root -m 0755 /tmp/etcd-v{{ cluster_config.etcdctl_version }}-linux-amd64/etcdutl /usr/local/bin/etcdutl"
-#      become: true
-#      when: not etcdctl_exists.stat.exists
-#    - name: Clean up downloaded and extracted files
-#      ansible.builtin.file:
-#        path: "{{ item }}"
-#        state: absent
-#      loop:
-#        - "/tmp/etcd-v{{ cluster_config.etcdctl_version }}-linux-amd64.tar.gz"
-#        - "/tmp/etcd-v{{ cluster_config.etcdctl_version }}-linux-amd64"
-#      become: true
-#      when: not etcdctl_exists.stat.exists
-#    - name: Pause for 30s to give etcd cluster time to start
-#      ansible.builtin.pause:
-#        seconds: 30
-#      when: not etcdctl_exists.stat.exists
-
 - name: Etcdctl healthcheck
   hosts: kube_etcd_servers[0]
   any_errors_fatal: true
@@ -422,6 +366,10 @@
   tags:
     - etcd_healthcheck
   tasks:
+    - name: Pause for 30s to give etcd cluster time to start
+      ansible.builtin.pause:
+        seconds: 30
+      when: not etcdctl_exists.stat.exists
     - name: Check health for each etcd endpoint
       ansible.builtin.shell: |
           ETCDCTL_API=3 etcdctl \

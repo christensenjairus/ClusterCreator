@@ -181,7 +181,7 @@ resource "proxmox_virtual_environment_vm" "node" {
       vlan_id = each.value.vlan_id
     }
   }
-  reboot = false # Reboot is unnecessary. Already fully updated during template creation.
+  reboot = true # reboot after initial install & update
   migrate = true
   on_boot = true
   started = true
