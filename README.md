@@ -209,5 +209,6 @@ If you do need to reset `./uninstall_k8s.sh` should work, but a full tofu rebuil
 ### A Unifi Network with VLAN Managed by Tofu
 ![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/7529eb65-7aa3-478d-a46f-ff1bafa6c45f)
 
-### Pods from Z1 Example Cluster
+### Z1 Example Cluster in K9s
+![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/15a6896a-86df-49bb-8a95-711f2847b950)
 
