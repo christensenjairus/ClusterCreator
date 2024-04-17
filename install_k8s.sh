@@ -69,4 +69,6 @@ ansible-playbook -i "tmp/${CLUSTER_NAME}/ansible-hosts.txt" -u $VM_USERNAME ansi
 cleanup_function
 
 echo ""
+echo "Remember to remove the annotation 'storageclass.kubernetes.io/is-default-class: \"true\"' from the local-path storageclass if you choose to use something else like Longhorn, Rook, OpenEBS, etc."
+echo ""
 echo "BASE CLUSTER COMPLETE"

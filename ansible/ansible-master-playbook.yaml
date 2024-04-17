@@ -7,6 +7,7 @@
 - import_playbook: ansible-join-worker-nodes.yaml
 - import_playbook: ansible-move-kubeconfig.yaml
 - import_playbook: ansible-cilium-setup.yaml
+- import_playbook: ansible-metrics-server-setup.yaml
 - import_playbook: ansible-local-storageclasses-setup.yaml
 - import_playbook: ansible-label-nodes.yaml
 - import_playbook: ansible-ending-output.yaml

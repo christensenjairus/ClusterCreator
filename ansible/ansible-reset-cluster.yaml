@@ -1,31 +1,20 @@
 ---
+- name: Delete PVCs and PVs
+  hosts: kube_api_servers[0]
+  tasks:
+    - name: Delete all PVCs
+      ansible.builtin.command: kubectl delete pvc --all --all-namespaces
+      ignore_errors: yes
+    - name: Delete all PVs
+      ansible.builtin.command: kubectl delete pv --all --all-namespaces
+      ignore_errors: yes
+
 - name: Reset Kubernetes Cluster
   hosts: all
   become: true
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
   tasks:
-#    - name: Stop kubelet service
-#      ansible.builtin.systemd:
-#        name: kubelet
-#        state: stopped
-#        enabled: no
-
-#    - name: Stop and delete all containerd containers
-#      ansible.builtin.script: helpers/delete_containerd_containers.sh
-#      args:
-#        executable: /bin/bash
-
-#    - name: Stop containerd
-#      ansible.builtin.systemd:
-#        name: containerd
-#        state: stopped
-#        enabled: no
-
-    - name: Delete all PVCs and PVs
-      ansible.builtin.command: kubectl delete pvc --all --all-namespaces
-      ignore_errors: yes
-
     - name: Run kubeadm reset
       ansible.builtin.command:
         cmd: kubeadm reset -f
@@ -54,3 +43,13 @@
         - /etc/kubernetes/
         - /var/lib/etcd/
         - /var/lib/kubelet/
+        - /etc/default/kubelet
+
+    - name: Reboot nodes
+      ansible.builtin.reboot:
+        msg: "Rebooting to clean up after kubeadm reset"
+        connect_timeout: 5
+        reboot_timeout: 300
+        pre_reboot_delay: 0
+        post_reboot_delay: 30
+        test_command: uptime

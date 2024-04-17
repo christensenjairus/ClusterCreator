@@ -42,8 +42,11 @@ ipvsadm \
 apache2-utils \
 locales-all \
 python3-kubernetes \
+python3-pip \
 conntrack \
+unzip \
 default-mysql-client \
+ceph \
 kubelet=$KUBERNETES_LONG_VERSION \
 kubeadm=$KUBERNETES_LONG_VERSION \
 kubectl=$KUBERNETES_LONG_VERSION \

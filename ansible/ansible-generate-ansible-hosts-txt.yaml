@@ -1,5 +1,5 @@
 ---
-- name: Generate Ansible Hosts File from Terraform Configuration
+- name: Generate Ansible Hosts File from Tofu Configuration
   hosts: localhost
   gather_facts: no
   vars:

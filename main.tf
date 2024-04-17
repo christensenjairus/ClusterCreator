@@ -2,7 +2,7 @@ terraform {
   required_providers {
     proxmox = {
       source = "bpg/proxmox"
-      version = "0.46.4"
+      version = "0.53.1"
     }
     unifi = {
       source = "paultyng/unifi"
@@ -33,18 +33,19 @@ locals {
     for cluster_name, cluster in var.clusters : [
       for node_class, specs in cluster.node_classes : [
         for i in range(specs.count) : {
-          cluster_name       = cluster_name
+          cluster_name       = cluster.cluster_name
           node_class         = node_class
           index              = i
           vm_id              = tonumber("${cluster.cluster_id}${specs.start_ip + i}")
           cores              = specs.cores
           sockets            = specs.sockets
           memory             = specs.memory
-          disk_size          = specs.disk_size
+          disks              = specs.disks
           vm_ip              = "${cluster.host_networking.cluster_subnet}.${specs.start_ip + i}"
           gateway            = "${cluster.host_networking.cluster_subnet}.1"
           dns1               = cluster.host_networking.dns1
           dns2               = cluster.host_networking.dns2
+          use_vlan           = cluster.host_networking.use_vlan
           vlan_id            = cluster.host_networking.vlan_id
         }
       ]
@@ -67,10 +68,10 @@ resource "local_file" "cluster_config_json" {
 resource "unifi_network" "vlan" {
   for_each = {
     for key, value in var.clusters : key => value
-    if key == terraform.workspace
+    if key == terraform.workspace && value.host_networking.use_vlan == "true"
   }
 
-  name    = "${upper(each.key)}-K8S" # Name the network based on the cluster name
+  name    = "${upper(each.key)}" # Name the network based on the cluster name, but in all caps
   purpose = "corporate" # Must be one of corporate, guest, wan, or vlan-only.
 
   subnet       = "${each.value.host_networking.cluster_subnet}.0/24"
@@ -91,7 +92,7 @@ resource "proxmox_virtual_environment_pool" "operations_pool" {
     if key == terraform.workspace
   }
   comment = "Managed by Terraform"
-  pool_id = "${upper(each.key)}-K8S"
+  pool_id = "${upper(each.key)}" # pool id is the cluster name in all caps
 }
 
 # add extra output once something is done
@@ -107,7 +108,7 @@ resource "proxmox_virtual_environment_vm" "node" {
 
   description  = "Managed by Terraform"
   vm_id = each.value.vm_id
-  name = "${each.value.cluster_name}-k8s-${each.value.node_class}-${each.value.index}"
+  name = "${each.value.cluster_name}-${each.value.node_class}-${each.value.index}"
   tags = [
     "k8s",
     each.value.cluster_name,
@@ -129,13 +130,20 @@ resource "proxmox_virtual_environment_vm" "node" {
   memory {
     dedicated = each.value.memory
   }
-  disk {
-    interface = "virtio0"
-    size = each.value.disk_size
-    datastore_id = "nvmes"
-    iothread = false # not possible with virtio?
-    ssd = false # not possible with virtio?
-    discard = "ignore" #  not possible with virtio?
+  dynamic "disk" {
+    for_each = each.value.disks
+    content {
+      interface     = "virtio${disk.value.index}"
+      size          = disk.value.size
+      datastore_id  = "nvmes"
+      file_format   = "raw"
+      backup        = disk.value.backup # backup the disks during vm backup
+      iothread      = true
+      cache         = "none" # proxmox default
+      aio           = "io_uring" # proxmox default
+      discard       = "ignore" # proxmox default
+      ssd           = false # not possible with virtio
+    }
   }
   agent {
     enabled = true
@@ -167,22 +175,23 @@ resource "proxmox_virtual_environment_vm" "node" {
       servers =  ["${each.value.dns1}", "${each.value.dns2}", "${each.value.gateway}"]
     }
   }
-  network_device {
-    vlan_id = each.value.vlan_id
+  dynamic "network_device" {
+    for_each = each.value.use_vlan ? [1] : []
+    content {
+      vlan_id = each.value.vlan_id
+    }
   }
   reboot = false # Reboot is unnecessary. Already fully updated during template creation.
   migrate = true
   on_boot = true
   started = true
-  pool_id = "${upper(each.value.cluster_name)}-K8S"
+  pool_id = "${upper(each.value.cluster_name)}"
   lifecycle {
     ignore_changes = [
       tags,
       description,
       clone,
-#      initialization[0].interface,
-#      initialization[0].user_account,
-#      network_device,
+      disk, # don't remake disks, could be data loss! Can comment this out if no production data is present
     ]
   }
 }

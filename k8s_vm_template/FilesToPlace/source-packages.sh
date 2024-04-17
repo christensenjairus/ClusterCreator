@@ -32,9 +32,18 @@ sha256sum --check hubble-linux-$ARCH.tar.gz.sha256sum
 tar xzvfC hubble-linux-$ARCH.tar.gz /usr/local/bin
 rm hubble-linux-$ARCH*
 
-### install vtctldclient
+### install vtctldclient and vtexplain
 wget https://github.com/vitessio/vitess/releases/download/v${VITESS_VERSION}/${VITESS_DOWNLOAD_FILENAME}
 tar -xvzf ${VITESS_DOWNLOAD_FILENAME} --strip-components=2 -C /usr/local/bin/ ${VITESS_DOWNLOAD_FILENAME/.tar.gz/}/bin/vtctldclient
+tar -xvzf ${VITESS_DOWNLOAD_FILENAME} --strip-components=2 -C /usr/local/bin/ ${VITESS_DOWNLOAD_FILENAME/.tar.gz/}/bin/vtexplain
 tar -xvzf ${VITESS_DOWNLOAD_FILENAME} --strip-components=3 -C /root/ ${VITESS_DOWNLOAD_FILENAME/.tar.gz/}/examples/operator/pf.sh
 mv /root/pf.sh /root/vitess-port-forward.sh
 rm -rf ${VITESS_DOWNLOAD_FILENAME}
+
+### install clusterctl
+curl -L https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.6.3/clusterctl-linux-amd64 -o clusterctl
+install -o root -g root -m 0755 clusterctl /usr/local/bin/clusterctl
+rm -f ./clusterctl
+
+### install flux
+curl -s https://fluxcd.io/install.sh | bash

@@ -15,7 +15,7 @@ set +a # stop automatically exporting
 
 # Function to print usage
 usage() {
-    echo "Usage: $0 [--start|--stop] [--timeout TIMEOUT] POOL_ID"
+    echo "Usage: $0 [--start|--shutdown|--pause|--resume|--hibernate|--stop] [--timeout TIMEOUT] POOL_ID"
     exit 1
 }
 
@@ -23,7 +23,11 @@ usage() {
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         --start) ACTION="start"; ;;
+        --shutdown) ACTION="shutdown"; ;;
         --stop) ACTION="stop"; ;;
+        --pause) ACTION="pause"; ;;
+        --resume) ACTION="resume"; ;;
+        --hibernate) ACTION="hibernate"; ;;
         --timeout) TIMEOUT="$2"; shift ;; # Capture the timeout value
         *)
             if [[ -z "$POOL_ID" ]]; then
@@ -69,9 +73,21 @@ for VMID in $VM_IDS; do
     if [[ "$ACTION" == "start" ]]; then
         echo -e "${GREEN}Starting VM ID: $VMID${ENDCOLOR}"
         ${SSH_CMD} qm start $VMID --timeout $TIMEOUT &
+    elif [[ "$ACTION" == "shutdown" ]]; then
+        echo -e "${GREEN}Shutting down VM ID: $VMID${ENDCOLOR}"
+        ${SSH_CMD} qm shutdown $VMID --timeout $TIMEOUT &
     elif [[ "$ACTION" == "stop" ]]; then
         echo -e "${GREEN}Stopping VM ID: $VMID${ENDCOLOR}"
-        ${SSH_CMD} qm shutdown $VMID --timeout $TIMEOUT &
+        ${SSH_CMD} qm stop $VMID --timeout $TIMEOUT &
+    elif [[ "$ACTION" == "resume" ]]; then
+        echo -e "${GREEN}Resuming VM ID: $VMID${ENDCOLOR}"
+        ${SSH_CMD} qm resume $VMID &
+    elif [[ "$ACTION" == "pause" ]]; then
+        echo -e "${GREEN}Pausing VM ID: $VMID${ENDCOLOR}"
+        ${SSH_CMD} qm suspend $VMID --todisk=0 &
+    elif [[ "$ACTION" == "hibernate" ]]; then
+        echo -e "${GREEN}Hibernating VM ID: $VMID${ENDCOLOR}"
+        ${SSH_CMD} qm suspend $VMID --todisk=1 &
     fi
 done
 

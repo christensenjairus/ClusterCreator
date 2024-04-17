@@ -1,95 +1,15 @@
 cluster:
   id: {{ cluster_id }}
   name: {{ cluster_name }}
-hubble:
-  enabled: true
-  relay:
-    enabled: true
-    prometheus:
-      serviceMonitor:
-        enabled: true
-  ui:
-    enabled: true
-    # ingress: leave to ansible-hubble-ui-setup.yaml
-  metrics:
-    serviceMonitor:
-      enabled: true
-    enabled:
-      - dns
-      - drop
-      - flow
-      - flows-to-world
-      - httpV2
-      - icmp
-      - kafka
-      - port-distribution
-      - tcp
-    dashboards:
-      enabled: true
-envoy:
-  enabled: true
-  prometheus:
-    enabled: true
-    serviceMonitor:
-      enabled: true
-prometheus:
-  serviceMonitor:
-    enabled: true
 operator:
   replicas: {{ replica_count }}
-  prometheus:
-    serviceMonitor:
-      enabled: true
-  dashboards:
-    enabled: true
-proxy:
-  prometheus:
-    enabled: true
-dashboards:
-  enabled: true
-loadBalancer:
-  l7:
-    backend: envoy
 rolloutCiliumPods: true
-encryption:
-  nodeEncryption: true
 ipv4:
   enabled: true
 ipv6:
   enabled: false
 ipam:
   mode: kubernetes
-gatewayAPI:
-  enabled: true
-externalWorkloads:
-  enabled:  {{  cilium_clustermesh_enabled }}
-clustermesh:
-  useAPIServer: {{  cilium_clustermesh_enabled }}
-  apiserver:
-    replicas: {{ replica_count }}
-    kvstoremesh:
-      enabled: true
-    metrics:
-      enabled: true
-      kvstoremesh:
-        enabled: true
-      etcd:
-        enabled: true
-      serviceMonitor:
-        enabled: true
-  service:
-    type: LoadBalancer
-externalIPs:
-  enabled: true
-nodePort:
-  enabled: true
-hostPort:
-  enabled: true
-l2announcements:
-  enabled: true
-  leaseDuration: 6s
-  leaseRenewDeadline: 2s
-  leaseRetryPeriod: 200ms
 k8sServiceHost: {{ vip }}
 k8sServicePort: 6443
 kubeProxyReplacement: strict
