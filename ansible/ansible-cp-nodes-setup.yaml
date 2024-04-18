@@ -1,53 +1,4 @@
 ---
-- name: Setup Kube-Vip on the control plane servers
-  hosts: kube_api_servers
-  gather_facts: false
-  any_errors_fatal: true
-  vars:
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
-  tags:
-    - vip_manifest
-  tasks:
-    - name: Check if Kube-Vip manifest already exists
-      ansible.builtin.stat:
-        path: /etc/kubernetes/manifests/kube-vip.yaml
-      register: kube_vip_manifest
-      become: true
-    - name: Pull Kube-Vip image and generate manifest
-      ansible.builtin.shell: |
-        ctr image pull ghcr.io/kube-vip/kube-vip:v{{ cluster_config.kube_vip.kube_vip_version }}
-        ctr run --rm --net-host ghcr.io/kube-vip/kube-vip:v{{ cluster_config.kube_vip.kube_vip_version }} vip /kube-vip manifest pod \
-            --interface {{ cluster_config.kube_vip.vip_interface }} \
-            --address {{ cluster_config.kube_vip.vip }} \
-            --controlplane \
-            --arp \
-            --leaderElection > /tmp/kube-vip.yaml
-# add --services above to get kube-vip to publish load balancers for all services that are of type LoadBalancer
-# if you do this, you'll need to add ONE of the following to new LB services
-#   metadata.annotation of kube-vip.io/ignore: "true" (kube-vip will ignore this svc)
-#   spec.loadBalancerClass=kube-vip.io/kube-vip-class (kube-vip will publish this svc - anything else and it will ignore it)
-      become: true
-      when: not kube_vip_manifest.stat.exists
-    - name: Ensure /etc/kubernetes/manifests exists
-      ansible.builtin.file:
-        path: /etc/kubernetes/manifests
-        state: directory
-        mode: '0755'
-        owner: root
-        group: root
-      become: true
-      when: not kube_vip_manifest.stat.exists
-    - name: Move Kube-Vip manifest to Kubernetes manifests directory
-      ansible.builtin.copy:
-        src: /tmp/kube-vip.yaml
-        dest: /etc/kubernetes/manifests/kube-vip.yaml
-        owner: root
-        group: root
-        mode: '0644'
-        remote_src: true
-      become: true
-      when: not kube_vip_manifest.stat.exists
-
 - name: Generate and deploy kubeadm config file
   hosts: kube_api_servers[0]
   gather_facts: false
@@ -67,6 +18,74 @@
         path: /etc/kubernetes/admin.conf
       register: kube_config_exists
       become: true
+
+    - name: Fail if kubeadm init has already been run
+      fail:
+        msg: "kubeadm init has already been run. If you have an existing cluster, you may have forgotten the `--add-nodes` flag, which runs a different playbook. If you want a fresh cluster, you must first reset these hosts using `./uninstall_k8s.sh`"
+      when: kube_config_exists.stat.exists
+
+    # update and upgrade first api server node and reboot if necessary - but only if kubeadm init has not been run
+    - name: Update apt cache on first control plane node
+      become: true
+      ansible.builtin.apt:
+        update_cache: yes
+        cache_valid_time: 3600  # Cache is considered valid for 1 hour
+      register: upgrade_result
+      until: upgrade_result is succeeded
+      retries: 10
+      delay: 10
+      when: not kube_config_exists.stat.exists
+    - name: Upgrade all packages to the latest version on first control plane node
+      become: true
+      ansible.builtin.apt:
+        upgrade: 'dist'  # Use 'dist' for distribution upgrade, or 'full' for full upgrade
+        force_apt_get: yes  # Optionally force using apt-get instead of aptitude
+      register: upgrade_result
+      until: upgrade_result is succeeded
+      retries: 10
+      delay: 10
+      when: not kube_config_exists.stat.exists
+    - name: Remove unused packages and dependencies on first control plane node
+      become: true
+      ansible.builtin.apt:
+        autoremove: yes
+        purge: yes
+      register: upgrade_result
+      until: upgrade_result is succeeded
+      retries: 10
+      delay: 10
+      when: not kube_config_exists.stat.exists
+    - name: Clean up apt cache on first control plane node
+      become: true
+      ansible.builtin.apt:
+        autoclean: yes
+      register: upgrade_result
+      until: upgrade_result is succeeded
+      retries: 10
+      delay: 10
+      when: not kube_config_exists.stat.exists
+    - name: Check if reboot is required on first control plane node
+      become: true
+      ansible.builtin.stat:
+        path: /var/run/reboot-required
+      register: reboot_required
+      when: not kube_config_exists.stat.exists
+    - name: Reboot the first control plane node
+      become: true
+      ansible.builtin.reboot:
+        msg: "Rebooting because updates require a reboot"
+        connect_timeout: 5
+        reboot_timeout: 600
+        pre_reboot_delay: 0
+        post_reboot_delay: 30
+        test_command: uptime
+      when: not kube_config_exists.stat.exists and reboot_required.stat.exists
+    - name: Wait for system to become reachable again
+      ansible.builtin.wait_for_connection:
+        delay: 5
+        timeout: 300
+      when: not kube_config_exists.stat.exists and reboot_required.stat.exists
+
     - name: Run kubeadm init with custom config
       ansible.builtin.shell:
         cmd: >
@@ -104,13 +123,13 @@
         - kubeadm_init
       when: not kube_config_exists.stat.exists
     - name: Save worker node join command to file
-      local_action: copy content="{{ worker_join_command }}" dest="tmp/{{ cluster_name }}/wrkr_join_command.sh"
+      local_action: copy content="{{ worker_join_command }}" dest="tmp/{{ cluster_name }}/worker_join_command.sh"
       run_once: true
       tags:
         - kubeadm_init
       when: not kube_config_exists.stat.exists
     - name: Save control plane join command to file
-      local_action: copy content="{{ control_plane_join_command }}" dest="tmp/{{ cluster_name }}/cp_join_command.sh"
+      local_action: copy content="{{ control_plane_join_command }}" dest="tmp/{{ cluster_name }}/control_plane_join_command.sh"
       run_once: true
       tags:
         - kubeadm_init

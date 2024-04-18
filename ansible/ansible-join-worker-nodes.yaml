@@ -1,17 +1,143 @@
+---
 - name: Join worker nodes to the cluster
   hosts: all
   any_errors_fatal: true
+  vars:
+    control_plane_host: null
   tasks:
-  - name: read worker join command
-    set_fact:
-      join_command_local: "{{ lookup('file', 'tmp/{{ cluster_name }}/wrkr_join_command.sh') }}"
-    when: "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
-    tags:
-      - kubeadm_join_wrkrs
+    # finding a control plane node is necessary because we can't use kube_api_servers[0] because it could be a new node.
+    - name: Find a control-plane node to query for the list of nodes
+      ansible.builtin.shell:
+        cmd: >
+          kubectl get node "{{ hostvars[item].hostname }}" -o jsonpath='{.metadata.labels.node-role\.kubernetes\.io\/control-plane}'
+      register: node_status
+      delegate_to: "{{ item }}"
+      changed_when: false
+      failed_when: false
+      loop: "{{ groups['kube_api_servers'] }}"
+      when: control_plane_host is none
 
-  - name: join worker nodes to cluster
-    command: "{{ join_command_local }}"
-    become: true
-    when: "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
-    tags:
-      - kubeadm_join_wrkrs
+#    - name: debug - show node status
+#      ansible.builtin.debug:
+#        msg: "{{ node_status }}"
+#      run_once: true
+
+    - name: Set control plane host
+      set_fact:
+        control_plane_host: "{{ item.item }}"
+      loop: "{{ node_status.results }}"
+      no_log: true
+      when:
+        - item.stdout is defined
+        - item.stderr == ""
+        - control_plane_host is none
+
+    - name: Ensure a control plane host has been set
+      fail:
+        msg: "Failed to identify a control plane host. None of the nodes met the criteria."
+      when: control_plane_host is none
+
+    - name: Get list of nodes from the Kubernetes cluster
+      ansible.builtin.shell: kubectl get nodes -o jsonpath='{.items[*].metadata.name}'
+      delegate_to: "{{ control_plane_host }}"
+      run_once: true
+      register: k8s_nodes
+
+    - name: Set fact for Kubernetes node names
+      set_fact:
+        k8s_node_names: "{{ k8s_nodes.stdout.split() }}"
+      run_once: true
+
+    - name: Determine the hostname for the current host from inventory
+      set_fact:
+        current_hostname: "{{ hostvars[inventory_hostname].hostname }}"
+
+    - name: Check if current host's hostname is in the Kubernetes node list
+      set_fact:
+        is_in_cluster: "{{ current_hostname in k8s_node_names }}"
+
+    - name: Check host status if in cluster
+      ansible.builtin.debug:
+        msg: "Host {{ inventory_hostname }} with hostname {{ current_hostname }} is already in the cluster"
+      when: is_in_cluster
+
+    - name: Check host status if not in cluster
+      ansible.builtin.debug:
+        msg: "Host {{ inventory_hostname }} with hostname {{ current_hostname }} is not in the cluster and will join"
+      when: not is_in_cluster
+
+    # update and upgrade first api server node and reboot if necessary - but only if kubeadm init has not been run
+    - name: Update apt cache on worker nodes to be added to cluster
+      become: true
+      ansible.builtin.apt:
+        update_cache: yes
+        cache_valid_time: 3600  # Cache is considered valid for 1 hour
+      register: upgrade_result
+      until: upgrade_result is succeeded
+      retries: 10
+      delay: 10
+      when: not is_in_cluster
+    - name: Upgrade all packages to the latest version on worker nodes to be added to cluster
+      become: true
+      ansible.builtin.apt:
+        upgrade: 'dist'  # Use 'dist' for distribution upgrade, or 'full' for full upgrade
+        force_apt_get: yes  # Optionally force using apt-get instead of aptitude
+      register: upgrade_result
+      until: upgrade_result is succeeded
+      retries: 10
+      delay: 10
+      when: not is_in_cluster
+    - name: Remove unused packages and dependencies on worker nodes to be added to cluster
+      become: true
+      ansible.builtin.apt:
+        autoremove: yes
+        purge: yes
+      register: upgrade_result
+      until: upgrade_result is succeeded
+      retries: 10
+      delay: 10
+      when: not is_in_cluster
+    - name: Clean up apt cache on worker nodes to be added to cluster
+      become: true
+      ansible.builtin.apt:
+        autoclean: yes
+      register: upgrade_result
+      until: upgrade_result is succeeded
+      retries: 10
+      delay: 10
+      when: not is_in_cluster
+    - name: Check if reboot is required on worker nodes to be added to cluster
+      become: true
+      ansible.builtin.stat:
+        path: /var/run/reboot-required
+      register: reboot_required
+      when: not is_in_cluster
+    - name: Reboot the worker nodes to be added to cluster (if necessary)
+      become: true
+      ansible.builtin.reboot:
+        msg: "Rebooting because updates require a reboot"
+        connect_timeout: 5
+        reboot_timeout: 600
+        pre_reboot_delay: 0
+        post_reboot_delay: 30
+        test_command: uptime
+      when: not is_in_cluster and reboot_required.stat.exists
+    - name: Wait for new worker nodes to be reachable again
+      ansible.builtin.wait_for_connection:
+        delay: 5
+        timeout: 300
+      when: not is_in_cluster and reboot_required.stat.exists
+
+    - name: Read worker join command
+      set_fact:
+        join_command_local: "{{ lookup('file', 'tmp/{{ cluster_name }}/worker_join_command.sh') }}"
+      when: not is_in_cluster and 'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names
+      tags:
+        - kubeadm_join_wrkrs
+
+    - name: Join worker nodes to cluster
+      command: "{{ join_command_local }}"
+      become: true
+      when: not is_in_cluster and 'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names
+      tags:
+        - kubeadm_join_wrkrs

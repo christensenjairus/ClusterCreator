@@ -8,6 +8,4 @@ secrets.tf
 terraform.tfstate*
 ansible/tmp
 *.DS_Store
-remove_my_personal_clusters.sh
-restore_my_personal_clusters.sh
 *-clusters.tf.bak

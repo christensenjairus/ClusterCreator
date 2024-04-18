@@ -18,7 +18,7 @@ OpenTofu & Ansible automate to create external etcd K8S clusters. OpenTofu creat
 * Optional external etcd cluster
 * Proxmox pool configuration
 * Custom Network & VLAN Unifi configuration (optional)
-* Custom worker classes (general, db, and backup are included - but you can add your own)
+* Custom worker classes (general, database, and storage are included - but you can add your own)
 * Custom quantities of control-plane, etcd, and custom worker nodes
 * Custom hardware requirements for each node class
 * Custom disk configurations
@@ -33,6 +33,7 @@ OpenTofu & Ansible automate to create external etcd K8S clusters. OpenTofu creat
 * Node labeling
 * Auto-Provisioning Local StorageClass (rancher)
 * Non-Auto-Provisioning Local StorageClass (k8s built-in) (set as default StorageClass)
+* Prepares, updates, reboots, and joins new nodes to an existing cluster with the `--add-nodes` flag, allowing you to grow your cluster as needed.
 
 # Usage
 
@@ -56,15 +57,19 @@ This will ensure that your tofu commands only work on the cluster of your choosi
 
 ### Create the VMs with Tofu
 ```bash
-tofu apply [--auto-approve] [-var="template_vm_id=<vm_id>"]
+tofu apply [--auto-approve] [-var="template_vm_id=<vm_id>"] [-var="proxmox_node_name=<node_name>"]
 ``` 
 This will clone the template using tofu and set cloud-init parameters, as well as create a pool in proxmox, create a VLAN in Unifi, and create the cluster specifications file `ansible/tmp/<cluster_name>/cluster_config.json`. The cluster config file tells Ansible how the cluster should be configured. Default template_vm_id is 9000. 
 
 ### Install K8S with Ansible
 ```bash
-./install_k8s.sh --cluster_name <cluster_name>
+./install_k8s.sh --cluster_name <cluster_name> [--add-nodes]
 ```
 This will run a series of Ansible playbooks to create a fresh, minimal cluster. This is independent of the Tofu workspace and uses the `cluster_config.json` file and creates its own `ansible-hosts.txt` file based on the cluster configuration.
+
+The `--add-nodes` flag will prepare and add **new** nodes to an already initialized cluster. This works for both control-plane and worker nodes.
+
+*Note: Do not use the `--add-nodes` to set up or edit an external etcd cluster. That must be done upon initialization.*
 
 ### Uninstall K8S with Ansible
 ```bash
@@ -111,12 +116,12 @@ The dynamic nature of OpenTofu + Ansible allows the following
 * `g1` cluster
   * 1 control plane node
     * 4 cores, 4GB RAM, 30GB disk
-  * 1 worker node of class `backup`
+  * 1 worker node of class `storage`
     * 2 cores, 2GB RAM, 100GB disk
-  * 1 worker node of class `db`
+  * 1 worker node of class `database`
     * 4 cores, 8GB RAM, 50GB disk
   * 1 worker node of class `general`
-    * 8 cores, 4GB RAM, 100GB disk
+    * 8 cores, 4GB RAM, 30GB disk
 
 *Note: etcd nodes are not shown in cluster, but they are used by the control plane nodes.*
 
@@ -127,12 +132,12 @@ The dynamic nature of OpenTofu + Ansible allows the following
     * 4 cores, 4GB RAM, 30GB disk
   * 3 external etcd nodes
     * 2 cores, 2GB RAM, 30GB disk
-  * 2 worker nodes of class `backup`
-    * 2 cores, 2GB RAM, 100GB disk
-  * 3 worker nodes of class `db`
+  * 3 worker nodes of class `storage`
+    * 2 cores, 2GB RAM, 30GB os disk, 100GB extra disk (for a future ceph cluster)
+  * 3 worker nodes of class `database`
     * 4 cores, 8GB RAM, 50GB disk
   * 5 worker nodes of class `general`
-    * 8 cores, 4GB RAM, 30GB os disk, 100GB extra disk (for a future ceph cluster)
+    * 8 cores, 4GB RAM, 30GB os disk
 
 *Note: If you add a new worker class, you will need to edit `ansible/helpers/ansible-hosts.txt.j2` to account for it so that it is added to `ansible/tmp/ansible-hosts.txt` at runtime.*
 
@@ -141,12 +146,12 @@ The dynamic nature of OpenTofu + Ansible allows the following
 * Theoretical overkill cluster
   * 9 control plane nodes
   * 7 external etcd nodes
-  * 5 worker nodes of class `backup`
-  * 15 worker nodes of class `db`
+  * 5 worker nodes of class `storage`
+  * 15 worker nodes of class `database`
   * 20 worker nodes of class `general`
   * 5 worker nodes of class `sandbox` # possible new class
   * 5 worker nodes of class `fedramp` # possible new class
-  * 5 worker nodes of class `storage` # possible new class
+  * 5 worker nodes of class `backup` # possible new class
 
 # Configuration/Secrets Files
 Create the following two files.
@@ -196,11 +201,11 @@ The other configuration files, listed below, need to be looked through and tweak
 * `main.tf` holds vm/vlan/pool tofu resources.
 
 ## Installation Errors
-`tofu apply` may exit with errors because it is difficult for Proxmox to clone the same template over and over. You may need to run `tofu apply` a few times with larger clusters because of this. Proxmox may also need help if it says that configs already exist or if a VM is not responding. In the worst case scenario, you could manually delete all the VMs, the pool, and the VLAN, and start over.
+`tofu apply` may exit with errors because it is difficult for Proxmox to clone the same template over and over. You may need to run `tofu apply` a few times with larger clusters because of this. Proxmox may also need help if it says that configs already exist or if a VM is not responding.
 
-You may also run into errors while running `./install_k8s.sh`. This script is running `ansible/ansible-master-playbook.yaml`. If you find the issue, you should comment out the already-completed playbooks from `ansible/ansible-master-playbook.yaml` and start the script over to resume roughly where you left off. However, be smart about doing this if there was an error during the etcd node setup, the cp node setup, or the join nodes playbooks because of kubeadm's inability to be run twice without being reset.
+A workaround is to add nodes to your cluster in batches and run `tofu apply` to create smaller sets of nodes. You may want to do this anyway so you can distribute the VMs across your proxmox cluster and vary the `proxmox_node_name` argument.
 
-If you do need to reset `./uninstall_k8s.sh` should work, but a full tofu rebuild is the best way to ensure a clean slate.
+If you do need to undo the k8s install on the VMs `./uninstall_k8s.sh` should work, but a full tofu rebuild is the best way to ensure a clean slate.
 
 # Final Product
 ### Proxmox Pools with VMs Managed by Tofu

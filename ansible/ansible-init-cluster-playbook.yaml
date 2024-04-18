@@ -2,10 +2,13 @@
 - import_playbook: ansible-ping-nodes.yaml
 - import_playbook: ansible-prepare-nodes.yaml
 - import_playbook: ansible-etcd-nodes-setup.yaml
+- import_playbook: ansible-kubevip-setup.yaml
 - import_playbook: ansible-cp-nodes-setup.yaml
+- import_playbook: ansible-move-kubeconfig-local.yaml
 - import_playbook: ansible-join-apiserver-nodes.yaml
 - import_playbook: ansible-join-worker-nodes.yaml
-- import_playbook: ansible-move-kubeconfig.yaml
+- import_playbook: ansible-move-kubeconfig-remote.yaml
+- import_playbook: ansible-untaint-control-plane-when-no-wrkrs.yaml
 - import_playbook: ansible-cilium-setup.yaml
 - import_playbook: ansible-metrics-server-setup.yaml
 - import_playbook: ansible-local-storageclasses-setup.yaml

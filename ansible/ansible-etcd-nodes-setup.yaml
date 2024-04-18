@@ -369,7 +369,6 @@
     - name: Pause for 30s to give etcd cluster time to start
       ansible.builtin.pause:
         seconds: 30
-      when: not etcdctl_exists.stat.exists
     - name: Check health for each etcd endpoint
       ansible.builtin.shell: |
           ETCDCTL_API=3 etcdctl \

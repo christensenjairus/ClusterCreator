@@ -1,0 +1,48 @@
+- name: Setup Kube-Vip on the control plane servers
+  hosts: kube_api_servers
+  gather_facts: false
+  any_errors_fatal: true
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+  tags:
+    - vip_manifest
+  tasks:
+    - name: Check if Kube-Vip manifest already exists
+      ansible.builtin.stat:
+        path: /etc/kubernetes/manifests/kube-vip.yaml
+      register: kube_vip_manifest
+      become: true
+    - name: Pull Kube-Vip image and generate manifest
+      ansible.builtin.shell: |
+        ctr image pull ghcr.io/kube-vip/kube-vip:v{{ cluster_config.kube_vip.kube_vip_version }}
+        ctr run --rm --net-host ghcr.io/kube-vip/kube-vip:v{{ cluster_config.kube_vip.kube_vip_version }} vip /kube-vip manifest pod \
+            --interface {{ cluster_config.kube_vip.vip_interface }} \
+            --address {{ cluster_config.kube_vip.vip }} \
+            --controlplane \
+            --arp \
+            --leaderElection > /tmp/kube-vip.yaml
+# add --services above to get kube-vip to publish load balancers for all services that are of type LoadBalancer
+# if you do this, you'll need to add ONE of the following to new LB services
+#   metadata.annotation of kube-vip.io/ignore: "true" (kube-vip will ignore this svc)
+#   spec.loadBalancerClass=kube-vip.io/kube-vip-class (kube-vip will publish this svc - anything else and it will ignore it)
+      become: true
+      when: not kube_vip_manifest.stat.exists
+    - name: Ensure /etc/kubernetes/manifests exists
+      ansible.builtin.file:
+        path: /etc/kubernetes/manifests
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+      become: true
+      when: not kube_vip_manifest.stat.exists
+    - name: Move Kube-Vip manifest to Kubernetes manifests directory
+      ansible.builtin.copy:
+        src: /tmp/kube-vip.yaml
+        dest: /etc/kubernetes/manifests/kube-vip.yaml
+        owner: root
+        group: root
+        mode: '0644'
+        remote_src: true
+      become: true
+      when: not kube_vip_manifest.stat.exists

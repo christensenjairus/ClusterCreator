@@ -181,7 +181,7 @@ resource "proxmox_virtual_environment_vm" "node" {
       vlan_id = each.value.vlan_id
     }
   }
-  reboot = true # reboot after initial install & update
+  reboot = false # reboot is performed during the ./install_k8s.sh script, but only when needed, and only on nodes not part of the cluster already.
   migrate = true
   on_boot = true
   started = true

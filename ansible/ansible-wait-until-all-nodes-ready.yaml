@@ -1,0 +1,17 @@
+---
+- name: Ensure all Kubernetes nodes are ready
+  hosts: kube_api_servers[0]
+  gather_facts: no
+  tasks:
+    - name: Wait for all nodes to be ready
+      shell: >
+        kubectl get nodes --no-headers | awk '{print $2}' | grep -cv "^Ready$"
+      register: not_ready_nodes
+      until: not_ready_nodes.stdout == "0"
+      retries: 60
+      delay: 5
+      failed_when: not_ready_nodes.stderr != ""
+
+    - name: Confirm all nodes are ready
+      debug:
+        msg: "All Kubernetes nodes are now ready."

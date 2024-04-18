@@ -26,8 +26,8 @@ pushd ./ansible
 
 cleanup_function() {
   rm -f \
-    "tmp/${CLUSTER_NAME}/wrkr_join_command.sh" \
-    "tmp/${CLUSTER_NAME}/cp_join_command.sh" \
+    "tmp/${CLUSTER_NAME}/worker_join_command.sh" \
+    "tmp/${CLUSTER_NAME}/control_plane_join_command.sh" \
     >&/dev/null
   popd
   echo "Cleanup complete."

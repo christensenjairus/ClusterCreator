@@ -15,6 +15,7 @@
       failed_when: grep_output.rc == 0
       with_items: "{{ log_files.files }}"
       ignore_errors: true
+      no_log: true
     - name: Fail the play if 'No space left' is found in any firstboot log file
       fail:
         msg: "'No space left' found in firstboot log files. Template VM did not have enough space to install all packages. Increase the TEMPLATE_DISK_SIZE and re-create template, then recreate this cluster."
@@ -27,6 +28,7 @@
       failed_when: grep_output.rc == 0
       with_items: "{{ log_files.files }}"
       ignore_errors: true
+      no_log: true
     - name: Warn and pause if 'Error' or 'Fatal' is found in any firstboot log files, excluding specific instances
       pause:
         prompt: "Warning: 'Error' or 'Fatal' found in firstboot log files. Template VM may have an issue with its firstboot scripts. Investigate /var/log/template-firstboot-*.log files and, if needed, recreate the template and this cluster. You can add exclusions in playbook if necessary. Press enter to ignore this warning or Ctrl+C to abort."

@@ -3,7 +3,7 @@ cluster_name={{ cluster_name }}
 
 [kube_api_servers]
 {% for i in range(cluster_config.node_classes.apiserver.count) %}
-{{ cluster_config.host_networking.cluster_subnet }}.{{ cluster_config.node_classes.apiserver.start_ip + i }} cp_index={{ i }} labels="{% for key, value in cluster_config.node_classes.apiserver.labels.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}" hostname={{ cluster_config.cluster_name }}-apiserver-{{ i }}
+{{ cluster_config.host_networking.cluster_subnet }}.{{ cluster_config.node_classes.apiserver.start_ip + i }} labels="{% for key, value in cluster_config.node_classes.apiserver.labels.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}" hostname={{ cluster_config.cluster_name }}-apiserver-{{ i }}
 {% endfor %}
 
 [kube_etcd_servers]
@@ -12,16 +12,16 @@ cluster_name={{ cluster_name }}
 {% endfor %}
 
 [kube_backup_servers]
-{% for i in range(cluster_config.node_classes.backup.count) %}
-{{ cluster_config.host_networking.cluster_subnet }}.{{ cluster_config.node_classes.backup.start_ip + i }} backup_index={{ i }} labels="{% for key, value in cluster_config.node_classes.backup.labels.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}" hostname={{ cluster_config.cluster_name }}-backup-{{ i }}
+{% for i in range(cluster_config.node_classes.storage.count) %}
+{{ cluster_config.host_networking.cluster_subnet }}.{{ cluster_config.node_classes.storage.start_ip + i }} labels="{% for key, value in cluster_config.node_classes.storage.labels.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}" hostname={{ cluster_config.cluster_name }}-storage-{{ i }}
 {% endfor %}
 
-[kube_db_servers]
-{% for i in range(cluster_config.node_classes.db.count) %}
-{{ cluster_config.host_networking.cluster_subnet }}.{{ cluster_config.node_classes.db.start_ip + i }} db_index={{ i }} labels="{% for key, value in cluster_config.node_classes.db.labels.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}" hostname={{ cluster_config.cluster_name }}-db-{{ i }}
+[kube_database_servers]
+{% for i in range(cluster_config.node_classes.database.count) %}
+{{ cluster_config.host_networking.cluster_subnet }}.{{ cluster_config.node_classes.database.start_ip + i }} labels="{% for key, value in cluster_config.node_classes.database.labels.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}" hostname={{ cluster_config.cluster_name }}-database-{{ i }}
 {% endfor %}
 
 [kube_general_servers]
 {% for i in range(cluster_config.node_classes.general.count) %}
-{{ cluster_config.host_networking.cluster_subnet }}.{{ cluster_config.node_classes.general.start_ip + i }} general_index={{ i }} labels="{% for key, value in cluster_config.node_classes.general.labels.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}" hostname={{ cluster_config.cluster_name }}-general-{{ i }}
+{{ cluster_config.host_networking.cluster_subnet }}.{{ cluster_config.node_classes.general.start_ip + i }} labels="{% for key, value in cluster_config.node_classes.general.labels.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}" hostname={{ cluster_config.cluster_name }}-general-{{ i }}
 {% endfor %}

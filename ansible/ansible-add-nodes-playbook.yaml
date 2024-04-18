@@ -1,0 +1,14 @@
+# All of these are safe to run when the cluster is already up and running.
+
+- import_playbook: ansible-trust-hosts.yaml
+- import_playbook: ansible-ping-nodes.yaml
+- import_playbook: ansible-prepare-nodes.yaml # sets locale, aliases, adds some scripts, adds to /etc/hosts file.
+- import_playbook: ansible-kubevip-setup.yaml # places kube-vip on the control plane nodes - needed in case you add control plane nodes
+- import_playbook: ansible-add-nodes-get-join-commands.yaml # gets new join commands for new nodes
+- import_playbook: ansible-join-apiserver-nodes.yaml # logic is in place to only join new nodes
+- import_playbook: ansible-join-worker-nodes.yaml # logic is in place to only join new nodes
+- import_playbook: ansible-move-kubeconfig-remote.yaml # ensures all nodes have the kubeconfig file in their home dir.
+- import_playbook: ansible-wait-until-all-nodes-ready.yaml # waits until all nodes are ready so new nodes are completely joined
+- import_playbook: ansible-untaint-control-plane-when-no-wrkrs.yaml # untaints the control plane nodes if there are no worker nodes
+- import_playbook: ansible-label-nodes.yaml # add labels to all nodes
+- import_playbook: ansible-ending-output.yaml

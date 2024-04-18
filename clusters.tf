@@ -69,7 +69,7 @@ variable "clusters" {
         start_ip : number        # last octet of the ip address for the first etcd node
         # no node labels because etcd nodes are external to the cluster itself
       })
-      backup     : object({      # custom worker type, can be 0
+      storage     : object({     # custom worker type, can be 0
         count    : number        # Should not pass 10 without editing start IPs
         cores    : number        # Does not need to be large, just for backups
         sockets  : number        # on my system, the max is 2
@@ -82,7 +82,7 @@ variable "clusters" {
         start_ip : number        # last octet of the ip address for the first backup node
         labels   : map(string)   # labels to apply to the nodes
       })
-      db         : object({      # custom worker type, can be 0
+      database   : object({      # custom worker type, can be 0
         count    : number        # Should not pass 10 without editing start IPs
         cores    : number        # For me, rule of thumb is to make this half as much as the general nodes
         sockets  : number        # on my system, the max is 2
@@ -173,7 +173,7 @@ variable "clusters" {
           ]
           start_ip   = 120
         }
-        backup = {
+        storage = {
           count      = 0
           cores      = 1
           sockets    = 2
@@ -183,10 +183,10 @@ variable "clusters" {
           ]
           start_ip   = 130
           labels = {
-            "nodeclass" = "backup"
+            "nodeclass" = "storage"
           }
         }
-        db = {
+        database = {
           count      = 0
           cores      = 2
           sockets    = 2
@@ -196,7 +196,7 @@ variable "clusters" {
           ]
           start_ip   = 140
           labels = {
-            "nodeclass" = "db"
+            "nodeclass" = "database"
           }
         }
         general = {
@@ -274,7 +274,7 @@ variable "clusters" {
           ]
           start_ip   = 120
         }
-        backup = {
+        storage = {
           count      = 1
           cores      = 1
           sockets    = 2
@@ -284,10 +284,10 @@ variable "clusters" {
           ]
           start_ip   = 130
           labels = {
-            "nodeclass" = "backup"
+            "nodeclass" = "storage"
           }
         }
-        db = {
+        database = {
           count      = 1
           cores      = 2
           sockets    = 2
@@ -297,7 +297,7 @@ variable "clusters" {
           ]
           start_ip   = 140
           labels = {
-            "nodeclass" = "db"
+            "nodeclass" = "database"
           }
         }
         general = {
@@ -306,7 +306,7 @@ variable "clusters" {
           sockets    = 2
           memory     = 4192
           disks      = [
-            { index = 0, size = 100, backup = true }
+            { index = 0, size = 30, backup = true }
           ]
           start_ip   = 150
           labels = {
@@ -375,20 +375,21 @@ variable "clusters" {
           ]
           start_ip = 120
         }
-        backup = {
-          count    = 2
+        storage = {
+          count    = 3
           cores    = 1
           sockets  = 2
           memory   = 2048
           disks      = [
-            { index = 0, size = 100, backup = true }
+            { index = 0, size = 30, backup = true },
+            { index = 1, size = 100, backup = false }
           ]
           start_ip = 130
           labels   = {
-            "nodeclass" = "backup"
+            "nodeclass" = "storage"
           }
         }
-        db = {
+        database = {
           count    = 3
           cores    = 2
           sockets  = 2
@@ -398,7 +399,7 @@ variable "clusters" {
           ]
           start_ip = 140
           labels   = {
-            "nodeclass" = "db"
+            "nodeclass" = "database"
           }
         }
         general = {
@@ -407,8 +408,7 @@ variable "clusters" {
           sockets = 2
           memory  = 4192
           disks      = [
-            { index = 0, size = 30, backup = true },
-            { index = 1, size = 100, backup = false }
+            { index = 0, size = 30, backup = true }
           ]
           start_ip = 150
           labels   = {

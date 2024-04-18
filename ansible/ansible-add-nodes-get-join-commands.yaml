@@ -1,0 +1,71 @@
+---
+- name: Generate join commands for new nodes
+  hosts: kube_api_servers
+  gather_facts: false
+  any_errors_fatal: true
+  vars:
+    control_plane_host: null
+
+  tasks:
+    # finding a working control plane node is necessary because we can't use kube_api_servers[0] because it could be a new node.
+    - name: Find a ready control-plane node for generating new join commands
+      ansible.builtin.shell:
+        cmd: >
+          kubectl get node {{ hostvars[item].hostname }} -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}{.metadata.labels.node-role.kubernetes.io/control-plane}'
+      register: node_status
+      delegate_to: "{{ item }}"
+      changed_when: false
+      failed_when: false
+      loop: "{{ groups['kube_api_servers'] }}"
+      when: control_plane_host is none
+
+    - name: Set control plane host
+      set_fact:
+        control_plane_host: "{{ item.item }}"
+      loop: "{{ node_status.results }}"
+      no_log: true
+      when:
+        - item.stdout is defined
+        - item.stdout == "True"
+        - control_plane_host is none
+      run_once: true # only needs to succeed once. We only need one ready control plane node for this.
+
+    - block:
+        - name: Create a new token and print the join command for worker nodes
+          ansible.builtin.shell:
+            cmd: kubeadm token create --print-join-command
+          register: worker_join_command
+          become: true
+          delegate_to: "{{ control_plane_host }}"
+
+        - name: Save worker node join command to file
+          copy:
+            content: "{{ worker_join_command.stdout }}"
+            dest: "tmp/{{ cluster_name }}/worker_join_command.sh"
+          delegate_to: localhost
+
+        - name: Re-upload certificates and generate a new certificate key
+          ansible.builtin.shell:
+            cmd: kubeadm init phase upload-certs --upload-certs
+          register: upload_certs_output
+          become: true
+          delegate_to: "{{ control_plane_host }}"
+
+        - name: Extract the certificate key from the output
+          set_fact:
+            certificate_key: "{{ upload_certs_output.stdout | regex_search('Using certificate key:\\s*([a-f0-9]+)', '\\1') | first }}"
+          delegate_to: localhost
+
+#        - name: Debug certificate key
+#          debug:
+#            msg: "Certificate key is: {{ certificate_key }}"
+#          delegate_to: localhost
+
+        - name: Save control plane join command to file
+          copy:
+            content: "{{ worker_join_command.stdout }} --control-plane --certificate-key {{ certificate_key }}"
+            dest: "tmp/{{ cluster_name }}/control_plane_join_command.sh"
+          delegate_to: localhost
+
+      when: control_plane_host is not none
+      run_once: true
