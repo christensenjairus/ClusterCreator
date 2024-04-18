@@ -1,5 +1,5 @@
 # ClusterCreator - OpenTofu & Ansible K8S on Proxmox
-![B1, G1, and Z1 Example Clusters](https://github.com/christensenjairus/ClusterCreator/assets/58751387/2857b24a-eaa5-4951-8b5b-9a9ce358e797)
+![B1, G1, and Z1 Example Clusters](https://github.com/christensenjairus/ClusterCreator/assets/58751387/77fe9868-27d0-46eb-8fe9-9b61ab30249f)
 ## Automate the creation of fully functional K8S clusters of any size on Proxmox
 
 This project will assist you in automating the creation of k8s clusters on Proxmox, optionally with a dedicated Unifi network and VLAN.
@@ -209,11 +209,11 @@ If you do need to undo the k8s install on the VMs `./uninstall_k8s.sh` should wo
 
 # Final Product
 ### Proxmox Pools with VMs Managed by Tofu
-![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/2857b24a-eaa5-4951-8b5b-9a9ce358e797)
+![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/77fe9868-27d0-46eb-8fe9-9b61ab30249f)
 
 ### A Unifi Network with VLAN Managed by Tofu
-![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/7529eb65-7aa3-478d-a46f-ff1bafa6c45f)
+![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/37da1256-93a4-4e98-9b33-0f4ba05d925c)
 
 ### Z1 Example Cluster in K9s
-![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/15a6896a-86df-49bb-8a95-711f2847b950)
+![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/d2eed813-b880-4321-8b34-836826220296)
 
