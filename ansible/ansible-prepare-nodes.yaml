@@ -94,3 +94,12 @@
         create: yes
       when: ansible_facts['os_family'] == "Debian"
       tags: etc_hosts
+
+    - name: Update /etc/hosts with etcd server entries
+      lineinfile:
+        path: /etc/hosts
+        line: "{{ item }} {{ cluster_config.cluster_name }}-etcd-{{ hostvars[item].etcd_index }}"
+        state: present
+      loop: "{{ groups['kube_etcd_servers'] }}"
+      tags:
+        - etc_hosts

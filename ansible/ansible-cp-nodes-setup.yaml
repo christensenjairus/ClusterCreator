@@ -70,7 +70,7 @@
         path: /var/run/reboot-required
       register: reboot_required
       when: not kube_config_exists.stat.exists
-    - name: Reboot the first control plane node
+    - name: Reboot the first control plane node (if necessary)
       become: true
       ansible.builtin.reboot:
         msg: "Rebooting because updates require a reboot"

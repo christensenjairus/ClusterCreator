@@ -66,7 +66,6 @@
         msg: "Host {{ inventory_hostname }} with hostname {{ current_hostname }} is not in the cluster and will join"
       when: not is_in_cluster
 
-    # update and upgrade first api server node and reboot if necessary - but only if kubeadm init has not been run
     - name: Update apt cache on worker nodes to be added to cluster
       become: true
       ansible.builtin.apt:

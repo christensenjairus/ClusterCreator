@@ -44,6 +44,9 @@
         - /var/lib/etcd/
         - /var/lib/kubelet/
         - /etc/default/kubelet
+        - /etc/systemd/system/kubelet.service.d/kubelet.conf
+        - /etc/systemd/system/kubelet.service.d/20-etcd-service-manager.conf
+        - /etc/cni/net.d/05-cilium.conf
 
     - name: Reboot nodes
       ansible.builtin.reboot:

@@ -11,7 +11,7 @@ cluster_name={{ cluster_name }}
 {{ cluster_config.host_networking.cluster_subnet }}.{{ cluster_config.node_classes.etcd.start_ip + i }} etcd_index={{ i }} labels="" hostname={{ cluster_config.cluster_name }}-etcd-{{ i }}
 {% endfor %}
 
-[kube_backup_servers]
+[kube_storage_servers]
 {% for i in range(cluster_config.node_classes.storage.count) %}
 {{ cluster_config.host_networking.cluster_subnet }}.{{ cluster_config.node_classes.storage.start_ip + i }} labels="{% for key, value in cluster_config.node_classes.storage.labels.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}" hostname={{ cluster_config.cluster_name }}-storage-{{ i }}
 {% endfor %}

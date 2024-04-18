@@ -74,7 +74,6 @@
     - name: Join the nodes not in the cluster
       block:
 
-        # update and upgrade first api server node and reboot if necessary - but only if kubeadm init has not been run
         - name: Update apt cache on control plane nodes to be added to cluster
           become: true
           ansible.builtin.apt:
