@@ -69,7 +69,7 @@ resource "local_file" "cluster_config_json" {
 resource "unifi_network" "vlan" {
   for_each = {
     for key, value in var.clusters : key => value
-    if key == terraform.workspace && value.host_networking.use_vlan == "true"
+    if key == terraform.workspace && value.host_networking.use_vlan == true
   }
 
   name    = "${upper(each.key)}" # Name the network based on the cluster name, but in all caps

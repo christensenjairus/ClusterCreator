@@ -16,7 +16,7 @@ variable "clusters" {
       ssh_key_type                   : string # type of key to scan and trust for remote hosts. the key of this type gets added to local ~/.ssh/known_hosts.
     })
     host_networking                  : object({
-      use_vlan                       : string # boolean. whether or not to use vlans. If false, the vlan_id is ignored, but should still exist.
+      use_vlan                       : bool   # whether or not to use vlans. If false, the vlan_id is ignored, but should still exist.
       vlan_id                        : number # vlan id for the cluster. See README on how to not use vlans
       cluster_subnet                 : string # first three octets of the network's subnet (assuming its a /24)
       dns1                           : string # primary dns server for vm hosts
@@ -129,7 +129,7 @@ variable "clusters" {
         ssh_key_type                   = "ssh-ed25519"
       }
       host_networking                  = {
-        use_vlan                       = "true"
+        use_vlan                       = true
         vlan_id                        = 100
         cluster_subnet                 = "10.0.1"
         dns1                           = "10.0.1.3"
@@ -231,7 +231,7 @@ variable "clusters" {
         ssh_key_type                   = "ssh-ed25519"
       }
       host_networking                  = {
-        use_vlan                       = "true"
+        use_vlan                       = true
         vlan_id                        = 200
         cluster_subnet                 = "10.0.2"
         dns1                           = "10.0.2.3"
@@ -333,7 +333,7 @@ variable "clusters" {
         ssh_key_type                  = "ssh-ed25519"
       }
       host_networking = {
-        use_vlan                       = "true"
+        use_vlan                       = true
         vlan_id                        = 300
         cluster_subnet                 = "10.0.3"
         dns1                           = "10.0.3.3"
