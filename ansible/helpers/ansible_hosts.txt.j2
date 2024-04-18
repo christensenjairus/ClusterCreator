@@ -11,17 +11,11 @@ cluster_name={{ cluster_name }}
 {{ cluster_config.host_networking.cluster_subnet }}.{{ cluster_config.node_classes.etcd.start_ip + i }} etcd_index={{ i }} labels="" hostname={{ cluster_config.cluster_name }}-etcd-{{ i }}
 {% endfor %}
 
-[kube_storage_servers]
-{% for i in range(cluster_config.node_classes.storage.count) %}
-{{ cluster_config.host_networking.cluster_subnet }}.{{ cluster_config.node_classes.storage.start_ip + i }} labels="{% for key, value in cluster_config.node_classes.storage.labels.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}" hostname={{ cluster_config.cluster_name }}-storage-{{ i }}
+[kube_worker_servers]
+{% for node_class in cluster_config.node_classes %}
+{% if node_class not in ['etcd', 'apiserver'] %}
+{% for i in range(cluster_config.node_classes[node_class].count) %}
+{{ cluster_config.host_networking.cluster_subnet }}.{{ cluster_config.node_classes[node_class].start_ip + i }} labels="{% for key, value in cluster_config.node_classes[node_class].labels.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}" hostname={{ cluster_config.cluster_name }}-{{ node_class }}-{{ i }}
 {% endfor %}
-
-[kube_database_servers]
-{% for i in range(cluster_config.node_classes.database.count) %}
-{{ cluster_config.host_networking.cluster_subnet }}.{{ cluster_config.node_classes.database.start_ip + i }} labels="{% for key, value in cluster_config.node_classes.database.labels.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}" hostname={{ cluster_config.cluster_name }}-database-{{ i }}
-{% endfor %}
-
-[kube_general_servers]
-{% for i in range(cluster_config.node_classes.general.count) %}
-{{ cluster_config.host_networking.cluster_subnet }}.{{ cluster_config.node_classes.general.start_ip + i }} labels="{% for key, value in cluster_config.node_classes.general.labels.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}" hostname={{ cluster_config.cluster_name }}-general-{{ i }}
+{% endif %}
 {% endfor %}

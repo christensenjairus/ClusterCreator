@@ -1,5 +1,5 @@
 # ClusterCreator - OpenTofu & Ansible K8S on Proxmox
-![B1, G1, and Z1 Example Clusters](https://github.com/christensenjairus/ClusterCreator/assets/58751387/77fe9868-27d0-46eb-8fe9-9b61ab30249f)
+![alpha, beta, and gamma Example Clusters](https://github.com/christensenjairus/ClusterCreator/assets/58751387/77fe9868-27d0-46eb-8fe9-9b61ab30249f)
 ## Automate the creation of fully functional K8S clusters of any size on Proxmox
 
 This project will assist you in automating the creation of k8s clusters on Proxmox, optionally with a dedicated Unifi network and VLAN.
@@ -57,7 +57,7 @@ This will ensure that your tofu commands only work on the cluster of your choosi
 
 ### Create the VMs with Tofu
 ```bash
-tofu apply [--auto-approve] [-var="template_vm_id=<vm_id>"] [-var="proxmox_node_name=<node_name>"]
+tofu apply [--auto-approve] [-var="template_vm_id=<vm_id>"] [-var="proxmox_node=<node_name>"]
 ``` 
 This will clone the template using tofu and set cloud-init parameters, as well as create a pool in proxmox, create a VLAN in Unifi, and create the cluster specifications file `ansible/tmp/<cluster_name>/cluster_config.json`. The cluster config file tells Ansible how the cluster should be configured. Default template_vm_id is 9000. 
 
@@ -105,7 +105,7 @@ The dynamic nature of OpenTofu + Ansible allows the following
 
 ### Simplest cluster possible - single node, much like the defaults for minikube or kind
 
-* `b1` cluster (single node cluster)
+* `alpha` cluster (single node cluster)
   * 1 control plane node
     * 16 cores, 16GB RAM, 100GB disk
 
@@ -113,7 +113,7 @@ The dynamic nature of OpenTofu + Ansible allows the following
 
 ### Add worker nodes of varying types for different workload needs
 
-* `g1` cluster
+* `beta` cluster
   * 1 control plane node
     * 4 cores, 4GB RAM, 30GB disk
   * 1 worker node of class `storage`
@@ -127,7 +127,7 @@ The dynamic nature of OpenTofu + Ansible allows the following
 
 ### Make the control plane highly available. Add an external etcd cluster. Add more custom workers
 
-* `z1` cluster
+* `gamma` cluster
   * 3 control plane nodes
     * 4 cores, 4GB RAM, 30GB disk
   * 3 external etcd nodes
@@ -138,8 +138,6 @@ The dynamic nature of OpenTofu + Ansible allows the following
     * 4 cores, 8GB RAM, 50GB disk
   * 5 worker nodes of class `general`
     * 8 cores, 4GB RAM, 30GB os disk
-
-*Note: If you add a new worker class, you will need to edit `ansible/helpers/ansible-hosts.txt.j2` to account for it so that it is added to `ansible/tmp/ansible-hosts.txt` at runtime.*
 
 ### Add your own worker types for more flexible node configurations
 
@@ -203,7 +201,7 @@ The other configuration files, listed below, need to be looked through and tweak
 ## Installation Errors
 `tofu apply` may exit with errors because it is difficult for Proxmox to clone the same template over and over. You may need to run `tofu apply` a few times with larger clusters because of this. Proxmox may also need help if it says that configs already exist or if a VM is not responding.
 
-A workaround is to add nodes to your cluster in batches and run `tofu apply` to create smaller sets of nodes. You may want to do this anyway so you can distribute the VMs across your proxmox cluster and vary the `proxmox_node_name` argument.
+A workaround is to add nodes to your cluster in batches and run `tofu apply` to create smaller sets of nodes. You may want to do this anyway so you can distribute the VMs across your proxmox cluster and vary the `proxmox_node` argument.
 
 If you do need to undo the k8s install on the VMs `./uninstall_k8s.sh` should work, but a full tofu rebuild is the best way to ensure a clean slate.
 
@@ -214,6 +212,6 @@ If you do need to undo the k8s install on the VMs `./uninstall_k8s.sh` should wo
 ### A Unifi Network with VLAN Managed by Tofu
 ![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/37da1256-93a4-4e98-9b33-0f4ba05d925c)
 
-### Z1 Example Cluster in K9s
+### Gamma Example Cluster in K9s
 ![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/d2eed813-b880-4321-8b34-836826220296)
 

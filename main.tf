@@ -47,6 +47,7 @@ locals {
           dns2               = cluster.host_networking.dns2
           use_vlan           = cluster.host_networking.use_vlan
           vlan_id            = cluster.host_networking.vlan_id
+          dns_search_domain  = cluster.host_networking.dns_search_domain
         }
       ]
     ]
@@ -114,7 +115,7 @@ resource "proxmox_virtual_environment_vm" "node" {
     each.value.cluster_name,
     each.value.node_class,
   ]
-  node_name = var.proxmox_node_name
+  node_name = var.proxmox_node
   clone {
     vm_id = var.template_vm_id
     full = true
@@ -135,7 +136,7 @@ resource "proxmox_virtual_environment_vm" "node" {
     content {
       interface     = "virtio${disk.value.index}"
       size          = disk.value.size
-      datastore_id  = "nvmes"
+      datastore_id  = disk.value.datastore
       file_format   = "raw"
       backup        = disk.value.backup # backup the disks during vm backup
       iothread      = true
@@ -163,7 +164,7 @@ resource "proxmox_virtual_environment_vm" "node" {
       password = var.vm_password
       username = var.vm_username
     }
-    datastore_id = "nvmes"
+    datastore_id = each.value.disks[0].datastore
     ip_config {
       ipv4 {
         address = "${each.value.vm_ip}/24"
@@ -171,7 +172,7 @@ resource "proxmox_virtual_environment_vm" "node" {
       }
     }
     dns {
-      domain = "lan"
+      domain = each.value.dns_search_domain
       servers =  ["${each.value.dns1}", "${each.value.dns2}", "${each.value.gateway}"]
     }
   }

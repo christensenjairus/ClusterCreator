@@ -53,13 +53,13 @@ qm create $TEMPLATE_VM_ID \
   --numa 1
 
 echo -e "${GREEN}Importing the disk...${ENDCOLOR}"
-qm importdisk $TEMPLATE_VM_ID $PROXMOX_ISO_PATH/$IMAGE_NAME nvmes
+qm importdisk $TEMPLATE_VM_ID $PROXMOX_ISO_PATH/$IMAGE_NAME $PROXMOX_DATASTORE
 
 echo -e "${GREEN}Setting the VM options...${ENDCOLOR}"
 qm set $TEMPLATE_VM_ID \
   --scsihw virtio-scsi-pci \
-  --virtio0 "nvmes:vm-${TEMPLATE_VM_ID}-disk-0" \
-  --ide2 nvmes:cloudinit \
+  --virtio0 "${PROXMOX_DATASTORE}:vm-${TEMPLATE_VM_ID}-disk-0" \
+  --ide2 "${PROXMOX_DATASTORE}:cloudinit" \
   --boot c \
   --bootdisk virtio0 \
   --serial0 socket \

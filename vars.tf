@@ -1,7 +1,7 @@
 variable "proxmox_host" {
     default = "10.0.0.100"
 }
-variable "proxmox_node_name" {
+variable "proxmox_node" {
     default = "Citadel" # The name of the node to create the VM on
 }
 variable "template_vm_id" {
