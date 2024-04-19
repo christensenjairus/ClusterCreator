@@ -135,6 +135,7 @@
         - kubeadm_join_wrkrs
 
     - name: Join worker nodes to cluster
+      any_errors_fatal: false # if it fails, we can join it later
       command: "{{ join_command_local }}"
       become: true
       when: not is_in_cluster and 'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names

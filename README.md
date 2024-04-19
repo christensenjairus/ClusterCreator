@@ -29,7 +29,7 @@ OpenTofu & Ansible automate to create external etcd K8S clusters. OpenTofu creat
 ##### `./install_k8s.sh` runs a series of Ansible playbooks to create a fresh, minimal cluster. The Ansible playbooks include configuration and installation of
 * External ETCD cluster (optional)
 * Highly available control plane using Kube-VIP
-* Cilium CNI (replacing kube-router, providing full eBPF)
+* Cilium CNI (replacing kube-router, providing full eBPF. L2 arp announcements enabled.)
 * Metrics server
 * Node labeling
 * Auto-Provisioning Local StorageClass (rancher)

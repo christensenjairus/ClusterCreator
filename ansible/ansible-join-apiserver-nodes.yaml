@@ -72,6 +72,7 @@
       when: not is_in_cluster
 
     - name: Join the nodes not in the cluster
+      any_errors_fatal: false # if it fails, we can join it later
       block:
 
         - name: Update apt cache on control plane nodes to be added to cluster
