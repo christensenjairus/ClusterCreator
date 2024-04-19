@@ -1,6 +1,7 @@
 ---
 - name: Label Kubernetes Nodes
   hosts: localhost
+
   vars:
     ansible_hosts_path: "tmp/{{ cluster_name }}/ansible-hosts.txt"
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
@@ -29,5 +30,6 @@
         cmd: "kubectl label nodes {{ item.hostname }} {{ item.labels | join(' ') }} --overwrite"
       loop: "{{ nodes_and_labels }}"
       when: item.labels | length > 0
+      ignore_errors: yes # likely means a node wasn't joined correctly, so we'll label it on the next run when it joins
       environment:
         KUBECONFIG: "{{ lookup('env', 'HOME') }}/.kube/{{ cluster_config.kubeconfig_file_name }}"

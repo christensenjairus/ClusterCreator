@@ -74,9 +74,9 @@ variable "clusters" {
       })
       storage       : object({      # custom worker type, can be 0
         count       : number        # Should not pass 10 without editing start IPs
-        cores       : number        # Does not need to be large, just for backups
+        cores       : number
         sockets     : number        # on my system, the max is 2
-        memory      : number        # Does not need to be large, just for backups
+        memory      : number
         disks       : list(object({ # First disk will be used for OS. Other disks are added for other needs. Must have at least one disk here even if count is 0.
           index     : number        # index of the disk. 0 is the first disk. 1 is the second disk. etc.
           size      : number        # size of disk in GB.
@@ -88,9 +88,9 @@ variable "clusters" {
       })            
       database      : object({      # custom worker type, can be 0
         count       : number        # Should not pass 10 without editing start IPs
-        cores       : number        # For me, rule of thumb is to make this half as much as the general nodes
+        cores       : number
         sockets     : number        # on my system, the max is 2
-        memory      : number        # For me, rule of thumb is to make this as large as possible
+        memory      : number
         disks       : list(object({ # First disk will be used for OS. Other disks are added for other needs. Must have at least one disk here even if count is 0.
           index     : number        # index of the disk. 0 is the first disk. 1 is the second disk. etc.
           size      : number        # size of disk in GB.
@@ -102,9 +102,9 @@ variable "clusters" {
       })            
       general       : object({      # custom worker type, can be 0
         count       : number        # Should not pass 50 without editing load balancer ip cidr and nginx ingress controller ip
-        cores       : number        # For me, rule of thumb is to make this as large as possible
+        cores       : number
         sockets     : number        # on my system, the max is 2
-        memory      : number        # For me, rule of thumb is to make this half as much as the db nodes
+        memory      : number
         disks       : list(object({ # First disk will be used for OS. Other disks are added for other needs. Must have at least one disk here even if count is 0.
           index     : number        # index of the disk. 0 is the first disk. 1 is the second disk. etc.
           size      : number        # size of disk in GB.
