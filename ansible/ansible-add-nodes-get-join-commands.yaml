@@ -16,6 +16,7 @@
       register: node_status
       delegate_to: "{{ item }}"
       changed_when: false
+      no_log: true
       failed_when: false
       loop: "{{ groups['kube_api_servers'] }}"
       when: control_plane_host is none
