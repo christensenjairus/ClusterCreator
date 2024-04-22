@@ -20,7 +20,7 @@
 
         - name: Fetch new SSH key for the host
           ansible.builtin.shell:
-            cmd: "ssh-keyscan -t {{ cluster_config.ssh.ssh_key_type }} {{ item }}"
+            cmd: "ssh-keyscan -t {{ cluster_config.ssh.ssh_key_type }} {{ hostvars[item].ansible_host }}"
           register: ssh_key
           loop: "{{ groups['all'] }}"
           check_mode: no

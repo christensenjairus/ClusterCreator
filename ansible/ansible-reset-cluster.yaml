@@ -1,14 +1,4 @@
 ---
-- name: Delete PVCs and PVs
-  hosts: kube_api_servers[0]
-  tasks:
-    - name: Delete all PVCs
-      ansible.builtin.command: kubectl delete pvc --all --all-namespaces
-      ignore_errors: yes
-    - name: Delete all PVs
-      ansible.builtin.command: kubectl delete pv --all --all-namespaces
-      ignore_errors: yes
-
 - name: Reset Kubernetes Cluster
   hosts: all
   become: true
@@ -47,6 +37,24 @@
         - /etc/systemd/system/kubelet.service.d/kubelet.conf
         - /etc/systemd/system/kubelet.service.d/20-etcd-service-manager.conf
         - /etc/cni/net.d/05-cilium.conf
+        - /opt/local-path-provisioner
+        - /var/lib/rook
+
+    - name: Find external storage disks to Zap
+      shell: "lsblk -lno NAME | grep -vE '^(loop.*|sr.*|sda.*|vda.*|nvme0n1.*|nbd.*)$' || true"
+      register: disk_list
+      changed_when: false  # This command only reads data, does not change anything
+
+#    - name: debug - show disk list
+#      ansible.builtin.debug:
+#        msg: "{{ disk_list.stdout_lines }}"
+#      when: disk_list.stdout_lines is defined and disk_list.stdout_lines | length > 0
+
+    - name: Zap external storage disks
+      command: "sgdisk --zap-all /dev/{{ item }}"
+      loop: "{{ disk_list.stdout_lines }}"
+      when: disk_list.stdout_lines is defined and disk_list.stdout_lines | length > 0
+      ignore_errors: yes
 
     - name: Reboot nodes
       ansible.builtin.reboot:

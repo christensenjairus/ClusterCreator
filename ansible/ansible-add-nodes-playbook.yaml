@@ -9,6 +9,6 @@
 - import_playbook: ansible-join-worker-nodes.yaml # logic is in place to only join new nodes
 - import_playbook: ansible-move-kubeconfig-remote.yaml # ensures all nodes have the kubeconfig file in their home dir.
 - import_playbook: ansible-wait-until-all-nodes-ready.yaml # waits until all nodes are ready so new nodes are completely joined
-- import_playbook: ansible-untaint-control-plane-when-no-wrkrs.yaml # untaints the control plane nodes if there are no worker nodes
+- import_playbook: conditionally-taint-control-plane.yaml # untaints the control plane nodes if there are no worker nodes
 - import_playbook: ansible-label-nodes.yaml # add labels to all nodes
 - import_playbook: ansible-ending-output.yaml

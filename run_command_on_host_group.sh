@@ -11,10 +11,10 @@ ENDCOLOR='\033[0m'
 
 # Usage message
 usage() {
-    echo "Usage: $0 -g group_name -c 'command_to_run' -n cluster_name"
-    echo "  -g, --group       Group name in the Ansible hosts file"
-    echo "  -c, --command     Command to execute on the specified group"
-    echo "  -n, --cluster-name Cluster name for the Ansible hosts file path"
+    echo "Usage: $0 -g group_name -cmd 'command_to_run' -c cluster_name"
+    echo "  -g, --group        Group name in the Ansible hosts file"
+    echo "  -cmd, --command    Command to execute on the specified group"
+    echo "  -c, --cluster-name Cluster name for the Ansible hosts file path"
     exit 1
 }
 

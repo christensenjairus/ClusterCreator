@@ -32,7 +32,7 @@
         cache_valid_time: 3600  # Cache is considered valid for 1 hour
       register: upgrade_result
       until: upgrade_result is succeeded
-      retries: 10
+      retries: 30
       delay: 10
       when: not kube_config_exists.stat.exists
     - name: Upgrade all packages to the latest version on first control plane node
@@ -42,7 +42,7 @@
         force_apt_get: yes  # Optionally force using apt-get instead of aptitude
       register: upgrade_result
       until: upgrade_result is succeeded
-      retries: 10
+      retries: 30
       delay: 10
       when: not kube_config_exists.stat.exists
     - name: Remove unused packages and dependencies on first control plane node
@@ -52,7 +52,7 @@
         purge: yes
       register: upgrade_result
       until: upgrade_result is succeeded
-      retries: 10
+      retries: 30
       delay: 10
       when: not kube_config_exists.stat.exists
     - name: Clean up apt cache on first control plane node
@@ -61,7 +61,7 @@
         autoclean: yes
       register: upgrade_result
       until: upgrade_result is succeeded
-      retries: 10
+      retries: 30
       delay: 10
       when: not kube_config_exists.stat.exists
     - name: Check if reboot is required on first control plane node

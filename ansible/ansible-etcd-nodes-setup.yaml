@@ -12,7 +12,7 @@
         cache_valid_time: 3600  # Cache is considered valid for 1 hour
       register: upgrade_result
       until: upgrade_result is succeeded
-      retries: 10
+      retries: 30
       delay: 10
     - name: Upgrade all packages to the latest version on etcd nodes
       become: true
@@ -21,7 +21,7 @@
         force_apt_get: yes  # Optionally force using apt-get instead of aptitude
       register: upgrade_result
       until: upgrade_result is succeeded
-      retries: 10
+      retries: 30
       delay: 10
     - name: Remove unused packages and dependencies on etcd nodes
       become: true
@@ -30,7 +30,7 @@
         purge: yes
       register: upgrade_result
       until: upgrade_result is succeeded
-      retries: 10
+      retries: 30
       delay: 10
     - name: Clean up apt cache on etcd nodes
       become: true
@@ -38,7 +38,7 @@
         autoclean: yes
       register: upgrade_result
       until: upgrade_result is succeeded
-      retries: 10
+      retries: 30
       delay: 10
     - name: Check if reboot is required on etcd nodes
       become: true
@@ -119,12 +119,12 @@
   tasks:
     - name: Generate initial cluster string
       set_fact:
-        initial_cluster: "{% for host in groups['kube_etcd_servers'] %}{{ hostvars[host].hostname }}=https://{{ host }}:2380{% if not loop.last %},{% endif %}{% endfor %}"
+        initial_cluster: "{% for host in groups['kube_etcd_servers'] %}{{ host }}=https://{{ hostvars[host].ansible_host }}:2380{% if not loop.last %},{% endif %}{% endfor %}"
       run_once: true
       tags: etcd_cluster_config
     - name: Create temporary directories to store config files
       file:
-        path: "/tmp/{{ host }}/"
+        path: "/tmp/{{ hostvars[host].ansible_host }}/"
         state: directory
       loop: "{{ groups['kube_etcd_servers'] }}"
       loop_control:
@@ -134,7 +134,7 @@
     - name: Generate kubeadmcfg.yaml for each etcd host
       template:
         src: helpers/kubeadm_etcd_config.yaml.j2
-        dest: "/tmp/{{ item }}/kubeadmcfg.yaml"
+        dest: "/tmp/{{ hostvars[item].ansible_host }}/kubeadmcfg.yaml"
       loop: "{{ groups['kube_etcd_servers'] }}"
       tags:
         - etcd_cluster_config
@@ -171,13 +171,13 @@
     - name: Generate certificates for etcd node 1
       block:
         - name: Generate etcd-server certificates for node 1
-          command: kubeadm init phase certs etcd-server --config=/tmp/{{ groups['kube_etcd_servers'][0] }}/kubeadmcfg.yaml
+          command: kubeadm init phase certs etcd-server --config=/tmp/{{ hostvars[groups['kube_etcd_servers'][0]].ansible_host }}/kubeadmcfg.yaml
         - name: Generate etcd-peer certificates for node 1
-          command: kubeadm init phase certs etcd-peer --config=/tmp/{{ groups['kube_etcd_servers'][0] }}/kubeadmcfg.yaml
+          command: kubeadm init phase certs etcd-peer --config=/tmp/{{ hostvars[groups['kube_etcd_servers'][0]].ansible_host }}/kubeadmcfg.yaml
         - name: Generate etcd-healthcheck-client certificates for node 1
-          command: kubeadm init phase certs etcd-healthcheck-client --config=/tmp/{{ groups['kube_etcd_servers'][0] }}/kubeadmcfg.yaml
+          command: kubeadm init phase certs etcd-healthcheck-client --config=/tmp/{{ hostvars[groups['kube_etcd_servers'][0]].ansible_host }}/kubeadmcfg.yaml
         - name: Generate apiserver-etcd-client certificates for node 1
-          command: kubeadm init phase certs apiserver-etcd-client --config=/tmp/{{ groups['kube_etcd_servers'][0] }}/kubeadmcfg.yaml
+          command: kubeadm init phase certs apiserver-etcd-client --config=/tmp/{{ hostvars[groups['kube_etcd_servers'][0]].ansible_host }}/kubeadmcfg.yaml
       tags:
         - etcd_cert_generation
 
@@ -250,7 +250,7 @@
   tasks:
     - name: Adjust permissions on PKI files for synchronization on the first node
       ansible.builtin.file:
-        path: "/tmp/{{ item }}/pki"
+        path: "/tmp/{{ hostvars[item].ansible_host }}/pki"
         mode: 'u+r,g+r,o+r'  # Adds read permission for user, group, and others
         recurse: yes
       loop: "{{ groups['kube_etcd_servers'][1:] }}"
@@ -259,7 +259,7 @@
         - etcd_cert_copy
     - name: Copy PKI directory to each etcd node
       ansible.builtin.shell:
-        cmd: "scp -i /root/.ssh/ssh_key -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /tmp/{{ item }}/* {{ cluster_config.ssh.ssh_user }}@{{ item }}:~/"
+        cmd: "scp -i /root/.ssh/ssh_key -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /tmp/{{ hostvars[item].ansible_host }}/* {{ cluster_config.ssh.ssh_user }}@{{ hostvars[item].ansible_host }}:~/"
       loop: "{{ groups['kube_etcd_servers'][1:] }}"
       become: true
       tags:
@@ -297,7 +297,7 @@
   gather_facts: false
   tasks:
     - name: Initialize etcd with specific configuration
-      ansible.builtin.command: sudo kubeadm init phase etcd local --config=/tmp/{{ groups['kube_etcd_servers'][0] }}/kubeadmcfg.yaml
+      ansible.builtin.command: sudo kubeadm init phase etcd local --config=/tmp/{{ hostvars[groups['kube_etcd_servers'][0]].ansible_host }}/kubeadmcfg.yaml
       become: true
       tags:
         - etcd_init
@@ -323,21 +323,21 @@
   tasks:
     - name: Copy ca.crt to the control plane node
       ansible.builtin.shell:
-        cmd: "scp -i /root/.ssh/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /etc/kubernetes/pki/etcd/ca.crt {{ cluster_config.ssh.ssh_user }}@{{ groups['kube_api_servers'][0] }}:{{ cluster_config.ssh.ssh_home }}/ca.crt"
+        cmd: "scp -i /root/.ssh/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /etc/kubernetes/pki/etcd/ca.crt {{ cluster_config.ssh.ssh_user }}@{{ hostvars[groups['kube_api_servers'][0]].ansible_host }}:{{ cluster_config.ssh.ssh_home }}/ca.crt"
       become: true
       when: groups['kube_etcd_servers'] | default([]) | length > 0
       tags:
         - kubeadm_config_copy
     - name: Copy apiserver-etcd-client.crt to the control plane node
       ansible.builtin.shell:
-        cmd: "scp -i /root/.ssh/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /etc/kubernetes/pki/apiserver-etcd-client.crt {{ cluster_config.ssh.ssh_user }}@{{ groups['kube_api_servers'][0] }}:{{ cluster_config.ssh.ssh_home }}/apiserver-etcd-client.crt"
+        cmd: "scp -i /root/.ssh/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /etc/kubernetes/pki/apiserver-etcd-client.crt {{ cluster_config.ssh.ssh_user }}@{{ hostvars[groups['kube_api_servers'][0]].ansible_host }}:{{ cluster_config.ssh.ssh_home }}/apiserver-etcd-client.crt"
       become: true
       when: groups['kube_etcd_servers'] | default([]) | length > 0
       tags:
         - kubeadm_config_copy
     - name: Copy apiserver-etcd-client.key to the control plane node
       ansible.builtin.shell:
-        cmd: "scp -i /root/.ssh/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /etc/kubernetes/pki/apiserver-etcd-client.key {{ cluster_config.ssh.ssh_user }}@{{ groups['kube_api_servers'][0] }}:{{ cluster_config.ssh.ssh_home }}/apiserver-etcd-client.key"
+        cmd: "scp -i /root/.ssh/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /etc/kubernetes/pki/apiserver-etcd-client.key {{ cluster_config.ssh.ssh_user }}@{{ hostvars[groups['kube_api_servers'][0]].ansible_host }}:{{ cluster_config.ssh.ssh_home }}/apiserver-etcd-client.key"
       become: true
       when: groups['kube_etcd_servers'] | default([]) | length > 0
       tags:
@@ -414,7 +414,7 @@
           --cert /etc/kubernetes/pki/etcd/peer.crt \
           --key /etc/kubernetes/pki/etcd/peer.key \
           --cacert /etc/kubernetes/pki/etcd/ca.crt \
-          --endpoints https://{{ host }}:2379 endpoint health
+          --endpoints https://{{ hostvars[host].ansible_host }}:2379 endpoint health
       loop: "{{ groups['kube_etcd_servers'] }}"
       loop_control:
         loop_var: host

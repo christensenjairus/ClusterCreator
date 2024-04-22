@@ -8,7 +8,7 @@ apiServer:
   certSANs:
   - "{{ cluster_config.kube_vip.vip }}"
 {% for host in groups['kube_api_servers'] %}
-  - "{{ host }}"
+  - "{{ hostvars[host].ansible_host }}"
 {% endfor %}
   - "{{ cluster_config.cluster_name }}"
   - "{{ cluster_config.cluster_name }}.lan"
@@ -23,7 +23,7 @@ etcd:
   external:
     endpoints:
 {% for host in groups['kube_etcd_servers'] %}
-    - https://{{ hostvars[host].hostname }}:2379
+    - https://{{ host }}:2379
 {% endfor %}
     caFile: /etc/kubernetes/pki/etcd/ca.crt
     certFile: /etc/kubernetes/pki/apiserver-etcd-client.crt

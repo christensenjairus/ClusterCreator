@@ -21,9 +21,9 @@
 
     - name: Parse Nodes and Labels
       set_fact:
-        nodes_and_labels: "{{ nodes_and_labels | default([]) + [{'hostname': item.split()[2].split('=')[1], 'labels': (item.split('labels=\"')[1].split('\"')[0] if 'labels=\"' in item else '').split(',')}] }}"
+        nodes_and_labels: "{{ nodes_and_labels | default([]) + [{'hostname': item.split()[0], 'labels': (item.split('labels=\"')[1].split('\"')[0] if 'labels=\"' in item else '').split(',')}] }}"
       loop: "{{ hosts_content.splitlines() }}"
-      when: item | length > 0 and 'hostname=' in item and not item.startswith('#') and not 'labels=""' in item
+      when: item | length > 0 and not item.startswith('#') and not 'labels=""' in item and not item.startswith('[') and not item.startswith('cluster_name=')
 
     - name: Apply Labels to Nodes
       ansible.builtin.command:

@@ -3,19 +3,19 @@ cluster_name={{ cluster_name }}
 
 [kube_api_servers]
 {% for i in range(cluster_config.node_classes.apiserver.count) %}
-{{ cluster_config.host_networking.cluster_subnet }}.{{ cluster_config.node_classes.apiserver.start_ip + i }} labels="{% for key, value in cluster_config.node_classes.apiserver.labels.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}" hostname={{ cluster_config.cluster_name }}-apiserver-{{ i }}
+{{ cluster_config.cluster_name }}-apiserver-{{ i }} ansible_host={{ cluster_config.host_networking.cluster_subnet }}.{{ cluster_config.node_classes.apiserver.start_ip + i }} labels="{% for key, value in cluster_config.node_classes.apiserver.labels.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}"
 {% endfor %}
 
 [kube_etcd_servers]
 {% for i in range(cluster_config.node_classes.etcd.count) %}
-{{ cluster_config.host_networking.cluster_subnet }}.{{ cluster_config.node_classes.etcd.start_ip + i }} etcd_index={{ i }} labels="" hostname={{ cluster_config.cluster_name }}-etcd-{{ i }}
+{{ cluster_config.cluster_name }}-etcd-{{ i }} ansible_host={{ cluster_config.host_networking.cluster_subnet }}.{{ cluster_config.node_classes.etcd.start_ip + i }} etcd_index={{ i }} labels=""
 {% endfor %}
 
 [kube_worker_servers]
 {% for node_class in cluster_config.node_classes %}
 {% if node_class not in ['etcd', 'apiserver'] %}
 {% for i in range(cluster_config.node_classes[node_class].count) %}
-{{ cluster_config.host_networking.cluster_subnet }}.{{ cluster_config.node_classes[node_class].start_ip + i }} labels="{% for key, value in cluster_config.node_classes[node_class].labels.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}" hostname={{ cluster_config.cluster_name }}-{{ node_class }}-{{ i }}
+{{ cluster_config.cluster_name }}-{{ node_class }}-{{ i }} ansible_host={{ cluster_config.host_networking.cluster_subnet }}.{{ cluster_config.node_classes[node_class].start_ip + i }} labels="{% for key, value in cluster_config.node_classes[node_class].labels.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}"
 {% endfor %}
 {% endif %}
 {% endfor %}

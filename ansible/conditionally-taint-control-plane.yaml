@@ -1,0 +1,54 @@
+- name: Conditionally taint control plane nodes depending on if worker nodes will be added
+  hosts: kube_api_servers
+  gather_facts: false
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+  tags:
+    - conditionally_taint_control_plane_nodes
+  tasks:
+    - name: Map IP addresses to hostnames for kube_api_servers
+      set_fact:
+        kube_api_server_names: "{{ kube_api_server_names | default([]) + [item] }}"
+      loop: "{{ groups['kube_api_servers'] }}"
+
+    - name: Set the count of worker nodes
+      set_fact:
+        worker_node_count: "{{ groups['kube_worker_servers'] | default([]) | length | int }}"
+
+    - name: Fetch current nodes and taint information
+      ansible.builtin.command: kubectl get nodes -o json
+      register: nodes_json
+
+    - name: Set fact for nodes with control-plane NoSchedule taint
+      set_fact:
+        nodes_needing_taint: "{{ nodes_json.stdout | from_json | json_query(control_plane_query) | default([]) }}"
+      vars:
+        control_plane_query: >-
+          items[?spec.taints[?key=='node-role.kubernetes.io/control-plane' && effect=='NoSchedule']]
+          | [? contains(`{{ kube_api_server_names | to_json }}`, metadata.name)]
+          | map(&metadata.name, @)
+
+    - name: Untaint nodes with control-plane NoSchedule taint when no workers present
+      ansible.builtin.command: kubectl taint nodes {{ item }} node-role.kubernetes.io/control-plane:NoSchedule-
+      loop: "{{ nodes_needing_taint }}"
+      when:
+        - worker_node_count | int < 1
+        - nodes_needing_taint | default([]) | length > 0
+      ignore_errors: yes
+
+    - name: Set fact for nodes needing control-plane NoSchedule taint when workers are present
+      set_fact:
+        nodes_needing_taint: "{{ nodes_json.stdout | from_json | json_query(need_taint_query) }}"
+      vars:
+        need_taint_query: >-
+          items[? !(spec.taints[?key=='node-role.kubernetes.io/control-plane' && effect=='NoSchedule'])]
+          | [? contains(`{{ kube_api_server_names | to_json }}`, metadata.name)]
+          | map(&metadata.name, @)
+
+    - name: Taint nodes with control-plane NoSchedule taint when workers present
+      ansible.builtin.command: kubectl taint nodes {{ item }} node-role.kubernetes.io/control-plane:NoSchedule
+      loop: "{{ nodes_needing_taint | default([]) }}"
+      when:
+        - worker_node_count | int > 0
+        - nodes_needing_taint | default([]) | length > 0
+      ignore_errors: yes

@@ -12,7 +12,7 @@ ENDCOLOR='\033[0m'
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         -n|--cluster-name) CLUSTER_NAME="$2"; shift ;;
-        --add-nodes) ADD_NODES=true ;;
+        -a|--add-nodes) ADD_NODES=true ;;
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
     esac
     shift
@@ -20,7 +20,7 @@ done
 
 if [[ -z "$CLUSTER_NAME" ]]; then
     echo -e "${RED}Error: CLUSTER_NAME is required.${ENDCOLOR}"
-    echo -e "${RED}Usage: $0 --cluster-name <CLUSTER_NAME> [--add-nodes]${ENDCOLOR}"
+    echo -e "${RED}Usage: $0 --cluster-name <CLUSTER_NAME> [-a/--add-nodes]${ENDCOLOR}"
     exit 1
 fi
 
@@ -52,16 +52,14 @@ ansible-galaxy collection install kubernetes.core
 set -e
 trap 'echo "An error occurred. Cleaning up..."; cleanup_function' ERR
 
-pushd ./ansible
-
-rm -rf
+pushd ./ansible || exit
 
 cleanup_function() {
   rm -f \
     "tmp/${CLUSTER_NAME}/worker_join_command.sh" \
     "tmp/${CLUSTER_NAME}/control_plane_join_command.sh" \
     >&/dev/null
-  popd
+  popd || true
   echo "Cleanup complete."
 }
 
@@ -74,6 +72,16 @@ if [ "$ADD_NODES" = true ]; then
     -e "ssh_key_file=$HOME/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}" \
     -e "ssh_hosts_file=$HOME/.ssh/known_hosts" \
     -e "kubernetes_version=${KUBERNETES_MEDIUM_VERSION}"
+
+  if [[ "$(hostname)" == "Jairus-MacBook-Pro.local" ]]; then
+    if kubectl --context "$CLUSTER_NAME" -n rook-ceph get deploy rook-ceph-operator >/dev/null 2>&1; then
+      echo "Restarting rook-ceph-operator" # w/o this, removing nodes can cause the operator to forget to create OSDs when re-adding the nodes
+      kubectl --context "$CLUSTER_NAME" -n rook-ceph rollout restart deploy rook-ceph-operator
+    else
+      echo "rook-ceph-operator deployment does not exist in namespace rook-ceph"
+    fi
+    echo ""
+  fi
 else
   echo -e "${GREEN}Running init cluster creation playbook...${ENDCOLOR}"
   ansible-playbook -i "tmp/${CLUSTER_NAME}/ansible-hosts.txt" -u $VM_USERNAME ansible-init-cluster-playbook.yaml \

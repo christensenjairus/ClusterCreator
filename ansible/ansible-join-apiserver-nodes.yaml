@@ -3,13 +3,14 @@
   hosts: kube_api_servers
   any_errors_fatal: true
   vars:
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
     control_plane_host: null
   tasks:
     # finding a control plane node is necessary because we can't use kube_api_servers[0] because it could be a new node.
     - name: Find a control-plane node to query for the list of nodes
       ansible.builtin.shell:
         cmd: >
-          kubectl get node "{{ hostvars[item].hostname }}" -o jsonpath='{.metadata.labels.node-role\.kubernetes\.io\/control-plane}'
+          kubectl get node "{{ item }}" -o jsonpath='{.metadata.labels.node-role\.kubernetes\.io\/control-plane}'
       register: node_status
       delegate_to: "{{ item }}"
       changed_when: false
@@ -53,22 +54,18 @@
         msg: "Kubernetes nodes from cluster: {{ k8s_node_names }}"
       run_once: true
 
-    - name: Determine the hostname for the current host from inventory
-      set_fact:
-        current_hostname: "{{ hostvars[inventory_hostname].hostname }}"
-
     - name: Check if current host's hostname is in the Kubernetes node list
       ansible.builtin.set_fact:
-        is_in_cluster: "{{ current_hostname in k8s_node_names }}"
+        is_in_cluster: "{{ inventory_hostname in k8s_node_names }}"
 
     - name: Check host status if in cluster
       ansible.builtin.debug:
-        msg: "Host {{ inventory_hostname }} with hostname {{ current_hostname }} is already in the cluster"
+        msg: "Host {{ inventory_hostname }} is already in the cluster"
       when: is_in_cluster
 
     - name: Check host status if not in cluster
       ansible.builtin.debug:
-        msg: "Host {{ inventory_hostname }} with hostname {{ current_hostname }} is not in the cluster and will join"
+        msg: "Host {{ inventory_hostname }} is not in the cluster and will join"
       when: not is_in_cluster
 
     - name: Join the nodes not in the cluster
@@ -82,7 +79,7 @@
             cache_valid_time: 3600  # Cache is considered valid for 1 hour
           register: upgrade_result
           until: upgrade_result is succeeded
-          retries: 10
+          retries: 30
           delay: 10
         - name: Upgrade all packages to the latest version on control plane nodes to be added to cluster
           become: true
@@ -91,7 +88,7 @@
             force_apt_get: yes  # Optionally force using apt-get instead of aptitude
           register: upgrade_result
           until: upgrade_result is succeeded
-          retries: 10
+          retries: 30
           delay: 10
         - name: Remove unused packages and dependencies on control plane nodes to be added to cluster
           become: true
@@ -100,7 +97,7 @@
             purge: yes
           register: upgrade_result
           until: upgrade_result is succeeded
-          retries: 10
+          retries: 30
           delay: 10
         - name: Clean up apt cache on control plane nodes to be added to cluster
           become: true
@@ -108,7 +105,7 @@
             autoclean: yes
           register: upgrade_result
           until: upgrade_result is succeeded
-          retries: 10
+          retries: 30
           delay: 10
         - name: Check if reboot is required on control plane nodes to be added to cluster
           become: true

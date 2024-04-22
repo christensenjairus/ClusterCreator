@@ -98,7 +98,7 @@
     - name: Update /etc/hosts with etcd server entries
       lineinfile:
         path: /etc/hosts
-        line: "{{ item }} {{ cluster_config.cluster_name }}-etcd-{{ hostvars[item].etcd_index }}"
+        line: "{{ hostvars[item].ansible_host }} {{ cluster_config.cluster_name }}-etcd-{{ hostvars[item].etcd_index }}"
         state: present
       loop: "{{ groups['kube_etcd_servers'] }}"
       tags:

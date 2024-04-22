@@ -386,13 +386,13 @@ variable "clusters" {
           start_ip = 120
         }
         storage = {
-          count    = 3
+          count    = 4 # 3 minimum for my replication level, an extra to maintain HEALTH_OK when I take one down for maintenance
           cores    = 2
           sockets  = 2
           memory   = 8192
           disks    = [
             { index = 0, datastore = "nvmes", size = 30, backup = true },
-            { index = 1, datastore = "nvmes", size = 100, backup = false }
+            { index = 1, datastore = "nvmes", size = 400, backup = false } # could be full and still leave space for os disks in cluster
           ]
           start_ip = 130
           labels   = {

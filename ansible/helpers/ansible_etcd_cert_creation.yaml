@@ -1,14 +1,14 @@
 - name: Generate etcd-server certificates for other nodes
-  command: kubeadm init phase certs etcd-server --config=/tmp/{{ host }}/kubeadmcfg.yaml
+  command: kubeadm init phase certs etcd-server --config=/tmp/{{ hostvars[host].ansible_host }}/kubeadmcfg.yaml
 - name: Generate etcd-peer certificates for other nodes
-  command: kubeadm init phase certs etcd-peer --config=/tmp/{{ host }}/kubeadmcfg.yaml
+  command: kubeadm init phase certs etcd-peer --config=/tmp/{{ hostvars[host].ansible_host }}/kubeadmcfg.yaml
 - name: Generate etcd-healthcheck-client certificates for other nodes
-  command: kubeadm init phase certs etcd-healthcheck-client --config=/tmp/{{ host }}/kubeadmcfg.yaml
+  command: kubeadm init phase certs etcd-healthcheck-client --config=/tmp/{{ hostvars[host].ansible_host }}/kubeadmcfg.yaml
 - name: Generate apiserver-etcd-client certificates for other nodes
-  command: kubeadm init phase certs apiserver-etcd-client --config=/tmp/{{ host }}/kubeadmcfg.yaml
+  command: kubeadm init phase certs apiserver-etcd-client --config=/tmp/{{ hostvars[host].ansible_host }}/kubeadmcfg.yaml
 - name: Copy PKI directory to temporary location for other nodes
-  command: cp -R /etc/kubernetes/pki /tmp/{{ host }}/
+  command: cp -R /etc/kubernetes/pki /tmp/{{ hostvars[host].ansible_host }}/
 - name: Delete everything from /etc/kubernetes/pki except for the ca certs
   command: sudo find /etc/kubernetes/pki -not -name ca.crt -not -name ca.key -type f -delete
 - name: Delete certs that should not be copied off first etcd node
-  command: sudo find /tmp/{{ host }} -name ca.key -type f -delete
+  command: sudo find /tmp/{{ hostvars[host].ansible_host }} -name ca.key -type f -delete

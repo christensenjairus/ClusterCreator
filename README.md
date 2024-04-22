@@ -1,25 +1,27 @@
-# ClusterCreator - OpenTofu & Ansible K8S on Proxmox
+# ClusterCreator - Terraform & Ansible K8S Bootstrapping on Proxmox
 ![alpha, beta, and gamma Example Clusters](https://github.com/christensenjairus/ClusterCreator/assets/58751387/7193a4ad-b3d9-4b90-98f3-e60fde571412)
 
 ## Automate the creation of fully functional K8S clusters of any size on Proxmox
 
-This project will assist you in automating the creation of k8s clusters on Proxmox, optionally with a dedicated Unifi network and VLAN.
+This project will assist you in automating bootstrapping k8s clusters on Proxmox, optionally with a dedicated Unifi network and VLAN, as well as maintaining that cluster.
 
-OpenTofu & Ansible automate to create external etcd K8S clusters. OpenTofu creates the VMs and VLANs, and Ansible installs Kubernetes as well as various add-ons for networking, monitoring, storage, and observability.
+Having a virtualized k8s cluster allows you to not only simulate a cloud environment, but scale and customize your cluster to your needs, adding/removing nodes and disks, managing disk backups and snapshots, customizing node class types, and controlling state.
 
-##### The `create_template.sh` script will create a cloud-init ready virtual machine template for Tofu to use. The template VM includes
-* Install apt packages kubeadm, kubelet, kubectl, helm, containerd, nfs tools, iscsi-tools, qemu-guest-agent, mysql-client, ceph, etc.
-* Installed from source packages cilium cli, hubble cli, cni plugins, etcdctl, vtctldclient, and vtexplain
+Terraform/OpenTofu & Ansible automate to create even more complex setups, like using an external etcd cluster or using a large number of worker nodes with differing cpu/mem/disk/networking/labels. OpenTofu creates the VMs and VLANs, and Ansible installs Kubernetes as well as various add-ons for networking, metrics, and storage.
+
+##### The `create_template.sh` script will create a cloud-init ready virtual machine template for Tofu to use.
+* Installs apt packages kubeadm, kubelet, kubectl, helm, containerd, nfs tools, iscsi-tools, qemu-guest-agent, mysql-client, ceph, etc.
+* Installs packages from source like the cilium cli, hubble cli, cni plugins, etcdctl, vtctldclient, and vtexplain
 * Updates to operating system
-* Various necessary system configurations for k8s, like kernel modules and sysctl settings
-* Multipath configuration (needed for Longhorn)
+* Adds various necessary system configurations for k8s, like kernel modules and sysctl settings
+* Adds multipath configuration, which is important for storage systems like Longhorn.
 * Supports both Ubuntu and Debian images
 
-##### The Tofu cluster configuration allows for
+##### The Tofu cluster configuration allows
 * Optional external etcd cluster
 * Proxmox pool configuration
-* Custom Network & VLAN Unifi configuration (optional)
-* Custom worker classes (general, database, and storage are included - but you can add your own)
+* Custom network & vlan Unifi configuration (optional)
+* Custom worker classes (general, database, and storage are included, but you can add more)
 * Custom quantities of control-plane, etcd, and custom worker nodes
 * Custom hardware requirements for each node class
 * Custom disk configurations
@@ -32,8 +34,8 @@ OpenTofu & Ansible automate to create external etcd K8S clusters. OpenTofu creat
 * Cilium CNI (replacing kube-router, providing full eBPF. L2 arp announcements enabled.)
 * Metrics server
 * Node labeling
-* Auto-Provisioning Local StorageClass (rancher)
-* Non-Auto-Provisioning Local StorageClass (k8s built-in) (set as default StorageClass)
+* Auto-Provisioning Local StorageClass (rancher) (set as default StorageClass)
+* Non-Auto-Provisioning Local StorageClass (k8s built-in)
 * Prepares, updates, reboots, and joins new nodes to an existing cluster with the `--add-nodes` flag, allowing you to grow your cluster as needed.
 
 # Usage
@@ -64,19 +66,29 @@ This will clone the template using tofu and set cloud-init parameters, as well a
 
 ### Install K8S with Ansible
 ```bash
-./install_k8s.sh --cluster_name <cluster_name> [--add-nodes]
+./install_k8s.sh --cluster_name <CLUSTER_NAME> [-a/--add-nodes]
 ```
 This will run a series of Ansible playbooks to create a fresh, minimal cluster. This is independent of the Tofu workspace and uses the `cluster_config.json` file and creates its own `ansible-hosts.txt` file based on the cluster configuration.
 
 The `--add-nodes` flag will prepare and add **new** nodes to an already initialized cluster. This works for both control-plane and worker nodes.
 
-*Note: Do not use the `--add-nodes` to set up or edit an external etcd cluster. That must be done upon initialization.*
+*Note: Do not use the `--add-nodes` to set up or edit an external etcd cluster. That must be done upon initialization. But it will work for editing control plane nodes that reference the external etcd cluster.*
+
+### Drain or remove a node from the cluster
+```bash
+./remove_node.sh -c/--cluster-name <CLUSTER_NAME> -h/--hostname <NODE_HOSTNAME> -t/--timeout <TIMEOUT_SECONDS> [-d/--delete]
+```
+This will remove a worker or control plane node from the cluster and optionally delete & reset it. This includes removing etcd membership if the node is a stacked etcd control-plane node as well as untaints the control plane nodes when the last worker node is removed. 
+
+The `--delete` flag will not only delete the node from the cluster, but will run the `./uninstall_k8s.sh` script to ensure that it is completely ready to start fresh when recomissioned. 
+
+This does not work for external etcd nodes.
 
 ### Uninstall K8S with Ansible
 ```bash
-./uninstall_k8s.sh --cluster_name <cluster_name>
+./uninstall_k8s.sh -c/--cluster_name <CLUSTER_NAME> [-h/--single-hostname <HOSTNAME_TO_RESET>]
 ```
-This will run an Ansible playbook to reset k8s.
+This will run an Ansible playbook to reset k8s. Without the `--single-hostname` flag, all nodes will be reset and the cluster will be deleted.
 
 ### Destroy the VMs with Tofu
 ```bash
@@ -92,7 +104,7 @@ This will perform QEMU power control functions for the VMs in the specified pool
 
 ### Run bash commands on ansible host groups
 ```bash
-./run_command_on_host_group.sh [--n/--cluster-name <CLUSTER_NAME> [-g/--group <GROUP_NAME>] [-c/--command '<command>']
+./run_command_on_host_group.sh [--c/--cluster-name <CLUSTER_NAME> [-g/--group <GROUP_NAME>] [-cmd/--command '<command>']
 ```
 This will run bash commands on the ansible host group you define. 'all' is the default group name. Multiple groups can be chained together with a comma and surrounding quotations.
 
