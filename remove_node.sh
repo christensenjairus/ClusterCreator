@@ -80,9 +80,10 @@ if [[ "$(hostname)" == "Jairus-MacBook-Pro.local" && "$NODE_HOSTNAME" != "*" ]];
       elapsed=0
       while true; do
         ceph_status=$(kubectl rook-ceph --context "$CLUSTER_NAME" ceph status)
-        if echo "$ceph_status" | grep -q "health: HEALTH_OK" && \
-           echo "$ceph_status" | grep -q "osd: [4-9]\+ osds: [4-9]\+ up (since [0-9]\+[smhd]), [4-9]\+ in (since [0-9]\+[smhd])" && \
-           echo "$ceph_status" | awk '/backfill|remapped|degraded|misplaced|inactive|incomplete|undersized/ { found=1; exit } END { if (found) exit 1; else exit 0; }'; then
+        # removed the HEALTH_OK check because it can be healthy but have HEALTH_WARN when a daemon has recently crashed. We'll rely on the lack of --force in the osd deletion command to prevent data loss.
+#        if echo "$ceph_status" | grep -q "health: HEALTH_OK" && \
+        if echo "$ceph_status" | grep -q "osd: [4-9]\+ osds: [4-9]\+ up (since [0-9]\+[smhd]), [4-9]\+ in (since [0-9]\+[smhd])" && \
+          echo "$ceph_status" | awk '/backfill|remapped|degraded|misplaced|inactive|incomplete|undersized/ { found=1; exit } END { if (found) exit 1; else exit 0; }'; then
           break
         fi
         elapsed=$((elapsed + interval))

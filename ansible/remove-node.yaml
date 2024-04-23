@@ -81,7 +81,7 @@
 
     - name: Get etcd member list (if a stacked etcd server)
       shell: >
-        kubectl exec etcd-{{ active_api_server_name }} -n {{ etcd_namespace }} -- 
+        kubectl exec etcd-{{ active_api_server_name }} -n {{ etcd_namespace }} --
         etcdctl --cacert {{ etcd_cacert }} --cert {{ etcd_cert }} --key {{ etcd_key }} member list
         | grep {{ node_name }}
         | cut -f1 -d','
@@ -126,6 +126,15 @@
       delegate_to: "{{ hostvars[active_api_server_name].ansible_host }}"
       run_once: true
       when: drain_result.rc != 0
+
+    - name: Delete volumeattachments related to the removed node
+      ansible.builtin.shell: >
+        kubectl get volumeattachments -o json |
+        jq -r '.items[] | select(.spec.nodeName == "{{ node_name }}") | .metadata.name' |
+        xargs -r -I {} kubectl delete volumeattachment {}
+      register: volumeattachments
+      delegate_to: "{{ hostvars[active_api_server_name].ansible_host }}"
+      run_once: true
 
     - name: Delete the node from the cluster (if requested)
       command: kubectl delete node {{ node_name }}

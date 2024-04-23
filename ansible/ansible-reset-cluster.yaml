@@ -37,23 +37,24 @@
         - /etc/systemd/system/kubelet.service.d/kubelet.conf
         - /etc/systemd/system/kubelet.service.d/20-etcd-service-manager.conf
         - /etc/cni/net.d/05-cilium.conf
+        - /etc/cni/net.d/.kubernetes-cni-keep
         - /opt/local-path-provisioner
         - /var/lib/rook
 
     - name: Find external storage disks to Zap
-      shell: "lsblk -lno NAME | grep -vE '^(loop.*|sr.*|sda.*|vda.*|nvme0n1.*|nbd.*)$' || true"
+      # Zap all vd.* disks except for vda, which is the OS disk. All virtio disks start with vd.
+      shell: "lsblk -lno NAME | grep -v vda | grep -E '^(vd.*)$' || true"
       register: disk_list
-      changed_when: false  # This command only reads data, does not change anything
 
-#    - name: debug - show disk list
-#      ansible.builtin.debug:
-#        msg: "{{ disk_list.stdout_lines }}"
-#      when: disk_list.stdout_lines is defined and disk_list.stdout_lines | length > 0
+    - name: Show external disks that will be zapped
+      ansible.builtin.debug:
+        msg: "{{ disk_list.stdout_lines }}"
+      when: disk_list.stdout_lines | length > 0
 
     - name: Zap external storage disks
       command: "sgdisk --zap-all /dev/{{ item }}"
       loop: "{{ disk_list.stdout_lines }}"
-      when: disk_list.stdout_lines is defined and disk_list.stdout_lines | length > 0
+      when: disk_list.stdout_lines | length > 0
       ignore_errors: yes
 
     - name: Reboot nodes

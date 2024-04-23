@@ -283,7 +283,7 @@ variable "clusters" {
           start_ip   = 120
         }
         storage = {
-          count      = 3
+          count      = 4 # 3 minimum for my replication level, an extra to maintain HEALTH_OK when I take one down for maintenance
           cores      = 2
           sockets    = 2
           memory     = 4096
@@ -302,7 +302,7 @@ variable "clusters" {
           sockets    = 2
           memory     = 8192
           disks      = [
-            { index = 0, datastore = "nvmes", size = 100, backup = true } # big enough to hold victoria-metrics storage volume + vitess databases
+            { index = 0, datastore = "nvmes", size = 50, backup = true } # big enough to hold vitess databases
           ]
           start_ip   = 140
           labels = {
@@ -405,7 +405,7 @@ variable "clusters" {
           sockets  = 2
           memory   = 8192
           disks    = [
-            { index = 0, datastore = "nvmes", size = 100, backup = true } # big enough to hold victoria-metrics storage volume + vitess databases
+            { index = 0, datastore = "nvmes", size = 50, backup = true } # big enough to hold vitess databases
           ]
           start_ip = 140
           labels   = {
