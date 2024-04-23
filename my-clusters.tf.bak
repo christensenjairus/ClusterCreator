@@ -403,7 +403,7 @@ variable "clusters" {
           count    = 2
           cores    = 4
           sockets  = 2
-          memory   = 8192
+          memory   = 12288
           disks    = [
             { index = 0, datastore = "nvmes", size = 50, backup = true } # big enough to hold vitess databases
           ]
