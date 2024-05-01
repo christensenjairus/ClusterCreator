@@ -10,6 +10,7 @@ variable "clusters" {
     cluster_name                     : string # name to be used in kubeconfig, cluster mesh, network name, k8s_vm_template pool. Must match the cluster name key.
     cluster_id                       : number # acts as the vm_id prefix. Also used for cluster mesh. This plus the vm start ip should always be over 100 because of how proxmox likes its vmids. But you can use 0 if the vm start id fits these requirements.
     kubeconfig_file_name             : string # name of the local kubeconfig file to be created. Assumed this will be in $HOME/.kube/
+    start_on_proxmox_boot            : bool   # whether or not to start the clusters vms on proxmox boot
     ssh                              : object({
       ssh_user                       : string # username for the remote server
       ssh_home                       : string # path to your home directory on the remote server
@@ -123,6 +124,7 @@ variable "clusters" {
       cluster_name                     = "alpha"
       cluster_id                       = 1
       kubeconfig_file_name             = "alpha.yml"
+      start_on_proxmox_boot            = false
       ssh = {
         ssh_user                       = "line6"
         ssh_home                       = "/home/line6"
@@ -225,6 +227,7 @@ variable "clusters" {
       cluster_name                     = "beta"
       cluster_id                       = 2
       kubeconfig_file_name             = "beta.yml"
+      start_on_proxmox_boot            = false
       ssh = {
         ssh_user                       = "line6"
         ssh_home                       = "/home/line6"
@@ -327,6 +330,7 @@ variable "clusters" {
       cluster_name                    = "gamma"
       cluster_id                      = 3
       kubeconfig_file_name            = "gamma.yml"
+      start_on_proxmox_boot            = false
       ssh = {
         ssh_user                      = "line6"
         ssh_home                      = "/home/line6"

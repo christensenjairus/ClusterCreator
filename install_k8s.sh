@@ -97,4 +97,4 @@ fi
 # cleanup join commands
 cleanup_function
 
-echo -e "${GREEN}BASE CLUSTER COMPLETE${ENDCOLOR}"
+echo -e "${GREEN}CLUSTER CONFIGURATION COMPLETE${ENDCOLOR}"

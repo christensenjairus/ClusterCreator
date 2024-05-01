@@ -10,6 +10,7 @@ variable "clusters" {
     cluster_name                     : string # name to be used in kubeconfig, cluster mesh, network name, k8s_vm_template pool. Must match the cluster name key.
     cluster_id                       : number # acts as the vm_id prefix. Also used for cluster mesh. This plus the vm start ip should always be over 100 because of how proxmox likes its vmids. But you can use 0 if the vm start id fits these requirements.
     kubeconfig_file_name             : string # name of the local kubeconfig file to be created. Assumed this will be in $HOME/.kube/
+    start_on_proxmox_boot            : bool   # whether or not to start the cluster's vms on proxmox boot
     ssh                              : object({
       ssh_user                       : string # username for the remote server
       ssh_home                       : string # path to your home directory on the remote server
@@ -123,6 +124,7 @@ variable "clusters" {
       cluster_name                     = "delta"
       cluster_id                       = 4
       kubeconfig_file_name             = "delta.yml"
+      start_on_proxmox_boot            = false
       ssh = {
         ssh_user                       = "line6"
         ssh_home                       = "/home/line6"
@@ -225,6 +227,7 @@ variable "clusters" {
       cluster_name                     = "epsilon"
       cluster_id                       = 5
       kubeconfig_file_name             = "epsilon.yml"
+      start_on_proxmox_boot            = false
       ssh = {
         ssh_user                       = "line6"
         ssh_home                       = "/home/line6"
@@ -260,7 +263,7 @@ variable "clusters" {
       }
       node_classes = {
         apiserver = {
-          count      = 3
+          count      = 1
           cores      = 2
           sockets    = 2
           memory     = 4096
@@ -283,7 +286,7 @@ variable "clusters" {
           start_ip   = 120
         }
         storage = {
-          count      = 4 # 3 minimum for my replication level, an extra to maintain HEALTH_OK when I take one down for maintenance
+          count      = 1
           cores      = 2
           sockets    = 2
           memory     = 4096
@@ -297,12 +300,13 @@ variable "clusters" {
           }
         }
         database = {
-          count      = 2
-          cores      = 4
+          count      = 1
+          cores      = 2
           sockets    = 2
-          memory     = 8192
+          memory     = 4096
           disks      = [
-            { index = 0, datastore = "nvmes", size = 50, backup = true } # big enough to hold vitess databases
+            { index = 0, datastore = "nvmes", size = 50, backup = true }, # big enough to hold vitess databases
+            { index = 1, datastore = "nvmes", size = 100, backup = false }
           ]
           start_ip   = 140
           labels = {
@@ -310,12 +314,13 @@ variable "clusters" {
           }
         }
         general = {
-          count      = 2
-          cores      = 8
+          count      = 1
+          cores      = 6
           sockets    = 2
-          memory     = 16384
+          memory     = 12288
           disks      = [
-            { index = 0, datastore = "nvmes", size = 30, backup = true }
+            { index = 0, datastore = "nvmes", size = 30, backup = true },
+            { index = 1, datastore = "nvmes", size = 100, backup = false }
           ]
           start_ip   = 150
           labels = {
@@ -328,6 +333,7 @@ variable "clusters" {
       cluster_name                     = "zeta"
       cluster_id                       = 6
       kubeconfig_file_name             = "zeta.yml"
+      start_on_proxmox_boot            = true
       ssh                              = {
         ssh_user                       = "line6"
         ssh_home                       = "/home/line6"
@@ -366,7 +372,7 @@ variable "clusters" {
           count    = 3
           cores    = 2
           sockets  = 2
-          memory   = 4096
+          memory   = 6144
           disks    = [
             { index = 0, datastore = "nvmes", size = 30, backup = true }
           ]
@@ -379,7 +385,7 @@ variable "clusters" {
           count    = 3
           cores    = 1
           sockets  = 2
-          memory   = 2048
+          memory   = 3072
           disks    = [
             { index = 0, datastore = "nvmes", size = 30, backup = true }
           ]
@@ -387,11 +393,11 @@ variable "clusters" {
         }
         storage = {
           count    = 4 # 3 minimum for my replication level, an extra to maintain HEALTH_OK when I take one down for maintenance
-          cores    = 2
+          cores    = 4
           sockets  = 2
-          memory   = 8192
+          memory   = 12288
           disks    = [
-            { index = 0, datastore = "nvmes", size = 30, backup = true },
+            { index = 0, datastore = "nvmes", size = 75, backup = true }, # big enough to hold mon folder /rook/rook-ceph
             { index = 1, datastore = "nvmes", size = 400, backup = false } # could be full and still leave space for os disks in cluster
           ]
           start_ip = 130
@@ -413,7 +419,7 @@ variable "clusters" {
           }
         }
         general = {
-          count    = 2
+          count    = 3
           cores    = 16
           sockets  = 2
           memory   = 32768

@@ -94,12 +94,20 @@
         create: yes
       when: ansible_facts['os_family'] == "Debian"
       tags: etc_hosts
-
     - name: Update /etc/hosts with node entries
-      lineinfile:
+      ansible.builtin.lineinfile:
         path: /etc/hosts
         line: "{{ hostvars[item].ansible_host }} {{ item }}"
         state: present
       loop: "{{ groups['all'] }}"
+      tags:
+        - etc_hosts
+    - name: Update /etc/hosts with node entries to cloud templates (if exists)
+      ansible.builtin.lineinfile:
+        path: /etc/cloud/templates/hosts.debian.tmpl
+        line: "{{ hostvars[item].ansible_host }} {{ item }}"
+        state: present
+      loop: "{{ groups['all'] }}"
+      when: ansible_facts['os_family'] == "Debian"
       tags:
         - etc_hosts

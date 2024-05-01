@@ -37,6 +37,7 @@ locals {
           node_class         = node_class
           index              = i
           vm_id              = tonumber("${cluster.cluster_id}${specs.start_ip + i}")
+          on_boot            = cluster.start_on_proxmox_boot
           cores              = specs.cores
           sockets            = specs.sockets
           memory             = specs.memory
@@ -184,7 +185,7 @@ resource "proxmox_virtual_environment_vm" "node" {
   }
   reboot = false # reboot is performed during the ./install_k8s.sh script, but only when needed, and only on nodes not part of the cluster already.
   migrate = true
-  on_boot = true
+  on_boot = each.value.on_boot
   started = true
   pool_id = "${upper(each.value.cluster_name)}"
   lifecycle {
