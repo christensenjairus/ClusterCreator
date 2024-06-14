@@ -100,7 +100,7 @@ This will remove the VMs, Pool, and VLAN.
 ```bash
 ./powerctl_pool.sh [--start|--shutdown|--pause|--resume|--hibernate|--stop] <POOL_NAME> [--timeout <timeout_in_seconds>]
 ```
-This will perform QEMU power control functions for the VMs in the specified pool. The timeout is optional, only applied for start/stop/shutdown, and defaults to 300 seconds. Pools are in all-caps. Requires the qemu-guest-agent to be running in the VM.
+This will perform QEMU power control functions for the VMs in the specified pool. The timeout is optional, only applied for start/stop/shutdown, and defaults to 600 seconds. Pools are in all-caps. Requires the qemu-guest-agent to be running in the VM.
 
 ### Run bash commands on ansible host groups
 ```bash
@@ -228,4 +228,4 @@ If you do need to undo the k8s install on the VMs `./uninstall_k8s.sh` should wo
 ### Gamma Example Cluster in K9s
 ![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/c998958e-91f8-458d-ad0a-738636238749)
 
-
+Next, see my [Flux Kubernetes Repo](https://github.com/christensenjairus/Flux-Kubernetes) to see how I orchestrate my K8s infrastructure and applications.

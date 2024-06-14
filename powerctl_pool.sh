@@ -78,7 +78,7 @@ for VMID in $VM_IDS; do
         ${SSH_CMD} qm shutdown $VMID --timeout $TIMEOUT &
     elif [[ "$ACTION" == "stop" ]]; then
         echo -e "${GREEN}Stopping VM ID: $VMID${ENDCOLOR}"
-        ${SSH_CMD} qm stop $VMID --timeout $TIMEOUT &
+        ${SSH_CMD} qm stop $VMID --skiplock --timeout $TIMEOUT &
     elif [[ "$ACTION" == "resume" ]]; then
         echo -e "${GREEN}Resuming VM ID: $VMID${ENDCOLOR}"
         ${SSH_CMD} qm resume $VMID &

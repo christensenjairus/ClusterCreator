@@ -150,7 +150,7 @@ variable "clusters" {
         vip_interface                  = "eth0"
       }
       cilium = {
-        cilium_version                 = "1.15.1"
+        cilium_version                 = "1.15.5"
       }
       local_path_provisioner = {
         local_path_provisioner_version = "0.0.26"
@@ -178,7 +178,7 @@ variable "clusters" {
           sockets    = 2
           memory     = 2048
           disks      = [
-            { index = 0, datastore = "nvmes", size = 30, backup = true }
+            { index = 0, datastore = "nvmes", size = 20, backup = true }
           ]
           start_ip   = 120
         }
@@ -188,7 +188,7 @@ variable "clusters" {
           sockets    = 2
           memory     = 2048
           disks      = [
-            { index = 0, datastore = "nvmes", size = 30, backup = true }
+            { index = 0, datastore = "nvmes", size = 20, backup = true }
           ]
           start_ip   = 130
           labels = {
@@ -201,7 +201,7 @@ variable "clusters" {
           sockets    = 2
           memory     = 8192
           disks      = [
-            { index = 0, datastore = "nvmes", size = 30, backup = true }
+            { index = 0, datastore = "nvmes", size = 20, backup = true }
           ]
           start_ip   = 140
           labels = {
@@ -214,7 +214,7 @@ variable "clusters" {
           sockets    = 2
           memory     = 4192
           disks      = [
-            { index = 0, datastore = "nvmes", size = 30, backup = true }
+            { index = 0, datastore = "nvmes", size = 20, backup = true }
           ]
           start_ip   = 150
           labels = {
@@ -253,7 +253,7 @@ variable "clusters" {
         vip_interface                  = "eth0"
       }
       cilium = {
-        cilium_version                 = "1.15.1"
+        cilium_version                 = "1.15.5"
       }
       local_path_provisioner = {
         local_path_provisioner_version = "0.0.26"
@@ -268,7 +268,7 @@ variable "clusters" {
           sockets    = 2
           memory     = 4096
           disks      = [
-            { index = 0, datastore = "nvmes", size = 30, backup = true }
+            { index = 0, datastore = "nvmes", size = 20, backup = true }
           ]
           start_ip   = 110
           labels = {
@@ -281,7 +281,7 @@ variable "clusters" {
           sockets    = 2
           memory     = 2048
           disks      = [
-            { index = 0, datastore = "nvmes", size = 30, backup = true }
+            { index = 0, datastore = "nvmes", size = 20, backup = true }
           ]
           start_ip   = 120
         }
@@ -317,7 +317,7 @@ variable "clusters" {
           sockets    = 2
           memory     = 4192
           disks      = [
-            { index = 0, datastore = "nvmes", size = 30, backup = true }
+            { index = 0, datastore = "nvmes", size = 20, backup = true }
           ]
           start_ip   = 150
           labels = {
@@ -356,7 +356,7 @@ variable "clusters" {
         vip_interface                  = "eth0"
       }
       cilium = {
-        cilium_version                 = "1.15.1"
+        cilium_version                 = "1.15.5"
       }
       local_path_provisioner = {
         local_path_provisioner_version = "0.0.26"
@@ -371,7 +371,7 @@ variable "clusters" {
           sockets = 2
           memory  = 4096
           disks   = [
-            { index = 0, datastore = "nvmes", size = 30, backup = true }
+            { index = 0, datastore = "nvmes", size = 20, backup = true }
           ]
           start_ip = 110
           labels   = {
@@ -384,7 +384,7 @@ variable "clusters" {
           sockets  = 2
           memory   = 2048
           disks    = [
-            { index = 0, datastore = "nvmes", size = 30, backup = true }
+            { index = 0, datastore = "nvmes", size = 20, backup = true }
           ]
           start_ip = 120
         }
@@ -394,7 +394,7 @@ variable "clusters" {
           sockets  = 2
           memory   = 2048
           disks    = [
-            { index = 0, datastore = "nvmes", size = 30, backup = true },
+            { index = 0, datastore = "nvmes", size = 20, backup = true },
             { index = 1, datastore = "nvmes", size = 100, backup = false }
           ]
           start_ip = 130
@@ -421,7 +421,7 @@ variable "clusters" {
           sockets = 2
           memory  = 4192
           disks   = [
-            { index = 0, datastore = "nvmes", size = 30, backup = true }
+            { index = 0, datastore = "nvmes", size = 20, backup = true }
           ]
           start_ip = 150
           labels   = {
