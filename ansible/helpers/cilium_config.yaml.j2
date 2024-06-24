@@ -7,7 +7,8 @@ rolloutCiliumPods: true
 ipv4:
   enabled: true
 ipv6:
-  enabled: false
+  enabled: {% if cluster_config.networking.ipv6.enabled %}true{% else %}false{% endif %}
+
 ipam:
   mode: kubernetes
 externalIPs:
@@ -16,11 +17,8 @@ nodePort:
   enabled: true
 hostPort:
   enabled: true
-l2announcements:
-  enabled: true
-  leaseDuration: 6s
-  leaseRenewDeadline: 2s
-  leaseRetryPeriod: 200ms
+bpf:
+  masquerade: true
 k8sServiceHost: {{ vip }}
 k8sServicePort: 6443
 kubeProxyReplacement: strict

@@ -14,10 +14,10 @@
       become: true
     - name: Pull Kube-Vip image and generate manifest
       ansible.builtin.shell: |
-        ctr image pull ghcr.io/kube-vip/kube-vip:v{{ cluster_config.kube_vip.kube_vip_version }}
-        ctr run --rm --net-host ghcr.io/kube-vip/kube-vip:v{{ cluster_config.kube_vip.kube_vip_version }} vip /kube-vip manifest pod \
-            --interface {{ cluster_config.kube_vip.vip_interface }} \
-            --address {{ cluster_config.kube_vip.vip }} \
+        ctr image pull ghcr.io/kube-vip/kube-vip:v{{ cluster_config.networking.kube_vip.kube_vip_version }}
+        ctr run --rm --net-host ghcr.io/kube-vip/kube-vip:v{{ cluster_config.networking.kube_vip.kube_vip_version }} vip /kube-vip manifest pod \
+            --interface {{ cluster_config.networking.kube_vip.vip_interface }} \
+            --address {{ cluster_config.networking.kube_vip.vip }} \
             --controlplane \
             --arp \
             --leaderElection > /tmp/kube-vip.yaml

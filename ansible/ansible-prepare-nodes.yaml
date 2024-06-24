@@ -41,10 +41,21 @@
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
   tasks:
+
+    - name: Add IPv6 forwarding line to sysctl.d file (if IPv6 is enabled)
+      ansible.builtin.lineinfile:
+        path: /etc/sysctl.d/k8s_sysctl.conf
+        line: 'net.ipv6.conf.all.forwarding        = 1'
+        state: present
+      when: cluster_config.networking.ipv6.enabled
+    - name: Reload sysctl to apply changes (if IPv6 is enabled)
+      ansible.builtin.command: sysctl --system
+      when: cluster_config.networking.ipv6.enabled
+
     - name: Configure kubelet with the correct interface IP
       shell: |
         local_ip="$(ip --json addr show eth0 | jq -r '.[0].addr_info[] | select(.family == "inet") | .local')"
-        echo "KUBELET_EXTRA_ARGS=\"--node-ip=${local_ip} --max-pods={{ cluster_config.cluster_networking.max_pods_per_node }}\"" | sudo tee /etc/default/kubelet
+        echo "KUBELET_EXTRA_ARGS=\"--node-ip=${local_ip} --max-pods={{ cluster_config.max_pods_per_node }}\"" | sudo tee /etc/default/kubelet
       args:
         executable: /bin/bash
       tags:
@@ -71,26 +82,32 @@
       tags:
         - set_aliases
 
-    - name: Move scripts from root directory to user directory
+    - name: Check if any scripts exist in /root directory
+      stat:
+        path: /root/*.sh
+      register: scripts_exist
+
+    - name: Move scripts from root directory to user directory (if any exist)
       shell: |
         cp /root/*.sh {{ cluster_config.ssh.ssh_home }}/
         chmod +x {{ cluster_config.ssh.ssh_home }}/*.sh
       args:
         executable: /bin/bash
       become: true
+      when: scripts_exist.stat.exists
       tags:
         - copy_scripts
 
     - name: Add VIP and hostname to /etc/hosts
       ansible.builtin.lineinfile:
         path: /etc/hosts
-        line: "{{ cluster_config.kube_vip.vip }} {{ cluster_config.kube_vip.vip_hostname }}"
+        line: "{{ cluster_config.networking.kube_vip.vip }} {{ cluster_config.networking.kube_vip.vip_hostname }}"
         create: yes
       tags: etc_hosts
     - name: Add VIP and hostname to cloud templates (if exists)
       ansible.builtin.lineinfile:
         path: /etc/cloud/templates/hosts.debian.tmpl
-        line: "{{ cluster_config.kube_vip.vip }} {{ cluster_config.kube_vip.vip_hostname }}"
+        line: "{{ cluster_config.networking.kube_vip.vip }} {{ cluster_config.networking.kube_vip.vip_hostname }}"
         create: yes
       when: ansible_facts['os_family'] == "Debian"
       tags: etc_hosts

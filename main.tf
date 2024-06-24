@@ -42,13 +42,23 @@ locals {
           sockets            = specs.sockets
           memory             = specs.memory
           disks              = specs.disks
-          vm_ip              = "${cluster.host_networking.cluster_subnet}.${specs.start_ip + i}"
-          gateway            = "${cluster.host_networking.cluster_subnet}.1"
-          dns1               = cluster.host_networking.dns1
-          dns2               = cluster.host_networking.dns2
-          use_vlan           = cluster.host_networking.use_vlan
-          vlan_id            = cluster.host_networking.vlan_id
-          dns_search_domain  = cluster.host_networking.dns_search_domain
+          create_vlan      = cluster.networking.create_vlan
+          vlan_id          = cluster.networking.create_vlan ? cluster.networking.vlan_id: null
+          vlan_name        = cluster.networking.create_vlan ? cluster.networking.vlan_name: null
+          ipv4               : {
+            vm_ip            = "${cluster.networking.ipv4.subnet_prefix}.${specs.start_ip + i}"
+            gateway          = "${cluster.networking.ipv4.subnet_prefix}.1"
+            dns1             = cluster.networking.ipv4.dns1
+            dns2             = cluster.networking.ipv4.dns2
+          }
+          ipv6               : {
+            enabled          = cluster.networking.ipv6.enabled
+            vm_ip            = cluster.networking.ipv6.enabled ? "${cluster.networking.ipv6.subnet_prefix}::${specs.start_ip + i}" : null
+            gateway          = cluster.networking.ipv6.enabled ? "${cluster.networking.ipv6.subnet_prefix}::1" : null
+            dns1             = cluster.networking.ipv6.enabled ? cluster.networking.ipv6.dns1: null
+            dns2             = cluster.networking.ipv6.enabled ? cluster.networking.ipv6.dns2: null
+          }
+          dns_search_domain  = cluster.networking.dns_search_domain
         }
       ]
     ]
@@ -67,23 +77,36 @@ resource "local_file" "cluster_config_json" {
 }
 
 # create a network with a vlan for each cluster
+# https://registry.terraform.io/providers/paultyng/unifi/latest/docs/resources/network
 resource "unifi_network" "vlan" {
   for_each = {
     for key, value in var.clusters : key => value
-    if key == terraform.workspace && value.host_networking.use_vlan == true
+    if key == terraform.workspace && value.networking.create_vlan == true
   }
 
-  name    = "${upper(each.key)}" # Name the network based on the cluster name, but in all caps
+  name    = each.value.networking.vlan_name
+  vlan_id   = each.value.networking.vlan_id
   purpose = "corporate" # Must be one of corporate, guest, wan, or vlan-only.
 
-  subnet       = "${each.value.host_networking.cluster_subnet}.0/24"
-  vlan_id      = each.value.host_networking.vlan_id
-  dhcp_start   = "${each.value.host_networking.cluster_subnet}.10"
-  dhcp_stop    = "${each.value.host_networking.cluster_subnet}.99"
+  # IPv4 settings
+  subnet       = "${each.value.networking.ipv4.subnet_prefix}.0/24"
+  dhcp_start   = "${each.value.networking.ipv4.subnet_prefix}.10"
+  dhcp_stop    = "${each.value.networking.ipv4.subnet_prefix}.99"
   dhcp_enabled = true
   igmp_snooping = false
   multicast_dns = false
-  dhcp_dns = [each.value.host_networking.dns1, each.value.host_networking.dns2]
+  dhcp_dns = [each.value.networking.ipv4.dns1, each.value.networking.ipv4.dns2]
+
+  # IPv6 settings
+  ipv6_interface_type = each.value.networking.ipv6.enabled ? "static" : "none"
+  ipv6_static_subnet = each.value.networking.ipv6.enabled ? "${each.value.networking.ipv6.subnet_prefix}::1/64": null
+  dhcp_v6_dns_auto = false
+  dhcp_v6_enabled = true
+  dhcp_v6_start = "::10"
+  dhcp_v6_stop = "::99"
+  dhcp_v6_dns = each.value.networking.ipv6.enabled ? [each.value.networking.ipv6.dns1, each.value.networking.ipv6.dns2]: []
+  ipv6_ra_enable = true
+  ipv6_ra_priority = "high"
 }
 
 resource "proxmox_virtual_environment_pool" "operations_pool" {
@@ -166,22 +189,36 @@ resource "proxmox_virtual_environment_vm" "node" {
       username = var.vm_username
     }
     datastore_id = each.value.disks[0].datastore
-    ip_config {
-      ipv4 {
-        address = "${each.value.vm_ip}/24"
-        gateway = "${each.value.gateway}"
+    dynamic "ip_config" {
+      for_each = [1]  # This ensures the block is always created
+      content {
+        dynamic "ipv4" {
+          for_each = [1]  # This ensures the block is always created
+          content {
+            address = "${each.value.ipv4.vm_ip}/24"
+            gateway = "${each.value.ipv4.gateway}"
+          }
+        }
+
+        dynamic "ipv6" {
+          for_each = each.value.ipv6.enabled ? [1] : []
+          content {
+            address = "${each.value.ipv6.vm_ip}/64"
+            gateway = "${each.value.ipv6.gateway}"
+          }
+        }
       }
     }
     dns {
       domain = each.value.dns_search_domain
-      servers =  ["${each.value.dns1}", "${each.value.dns2}", "${each.value.gateway}"]
+      servers = concat(
+        [each.value.ipv4.dns1, each.value.ipv4.dns2, each.value.ipv4.gateway],
+        each.value.ipv6.enabled ? [each.value.ipv6.dns1, each.value.ipv6.dns2] : []
+      )
     }
   }
-  dynamic "network_device" {
-    for_each = each.value.use_vlan ? [1] : []
-    content {
-      vlan_id = each.value.vlan_id
-    }
+  network_device {
+    vlan_id = each.value.vlan_id
   }
   reboot = false # reboot is performed during the ./install_k8s.sh script, but only when needed, and only on nodes not part of the cluster already.
   migrate = true
@@ -193,7 +230,7 @@ resource "proxmox_virtual_environment_vm" "node" {
       tags,
       description,
       clone,
-      disk, # don't remake disks, could be data loss! Can comment this out if no production data is present
+      disk, # don't remake disks, could cause data loss! Can comment this out if no production data is present
     ]
   }
 }

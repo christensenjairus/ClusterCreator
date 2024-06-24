@@ -21,24 +21,24 @@ install -o root -g root -m 0755 etcd-v$ETCDCTL_VERSION-linux-amd64/etcdctl /usr/
 rm -r etcd-v$ETCDCTL_VERSION-linux-amd64*
 
 # install cilium cli
-curl -L --fail --remote-name-all https://github.com/cilium/cilium-cli/releases/download/v$CILIUM_CLI_VERSION/cilium-linux-${ARCH}.tar.gz{,.sha256sum}
+curl -L --remote-name-all https://github.com/cilium/cilium-cli/releases/download/v$CILIUM_CLI_VERSION/cilium-linux-${ARCH}.tar.gz{,.sha256sum}
 sha256sum --check cilium-linux-$ARCH.tar.gz.sha256sum
 tar xzvfC cilium-linux-$ARCH.tar.gz /usr/local/bin
 rm cilium-linux-$ARCH*
 
 # install hubble cli
-curl -L --fail --remote-name-all https://github.com/cilium/hubble/releases/download/v$HUBBLE_CLI_VERSION/hubble-linux-$ARCH.tar.gz{,.sha256sum}
+curl -L --remote-name-all https://github.com/cilium/hubble/releases/download/v$HUBBLE_CLI_VERSION/hubble-linux-$ARCH.tar.gz{,.sha256sum}
 sha256sum --check hubble-linux-$ARCH.tar.gz.sha256sum
 tar xzvfC hubble-linux-$ARCH.tar.gz /usr/local/bin
 rm hubble-linux-$ARCH*
 
 ### install vtctldclient and vtexplain
-wget https://github.com/vitessio/vitess/releases/download/v${VITESS_VERSION}/${VITESS_DOWNLOAD_FILENAME}
-tar -xvzf ${VITESS_DOWNLOAD_FILENAME} --strip-components=2 -C /usr/local/bin/ ${VITESS_DOWNLOAD_FILENAME/.tar.gz/}/bin/vtctldclient
-tar -xvzf ${VITESS_DOWNLOAD_FILENAME} --strip-components=2 -C /usr/local/bin/ ${VITESS_DOWNLOAD_FILENAME/.tar.gz/}/bin/vtexplain
-tar -xvzf ${VITESS_DOWNLOAD_FILENAME} --strip-components=3 -C /root/ ${VITESS_DOWNLOAD_FILENAME/.tar.gz/}/examples/operator/pf.sh
-mv /root/pf.sh /root/vitess-port-forward.sh
-rm -rf ${VITESS_DOWNLOAD_FILENAME}
+#wget https://github.com/vitessio/vitess/releases/download/v${VITESS_VERSION}/${VITESS_DOWNLOAD_FILENAME}
+#tar -xvzf ${VITESS_DOWNLOAD_FILENAME} --strip-components=2 -C /usr/local/bin/ ${VITESS_DOWNLOAD_FILENAME/.tar.gz/}/bin/vtctldclient
+#tar -xvzf ${VITESS_DOWNLOAD_FILENAME} --strip-components=2 -C /usr/local/bin/ ${VITESS_DOWNLOAD_FILENAME/.tar.gz/}/bin/vtexplain
+#tar -xvzf ${VITESS_DOWNLOAD_FILENAME} --strip-components=3 -C /root/ ${VITESS_DOWNLOAD_FILENAME/.tar.gz/}/examples/operator/pf.sh
+#mv /root/pf.sh /root/vitess-port-forward.sh
+#rm -rf ${VITESS_DOWNLOAD_FILENAME}
 
 ### install clusterctl
 curl -L https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.6.3/clusterctl-linux-amd64 -o clusterctl

@@ -20,7 +20,7 @@
         dest: "/tmp/cilium.yaml"
       vars:
         cluster_id: "{{ cluster_config.cluster_id }}"
-        vip: "{{ cluster_config.kube_vip.vip }}"
+        vip: "{{ cluster_config.networking.kube_vip.vip }}"
       tags:
         - cilium_config
 
@@ -42,7 +42,7 @@
           helm upgrade --install cilium cilium/cilium
           --namespace kube-system
           --values /tmp/cilium.yaml
-          --version v{{ cluster_config.cilium.cilium_version }}
+          --version v{{ cluster_config.networking.cilium.cilium_version }}
       args:
         executable: /bin/bash
 

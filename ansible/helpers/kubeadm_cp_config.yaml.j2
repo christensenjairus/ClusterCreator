@@ -3,21 +3,28 @@ apiVersion: kubeadm.k8s.io/v1beta3
 kind: ClusterConfiguration
 kubernetesVersion: v{{ kubernetes_version }}
 clusterName: {{ cluster_config.cluster_name }}
-controlPlaneEndpoint: "{{ cluster_config.kube_vip.vip_hostname }}:6443"
+controlPlaneEndpoint: "{{ cluster_config.networking.kube_vip.vip_hostname }}:6443"
 apiServer:
   certSANs:
-  - "{{ cluster_config.kube_vip.vip }}"
+  - "{{ cluster_config.networking.kube_vip.vip }}"
 {% for host in groups['kube_api_servers'] %}
   - "{{ hostvars[host].ansible_host }}"
 {% endfor %}
   - "{{ cluster_config.cluster_name }}"
   - "{{ cluster_config.cluster_name }}.lan"
-  - "{{ cluster_config.kube_vip.vip_hostname }}"
-  - "{{ cluster_config.kube_vip.vip_hostname }}.lan"
+  - "{{ cluster_config.networking.kube_vip.vip_hostname }}"
+  - "{{ cluster_config.networking.kube_vip.vip_hostname }}.lan"
 networking:
   dnsDomain: cluster.local
-  serviceSubnet: {{ cluster_config.cluster_networking.svc_cidr }}
-  podSubnet: {{ cluster_config.cluster_networking.pod_cidr }}
+  serviceSubnet: {{ cluster_config.networking.ipv4.svc_cidr }}{% if cluster_config.networking.ipv6.enabled %},{{ cluster_config.networking.ipv6.svc_cidr }}{% endif %}
+
+  podSubnet: {{ cluster_config.networking.ipv4.pod_cidr }}{% if cluster_config.networking.ipv6.enabled %},{{ cluster_config.networking.ipv6.pod_cidr }}{% endif %}
+
+controllerManager:
+  extraArgs:
+    node-cidr-mask-size-ipv4: "24"
+    {% if cluster_config.networking.ipv6.enabled %}node-cidr-mask-size-ipv6: "96" # each node will be assigned a /96 from within the IPv6 podSubnet.{% endif %}
+
 {% if groups['kube_etcd_servers'] | default([]) | length > 0 %}
 etcd:
   external:

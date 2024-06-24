@@ -10,33 +10,43 @@ variable "clusters" {
     cluster_name                     : string # name to be used in kubeconfig, cluster mesh, network name, k8s_vm_template pool. Must match the cluster name key.
     cluster_id                       : number # acts as the vm_id prefix. Also used for cluster mesh. This plus the vm start ip should always be over 100 because of how proxmox likes its vmids. But you can use 0 if the vm start id fits these requirements.
     kubeconfig_file_name             : string # name of the local kubeconfig file to be created. Assumed this will be in $HOME/.kube/
-    start_on_proxmox_boot            : bool   # whether or not to start the clusters vms on proxmox boot
+    start_on_proxmox_boot            : bool   # whether or not to start the cluster's vms on proxmox boot
+    max_pods_per_node                : number # max pods per node. This should be a function of the quantity of IPs in you pod_cidr and number of nodes.
     ssh                              : object({
       ssh_user                       : string # username for the remote server
       ssh_home                       : string # path to your home directory on the remote server
       ssh_key_type                   : string # type of key to scan and trust for remote hosts. the key of this type gets added to local ~/.ssh/known_hosts.
     })
-    host_networking                  : object({
-      use_vlan                       : bool   # whether or not to use vlans. If false, the vlan_id is ignored, but should still exist.
-      vlan_id                        : number # vlan id for the cluster. See README on how to not use vlans
-      cluster_subnet                 : string # first three octets of the network's subnet (assuming its a /24)
-      dns1                           : string # primary dns server for vm hosts
-      dns2                           : string # secondary dns server for vm hosts
+    networking                       : object({
       dns_search_domain              : string # search domain for DNS resolution
-    })
-    cluster_networking               : object({
-      max_pods_per_node              : number # max pods per node. This should be a function of the quantity of IPs in you pod_cidr and number of nodes.
-      pod_cidr                       : string # cidr range for pod networking internal to cluster. Shouldn't overlap with lan network. These must differ cluster to cluster if using clustermesh.
-      svc_cidr                       : string # cidr range for service networking internal to cluster. Shouldn't overlap with lan network.
-    })
-    kube_vip                         : object({
-      kube_vip_version               : string # kube-vip version to use. needs to be their ghcr.io docker image version
-      vip_interface                  : string # interface that faces the local lan
-      vip                            : string # should not be in one if your load balancer ip cidr ranges
-      vip_hostname                   : string # hostname to use when querying the api server's vip load balancer (kube-vip)
-    })
-    cilium                           : object({
-      cilium_version                 : string # release version for cilium
+      create_vlan                    : bool   # whether or not to create an IPv4 vlan.
+      vlan_name                      : string # name of the IPv4 vlan for the cluster. Must always be set, even if create_vlan is false.
+      vlan_id                        : number # vlan id for the cluster. Must always be set, even if create_vlan is false.
+      ipv4                           : object({
+        subnet_prefix                : string # first three octets of the IPv4 network's subnet (assuming its a /24)
+        pod_cidr                     : string # cidr range for pod networking internal to cluster. Shouldn't overlap with ipv4 lan network. These must differ cluster to cluster if using clustermesh.
+        svc_cidr                     : string # cidr range for service networking internal to cluster. Shouldn't overlap with ipv4 lan network.
+        dns1                         : string # primary dns server for vm hosts
+        dns2                         : string # secondary dns server for vm hosts
+      })
+      ipv6                           : object({
+        enabled                      : bool   # whether or not to enable IPv6 networking for the cluster. Expect complications if this is changed after initial setup.
+        subnet_prefix                : string # first three hex sections of the IPv6 network's subnet (assuming its a /64)
+        pod_cidr                     : string # cidr range for pod networking internal to cluster. Should be a subsection of the ipv6 lan network. These must differ cluster to cluster if using clustermesh.
+        svc_cidr                     : string # cidr range for service networking internal to cluster. Should be a subsection of the ipv6 lan network.
+        dns1                         : string # primary dns server for vm hosts
+        dns2                         : string # secondary dns server for vm hosts
+      })
+      kube_vip                       : object({
+        kube_vip_version             : string # kube-vip version to use. needs to be their ghcr.io docker image version
+        vip_interface                : string # interface that faces the local lan. Usually eth0 for this project.
+        vip                          : string # should be IPv4 and not be in one if your load balancer ip cidr ranges
+        vip_hostname                 : string # hostname to use when querying the api server's vip load balancer (kube-vip)
+        use_ipv6                     : bool   # whether or not to use an IPv6 vip. You must also set the VIP to an IPv6 address.
+      })
+      cilium                         : object({
+        cilium_version               : string # release version for cilium
+      })
     })
     local_path_provisioner           : object({
       local_path_provisioner_version : string # version for Rancher's local path provisioner
@@ -55,10 +65,10 @@ variable "clusters" {
           size      : number        # size of disk in GB.
           datastore : string        # name of the proxmox datastore to use for this disk
           backup    : bool          # boolean to determine if this disk will be backed up when Proxmox performs a vm backup.
-        }))         
+        }))
         start_ip    : number        # last octet of the ip address for the first apiserver node
         labels      : map(string)   # labels to apply to the nodes
-      })            
+      })
       etcd          : object({      # required type, but can be 0.
         count       : number        # use 0 for a stacked etcd architecture. Usually 3 if you want an external etcd. Should be an odd number. Should not pass 10 without editing start IPs
         cores       : number        # raise when needed, should grow as cluster grows
@@ -69,7 +79,7 @@ variable "clusters" {
           size      : number        # size of disk in GB.
           datastore : string        # name of the proxmox datastore to use for this disk
           backup    : bool          # boolean to determine if this disk will be backed up when Proxmox performs a vm backup.
-        }))         
+        }))
         start_ip    : number        # last octet of the ip address for the first etcd node
         # no node labels because etcd nodes are external to the cluster itself
       })
@@ -83,10 +93,10 @@ variable "clusters" {
           size      : number        # size of disk in GB.
           datastore : string        # name of the proxmox datastore to use for this disk
           backup    : bool          # boolean to determine if this disk will be backed up when Proxmox performs a vm backup.
-        }))         
+        }))
         start_ip    : number        # last octet of the ip address for the first backup node
         labels      : map(string)   # labels to apply to the nodes
-      })            
+      })
       database      : object({      # custom worker type, can be 0
         count       : number        # Should not pass 10 without editing start IPs
         cores       : number
@@ -97,10 +107,10 @@ variable "clusters" {
           size      : number        # size of disk in GB.
           datastore : string        # name of the proxmox datastore to use for this disk
           backup    : bool          # boolean to determine if this disk will be backed up when Proxmox performs a vm backup.
-        }))         
+        }))
         start_ip    : number        # last octet of the ip address for the first db node
         labels      : map(string)   # labels to apply to the nodes
-      })            
+      })
       general       : object({      # custom worker type, can be 0
         count       : number        # Should not pass 50 without editing load balancer ip cidr and nginx ingress controller ip
         cores       : number
@@ -111,11 +121,11 @@ variable "clusters" {
           size      : number        # size of disk in GB.
           datastore : string        # name of the proxmox datastore to use for this disk
           backup    : bool          # boolean to determine if this disk will be backed up when Proxmox performs a vm backup.
-        }))         
+        }))
         start_ip    : number        # last octet of the ip address for the first general node.
         labels      : map(string)   # labels to apply to the nodes
       })
-      # you can add more worker node classes here.
+      # you can add more worker node classes here
       # but don't change the name of the apiserver or etcd nodes unless you do a full find-replace.
     })
   }))
@@ -125,32 +135,42 @@ variable "clusters" {
       cluster_id                       = 1
       kubeconfig_file_name             = "alpha.yml"
       start_on_proxmox_boot            = false
+      max_pods_per_node                = 512
       ssh = {
         ssh_user                       = "line6"
         ssh_home                       = "/home/line6"
         ssh_key_type                   = "ssh-ed25519"
       }
-      host_networking                  = {
-        use_vlan                       = true
-        vlan_id                        = 100
-        cluster_subnet                 = "10.0.1"
-        dns1                           = "10.0.1.3"
-        dns2                           = "10.0.1.4"
+      networking                       = {
         dns_search_domain              = "lan"
-      }
-      cluster_networking = {
-        max_pods_per_node              = 512 # allows for 128 nodes with the /16 pod_cidr
-        pod_cidr                       = "10.10.0.0/16"
-        svc_cidr                       = "10.11.0.0/16"
-      }
-      kube_vip = {
-        kube_vip_version               = "0.7.0"
-        vip                            = "10.0.1.100"
-        vip_hostname                   = "alpha-api-server"
-        vip_interface                  = "eth0"
-      }
-      cilium = {
-        cilium_version                 = "1.15.5"
+        vlan_name                      = "alpha"
+        vlan_id                        = 100
+        create_vlan                    = true
+        ipv4                           = {
+          subnet_prefix                = "10.0.1"
+          pod_cidr                     = "10.8.0.0/16"
+          svc_cidr                     = "10.9.0.0/16"
+          dns1                         = "10.0.1.3"
+          dns2                         = "10.0.1.4"
+        }
+        ipv6                           = {
+          enabled                      = false
+          subnet_prefix                = "[replace-me]:3"
+          pod_cidr                     = "[replace-me]:3:244::/80"
+          svc_cidr                     = "[replace-me]:3:96::/112"
+          dns1                         = "2607:fa18::1" # cloudflare ipv6 dns
+          dns2                         = "2607:fa18::2"
+        }
+        kube_vip = {
+          kube_vip_version             = "0.7.0"
+          vip                          = "10.0.1.100"
+          vip_hostname                 = "alpha-api-server"
+          vip_interface                = "eth0"
+          use_ipv6                     = false
+        }
+        cilium = {
+          cilium_version               = "1.15.5"
+        }
       }
       local_path_provisioner = {
         local_path_provisioner_version = "0.0.26"
@@ -228,32 +248,42 @@ variable "clusters" {
       cluster_id                       = 2
       kubeconfig_file_name             = "beta.yml"
       start_on_proxmox_boot            = false
+      max_pods_per_node                = 512
       ssh = {
         ssh_user                       = "line6"
         ssh_home                       = "/home/line6"
         ssh_key_type                   = "ssh-ed25519"
       }
-      host_networking                  = {
-        use_vlan                       = true
-        vlan_id                        = 200
-        cluster_subnet                 = "10.0.2"
-        dns1                           = "10.0.2.3"
-        dns2                           = "10.0.2.4"
+      networking                       = {
         dns_search_domain              = "lan"
-      }
-      cluster_networking = {
-        max_pods_per_node              = 512 # allows for 128 nodes with the /16 pod_cidr
-        pod_cidr                       = "10.14.0.0/16"
-        svc_cidr                       = "10.15.0.0/16"
-      }
-      kube_vip = {
-        kube_vip_version               = "0.7.0"
-        vip                            = "10.0.2.100"
-        vip_hostname                   = "beta-api-server"
-        vip_interface                  = "eth0"
-      }
-      cilium = {
-        cilium_version                 = "1.15.5"
+        create_vlan                    = true
+        vlan_name                      = "beta"
+        vlan_id                        = 200
+        ipv4                           = {
+          subnet_prefix                = "10.0.2"
+          pod_cidr                     = "10.12.0.0/16"
+          svc_cidr                     = "10.13.0.0/16"
+          dns1                         = "10.0.2.3"
+          dns2                         = "10.0.2.4"
+        }
+        ipv6                           = {
+          enabled                      = false
+          subnet_prefix                = "[replace-me]:2"
+          pod_cidr                     = "[replace-me]:2:244::/80"
+          svc_cidr                     = "[replace-me]:2:96::/112"
+          dns1                         = "2607:fa18::1" # cloudflare ipv6 dns
+          dns2                         = "2607:fa18::2"
+        }
+        kube_vip = {
+          kube_vip_version             = "0.7.0"
+          vip                          = "10.0.2.100"
+          vip_hostname                 = "beta-api-server"
+          vip_interface                = "eth0"
+          use_ipv6                     = false
+        }
+        cilium = {
+          cilium_version                 = "1.15.5"
+        }
       }
       local_path_provisioner = {
         local_path_provisioner_version = "0.0.26"
@@ -291,7 +321,7 @@ variable "clusters" {
           sockets    = 2
           memory     = 2048
           disks      = [
-            { index = 0, datastore = "nvmes", size = 100, backup = true }
+            { index = 0, datastore = "nvmes", size = 100, backup = false }
           ]
           start_ip   = 130
           labels = {
@@ -327,36 +357,46 @@ variable "clusters" {
       }
     }
     "gamma" = {
-      cluster_name                    = "gamma"
-      cluster_id                      = 3
-      kubeconfig_file_name            = "gamma.yml"
+      cluster_name                     = "gamma"
+      cluster_id                       = 3
+      kubeconfig_file_name             = "gamma.yml"
       start_on_proxmox_boot            = false
-      ssh = {
-        ssh_user                      = "line6"
-        ssh_home                      = "/home/line6"
-        ssh_key_type                  = "ssh-ed25519"
+      max_pods_per_node                = 512
+      ssh                              = {
+        ssh_user                       = "line6"
+        ssh_home                       = "/home/line6"
+        ssh_key_type                   = "ssh-ed25519"
       }
-      host_networking = {
-        use_vlan                       = true
-        vlan_id                        = 300
-        cluster_subnet                 = "10.0.3"
-        dns1                           = "10.0.3.3"
-        dns2                           = "10.0.3.4"
+      networking                       = {
         dns_search_domain              = "lan"
-      }
-      cluster_networking = {
-        max_pods_per_node              = 512 # allows for 128 nodes with the /16 pod_cidr
-        pod_cidr                       = "10.18.0.0/16"
-        svc_cidr                       = "10.19.0.0/16"
-      }
-      kube_vip = {
-        kube_vip_version               = "0.7.0"
-        vip                            = "10.0.3.100"
-        vip_hostname                   = "gamma-api-server"
-        vip_interface                  = "eth0"
-      }
-      cilium = {
-        cilium_version                 = "1.15.5"
+        create_vlan                    = true
+        vlan_name                      = "gamma"
+        vlan_id                        = 600
+        ipv4                           = {
+          subnet_prefix                = "10.0.3"
+          pod_cidr                     = "10.16.0.0/16"
+          svc_cidr                     = "10.17.0.0/16"
+          dns1                         = "10.0.3.3"
+          dns2                         = "10.0.3.4"
+        }
+        ipv6                           = {
+          enabled                      = false
+          subnet_prefix                = "[replace-me]:3"
+          pod_cidr                     = "[replace-me]:3:244::/80"
+          svc_cidr                     = "[replace-me]:3:96::/112"
+          dns1                         = "2607:fa18::1" # cloudflare ipv6 dns
+          dns2                         = "2607:fa18::2"
+        }
+        kube_vip = {
+          kube_vip_version             = "0.7.0"
+          vip                          = "10.0.3.100"
+          vip_hostname                 = "gamma-api-server"
+          vip_interface                = "eth0"
+          use_ipv6                     = false
+        }
+        cilium = {
+          cilium_version               = "1.15.5"
+        }
       }
       local_path_provisioner = {
         local_path_provisioner_version = "0.0.26"
@@ -366,11 +406,11 @@ variable "clusters" {
       }
       node_classes = {
         apiserver = {
-          count   = 3
-          cores   = 2
-          sockets = 2
-          memory  = 4096
-          disks   = [
+          count    = 3
+          cores    = 2
+          sockets  = 2
+          memory   = 4096
+          disks    = [
             { index = 0, datastore = "nvmes", size = 20, backup = true }
           ]
           start_ip = 110
@@ -416,11 +456,11 @@ variable "clusters" {
           }
         }
         general = {
-          count   = 5
-          cores   = 4
-          sockets = 2
-          memory  = 4192
-          disks   = [
+          count    = 5
+          cores    = 4
+          sockets  = 2
+          memory   = 4192
+          disks    = [
             { index = 0, datastore = "nvmes", size = 20, backup = true }
           ]
           start_ip = 150
