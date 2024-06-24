@@ -53,6 +53,7 @@ locals {
           }
           ipv6               : {
             enabled          = cluster.networking.ipv6.enabled
+            dual_stack       = cluster.networking.ipv6.enabled ? cluster.networking.ipv6.dual_stack: false
             vm_ip            = cluster.networking.ipv6.enabled ? "${cluster.networking.ipv6.subnet_prefix}::${specs.start_ip + i}" : null
             gateway          = cluster.networking.ipv6.enabled ? "${cluster.networking.ipv6.subnet_prefix}::1" : null
             dns1             = cluster.networking.ipv6.enabled ? cluster.networking.ipv6.dns1: null
@@ -98,8 +99,12 @@ resource "unifi_network" "vlan" {
   dhcp_dns = [each.value.networking.ipv4.dns1, each.value.networking.ipv4.dns2]
 
   # IPv6 settings
-  ipv6_interface_type = each.value.networking.ipv6.enabled ? "static" : "none"
-  ipv6_static_subnet = each.value.networking.ipv6.enabled ? "${each.value.networking.ipv6.subnet_prefix}::1/64": null
+  # Use pd if ipv6 is enabled, but dual stack isn't. Use static if dual stack is enabled.
+  ipv6_interface_type = each.value.networking.ipv6.enabled ? (each.value.networking.ipv6.dual_stack ? "static" : "pd") : "none"
+  ipv6_static_subnet = each.value.networking.ipv6.dual_stack ? "${each.value.networking.ipv6.subnet_prefix}::1/64": null
+  ipv6_pd_interface = "wan"
+  ipv6_pd_start = "::2"
+  ipv6_pd_stop = "::7d1"
   dhcp_v6_dns_auto = false
   dhcp_v6_enabled = true
   dhcp_v6_start = "::10"
@@ -107,6 +112,12 @@ resource "unifi_network" "vlan" {
   dhcp_v6_dns = each.value.networking.ipv6.enabled ? [each.value.networking.ipv6.dns1, each.value.networking.ipv6.dns2]: []
   ipv6_ra_enable = true
   ipv6_ra_priority = "high"
+
+  lifecycle {
+    ignore_changes = [
+      dhcp_v6_enabled # this flag doesn't seem to work as expected in the provider version used
+    ]
+  }
 }
 
 resource "proxmox_virtual_environment_pool" "operations_pool" {
@@ -201,7 +212,7 @@ resource "proxmox_virtual_environment_vm" "node" {
         }
 
         dynamic "ipv6" {
-          for_each = each.value.ipv6.enabled ? [1] : []
+          for_each = each.value.ipv6.dual_stack ? [1] : []
           content {
             address = "${each.value.ipv6.vm_ip}/64"
             gateway = "${each.value.ipv6.gateway}"

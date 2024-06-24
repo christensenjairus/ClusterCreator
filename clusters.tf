@@ -30,8 +30,9 @@ variable "clusters" {
         dns2                         : string # secondary dns server for vm hosts
       })
       ipv6                           : object({
-        enabled                      : bool   # whether or not to enable IPv6 networking for the cluster. Expect complications if this is changed after initial setup.
-        subnet_prefix                : string # first three hex sections of the IPv6 network's subnet (assuming its a /64)
+        enabled                      : bool   # whether or not to enable IPv6 networking for the VMs and network in the cluster. Does not enable dual stack services, but does allow ipv6 between hosts and the internet. Disabled sets the ipv6_vlan_mode to "none".
+        dual_stack                   : bool   # whether or not to enable dual stack networking for the cluster. EXPECT COMPLICATIONS IF CHANGED AFTER INITIAL SETUP.
+        subnet_prefix                : string # first three hex sections of the IPv6 network's subnet (assuming its a /64). Used for a static network configuration.
         pod_cidr                     : string # cidr range for pod networking internal to cluster. Should be a subsection of the ipv6 lan network. These must differ cluster to cluster if using clustermesh.
         svc_cidr                     : string # cidr range for service networking internal to cluster. Should be a subsection of the ipv6 lan network.
         dns1                         : string # primary dns server for vm hosts
@@ -155,9 +156,10 @@ variable "clusters" {
         }
         ipv6                           = {
           enabled                      = false
-          subnet_prefix                = "[replace-me]:3"
-          pod_cidr                     = "[replace-me]:3:244::/80"
-          svc_cidr                     = "[replace-me]:3:96::/112"
+          dual_stack                   = false
+          subnet_prefix                = "[replace-me]:100"
+          pod_cidr                     = "[replace-me]:100:244::/80"
+          svc_cidr                     = "[replace-me]:100:96::/112"
           dns1                         = "2607:fa18::1" # cloudflare ipv6 dns
           dns2                         = "2607:fa18::2"
         }
@@ -268,9 +270,10 @@ variable "clusters" {
         }
         ipv6                           = {
           enabled                      = false
-          subnet_prefix                = "[replace-me]:2"
-          pod_cidr                     = "[replace-me]:2:244::/80"
-          svc_cidr                     = "[replace-me]:2:96::/112"
+          dual_stack                   = false
+          subnet_prefix                = "[replace-me]:200"
+          pod_cidr                     = "[replace-me]:200:244::/80"
+          svc_cidr                     = "[replace-me]:200:96::/112"
           dns1                         = "2607:fa18::1" # cloudflare ipv6 dns
           dns2                         = "2607:fa18::2"
         }
@@ -381,9 +384,10 @@ variable "clusters" {
         }
         ipv6                           = {
           enabled                      = false
-          subnet_prefix                = "[replace-me]:3"
-          pod_cidr                     = "[replace-me]:3:244::/80"
-          svc_cidr                     = "[replace-me]:3:96::/112"
+          dual_stack                   = false
+          subnet_prefix                = "[replace-me]:300"
+          pod_cidr                     = "[replace-me]:300:244::/80"
+          svc_cidr                     = "[replace-me]:300:96::/112"
           dns1                         = "2607:fa18::1" # cloudflare ipv6 dns
           dns2                         = "2607:fa18::2"
         }

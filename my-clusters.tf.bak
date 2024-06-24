@@ -30,8 +30,9 @@ variable "clusters" {
         dns2                         : string # secondary dns server for vm hosts
       })
       ipv6                           : object({
-        enabled                      : bool   # whether or not to enable IPv6 networking for the cluster. Expect complications if this is changed after initial setup.
-        subnet_prefix                : string # first three hex sections of the IPv6 network's subnet (assuming its a /64)
+        enabled                      : bool   # whether or not to enable IPv6 networking for the VMs and network in the cluster. Does not enable dual stack services, but does allow ipv6 between hosts and the internet. Disabled sets the ipv6_vlan_mode to "none".
+        dual_stack                   : bool   # whether or not to enable dual stack networking for the cluster. EXPECT COMPLICATIONS IF CHANGED AFTER INITIAL SETUP.
+        subnet_prefix                : string # first three hex sections of the IPv6 network's subnet (assuming its a /64). Used for a static network configuration.
         pod_cidr                     : string # cidr range for pod networking internal to cluster. Should be a subsection of the ipv6 lan network. These must differ cluster to cluster if using clustermesh.
         svc_cidr                     : string # cidr range for service networking internal to cluster. Should be a subsection of the ipv6 lan network.
         dns1                         : string # primary dns server for vm hosts
@@ -155,9 +156,10 @@ variable "clusters" {
         }
         ipv6                           = {
           enabled                      = true
-          subnet_prefix                = "2607:fa18:47ff:4"
-          pod_cidr                     = "2607:fa18:47ff:4:244::/80"
-          svc_cidr                     = "2607:fa18:47ff:4:96::/112"
+          dual_stack                   = true
+          subnet_prefix                = "2607:fa18:47ff:400"
+          pod_cidr                     = "2607:fa18:47ff:400:244::/80"
+          svc_cidr                     = "2607:fa18:47ff:400:96::/112"
           dns1                         = "2607:fa18::1"
           dns2                         = "2607:fa18::2"
         }
@@ -268,9 +270,10 @@ variable "clusters" {
         }
         ipv6                           = {
           enabled                      = true
-          subnet_prefix                = "2607:fa18:47ff:5"
-          pod_cidr                     = "2607:fa18:47ff:5:244::/80"
-          svc_cidr                     = "2607:fa18:47ff:5:96::/112"
+          dual_stack                   = true
+          subnet_prefix                = "2607:fa18:47ff:500"
+          pod_cidr                     = "2607:fa18:47ff:500:244::/80"
+          svc_cidr                     = "2607:fa18:47ff:500:96::/112"
           dns1                         = "2607:fa18::1"
           dns2                         = "2607:fa18::2"
         }
@@ -383,10 +386,11 @@ variable "clusters" {
           dns2                         = "10.0.6.4"
         }
         ipv6                           = {
-          enabled                      = false
-          subnet_prefix                = "2607:fa18:47ff:6"
-          pod_cidr                     = "2607:fa18:47ff:6:244::/80"
-          svc_cidr                     = "2607:fa18:47ff:6:96::/112"
+          enabled                      = true
+          dual_stack                   = false
+          subnet_prefix                = "2607:fa18:47ff:600"
+          pod_cidr                     = "2607:fa18:47ff:600:244::/80"
+          svc_cidr                     = "2607:fa18:47ff:600:96::/112"
           dns1                         = "2607:fa18::1"
           dns2                         = "2607:fa18::2"
         }

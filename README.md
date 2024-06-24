@@ -19,6 +19,7 @@ Terraform/OpenTofu & Ansible automate to create even more complex setups, like u
 
 ##### The Tofu cluster configuration allows
 * Optional external etcd cluster
+* Optional dual stack networking
 * Proxmox pool configuration
 * Custom network & vlan Unifi configuration (optional)
 * Custom worker classes (general, database, and storage are included, but you can add more)
@@ -31,7 +32,7 @@ Terraform/OpenTofu & Ansible automate to create even more complex setups, like u
 ##### `./install_k8s.sh` runs a series of Ansible playbooks to create a fresh, minimal cluster. The Ansible playbooks include configuration and installation of
 * External ETCD cluster (optional)
 * Highly available control plane using Kube-VIP
-* Cilium CNI (replacing kube-router, providing full eBPF.)
+* Cilium CNI (replacing kube-router, providing full eBPF. Optional dual stack networking)
 * Metrics server
 * Node labeling
 * Auto-Provisioning Local StorageClass (rancher) (set as default StorageClass)
@@ -217,6 +218,12 @@ The other configuration files, listed below, need to be looked through and tweak
 A workaround is to add nodes to your cluster in batches and run `tofu apply` to create smaller sets of nodes. You may want to do this anyway so you can distribute the VMs across your proxmox cluster and vary the `proxmox_node` argument.
 
 If you do need to undo the k8s install on the VMs `./uninstall_k8s.sh` should work, but a full tofu rebuild is the best way to ensure a clean slate.
+
+## Dual Stack Networking
+The VLAN and VMs created by Tofu can have IPv6 enabled both on the host level and inside the cluster for dual-stack networking. There are three configurations for IPv6 and dual-stack networking...
+1. `ipv6.enabled = false` will disable IPv6 on the host and VLAN. Of course, the cluster will not be dual-stack enabled in this case.
+2. `ipv6.enabled = true`, but `ipv6.dual_stack = false` will enable IPv6 on the host and VLAN, but the cluster will only have IPv4 addresses. This is helpful so the hosts can resolve ipv6 addresses, but don't need dual stack services. In this case, `prefix delegation` is used by Unifi and the hosts decide their own IP addresses with SLAAC.
+3. `ipv6.enabled = true`, and `ipv6.dual_stack = true` will enable IPv6 on the host and VLAN, and the cluster will have both IPv4 and IPv6 addresses. This is the most complex configuration. In this case, a `static` configuration is used by Unifi and the hosts are assigned their IP addresses similarly to how the IPv4 configuration works. 
 
 # Final Product
 ### Proxmox Pools with VMs Managed by Tofu
