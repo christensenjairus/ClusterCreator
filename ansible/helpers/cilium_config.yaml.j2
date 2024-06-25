@@ -7,7 +7,7 @@ rolloutCiliumPods: true
 ipv4:
   enabled: true
 ipv6:
-  enabled: {% if cluster_config.networking.ipv6.dual_stack %}true{% else %}false{% endif %}
+  enabled: {% if cluster_config.networking.ipv6.enabled and cluster_config.networking.ipv6.dual_stack %}true{% else %}false{% endif %}
 
 ipam:
   mode: kubernetes

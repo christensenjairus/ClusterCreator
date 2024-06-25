@@ -47,14 +47,14 @@
         path: /etc/sysctl.d/k8s_sysctl.conf
         line: 'net.ipv6.conf.all.forwarding        = 1'
         state: present
-      when: cluster_config.networking.ipv6.dual_stack
+      when: cluster_config.networking.ipv6.enabled and cluster_config.networking.ipv6.dual_stack
     - name: Reload sysctl to apply changes (if IPv6 is enabled)
       ansible.builtin.command: sysctl --system
-      when: cluster_config.networking.ipv6.dual_stack
+      when: cluster_config.networking.ipv6.enabled and cluster_config.networking.ipv6.dual_stack
 
     - name: Configure kubelet with the correct interface IP
       shell: |
-        {% if cluster_config.networking.ipv6.dual_stack %}
+        {% if cluster_config.networking.ipv6.enabled and cluster_config.networking.ipv6.dual_stack %}
         node_ip="{{ ipv4 }},{{ ipv6 }}"
         {% else %}
         node_ip="{{ ipv4 }}"

@@ -16,14 +16,14 @@ apiServer:
   - "{{ cluster_config.networking.kube_vip.vip_hostname }}.lan"
 networking:
   dnsDomain: cluster.local
-  serviceSubnet: {{ cluster_config.networking.ipv4.svc_cidr }}{% if cluster_config.networking.ipv6.dual_stack %},{{ cluster_config.networking.ipv6.svc_cidr }}{% endif %}
+  serviceSubnet: {{ cluster_config.networking.ipv4.svc_cidr }}{% if cluster_config.networking.ipv6.enabled and cluster_config.networking.ipv6.dual_stack %},{{ cluster_config.networking.ipv6.svc_cidr }}{% endif %}
 
-  podSubnet: {{ cluster_config.networking.ipv4.pod_cidr }}{% if cluster_config.networking.ipv6.dual_stack %},{{ cluster_config.networking.ipv6.pod_cidr }}{% endif %}
+  podSubnet: {{ cluster_config.networking.ipv4.pod_cidr }}{% if cluster_config.networking.ipv6.enabled and cluster_config.networking.ipv6.dual_stack %},{{ cluster_config.networking.ipv6.pod_cidr }}{% endif %}
 
 controllerManager:
   extraArgs:
     node-cidr-mask-size-ipv4: "24"
-    {% if cluster_config.networking.ipv6.dual_stack %}node-cidr-mask-size-ipv6: "96" # each node will be assigned a /96 from within the IPv6 podSubnet.{% endif %}
+    {% if cluster_config.networking.ipv6.enabled and cluster_config.networking.ipv6.dual_stack %}node-cidr-mask-size-ipv6: "96" # each node will be assigned a /96 from within the IPv6 podSubnet.{% endif %}
 
 {% if groups['kube_etcd_servers'] | default([]) | length > 0 %}
 etcd:
