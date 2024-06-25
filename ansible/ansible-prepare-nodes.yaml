@@ -54,8 +54,15 @@
 
     - name: Configure kubelet with the correct interface IP
       shell: |
-        local_ip="$(ip --json addr show eth0 | jq -r '.[0].addr_info[] | select(.family == "inet") | .local')"
-        echo "KUBELET_EXTRA_ARGS=\"--node-ip=${local_ip} --max-pods={{ cluster_config.max_pods_per_node }}\"" | sudo tee /etc/default/kubelet
+        {% if cluster_config.networking.ipv6.dual_stack %}
+        node_ip="{{ ipv4 }},{{ ipv6 }}"
+        {% else %}
+        node_ip="{{ ipv4 }}"
+        {% endif %}
+
+        kubelet_extra_args="--node-ip=${node_ip} --max-pods={{ cluster_config.max_pods_per_node }}"
+
+        echo "KUBELET_EXTRA_ARGS=\"$kubelet_extra_args\"" | sudo tee /etc/default/kubelet
       args:
         executable: /bin/bash
       tags:

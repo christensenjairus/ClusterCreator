@@ -144,7 +144,7 @@ variable "clusters" {
       }
       networking                       = {
         dns_search_domain              = "lan"
-        vlan_name                      = "alpha"
+        vlan_name                      = "ALPHA"
         vlan_id                        = 100
         create_vlan                    = true
         ipv4                           = {
@@ -155,8 +155,8 @@ variable "clusters" {
           dns2                         = "10.0.1.4"
         }
         ipv6                           = {
-          enabled                      = false
-          dual_stack                   = false
+          enabled                      = true
+          dual_stack                   = true
           subnet_prefix                = "[replace-me]:100"
           pod_cidr                     = "[replace-me]:100:244::/80"
           svc_cidr                     = "[replace-me]:100:96::/112"
@@ -165,10 +165,10 @@ variable "clusters" {
         }
         kube_vip = {
           kube_vip_version             = "0.7.0"
-          vip                          = "10.0.1.100"
+          vip                          = "[replace-me]:100::100"
           vip_hostname                 = "alpha-api-server"
           vip_interface                = "eth0"
-          use_ipv6                     = false
+          use_ipv6                     = true
         }
         cilium = {
           cilium_version               = "1.15.5"
@@ -259,7 +259,7 @@ variable "clusters" {
       networking                       = {
         dns_search_domain              = "lan"
         create_vlan                    = true
-        vlan_name                      = "beta"
+        vlan_name                      = "BETA"
         vlan_id                        = 200
         ipv4                           = {
           subnet_prefix                = "10.0.2"
@@ -269,7 +269,7 @@ variable "clusters" {
           dns2                         = "10.0.2.4"
         }
         ipv6                           = {
-          enabled                      = false
+          enabled                      = true
           dual_stack                   = false
           subnet_prefix                = "[replace-me]:200"
           pod_cidr                     = "[replace-me]:200:244::/80"
@@ -373,7 +373,7 @@ variable "clusters" {
       networking                       = {
         dns_search_domain              = "lan"
         create_vlan                    = true
-        vlan_name                      = "gamma"
+        vlan_name                      = "GAMMA"
         vlan_id                        = 600
         ipv4                           = {
           subnet_prefix                = "10.0.3"
@@ -383,7 +383,7 @@ variable "clusters" {
           dns2                         = "10.0.3.4"
         }
         ipv6                           = {
-          enabled                      = false
+          enabled                      = true
           dual_stack                   = false
           subnet_prefix                = "[replace-me]:300"
           pod_cidr                     = "[replace-me]:300:244::/80"

@@ -225,6 +225,8 @@ The VLAN and VMs created by Tofu can have IPv6 enabled both on the host level an
 2. `ipv6.enabled = true`, but `ipv6.dual_stack = false` will enable IPv6 on the host and VLAN, but the cluster will only have IPv4 addresses. This is helpful so the hosts can resolve ipv6 addresses, but don't need dual stack services. In this case, `prefix delegation` is used by Unifi and the hosts decide their own IP addresses with SLAAC.
 3. `ipv6.enabled = true`, and `ipv6.dual_stack = true` will enable IPv6 on the host and VLAN, and the cluster will have both IPv4 and IPv6 addresses. This is the most complex configuration. In this case, a `static` configuration is used by Unifi and the hosts are assigned their IP addresses similarly to how the IPv4 configuration works. 
 
+Currently, there is no option to have an IPv6-only cluster. This is a complex use case that complicates the setup for various reasons. For example, github's container registry doesn't have an IPv6 address.
+
 # Final Product
 ### Proxmox Pools with VMs Managed by Tofu
 ![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/af2718ea-d38c-4787-a5e3-73e7cb95fd82)
