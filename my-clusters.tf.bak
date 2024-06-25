@@ -32,7 +32,7 @@ variable "clusters" {
       ipv6                           : object({
         enabled                      : bool   # whether or not to enable IPv6 networking for the VMs and network in the cluster. Does not enable dual stack services, but does allow ipv6 between hosts and the internet. Disabled sets the ipv6_vlan_mode to "none".
         dual_stack                   : bool   # whether or not to enable dual stack networking for the cluster. EXPECT COMPLICATIONS IF CHANGED AFTER INITIAL SETUP.
-        subnet_prefix                : string # first three hex sections of the IPv6 network's subnet (assuming its a /64). Used for a static network configuration.
+        subnet_prefix                : string # first four hex sections of the IPv6 network's subnet (assuming its a /64). Used for a static network configuration.
         pod_cidr                     : string # cidr range for pod networking internal to cluster. Should be a subsection of the ipv6 lan network. These must differ cluster to cluster if using clustermesh.
         svc_cidr                     : string # cidr range for service networking internal to cluster. Should be a subsection of the ipv6 lan network.
         dns1                         : string # primary dns server for vm hosts
@@ -43,7 +43,7 @@ variable "clusters" {
         vip_interface                : string # interface that faces the local lan. Usually eth0 for this project.
         vip                          : string # should be IPv4 and not be in one if your load balancer ip cidr ranges
         vip_hostname                 : string # hostname to use when querying the api server's vip load balancer (kube-vip)
-        use_ipv6                     : bool   # whether or not to use an IPv6 vip. You must also set the VIP to an IPv6 address.
+        use_ipv6                     : bool   # whether or not to use an IPv6 vip. You must also set the VIP to an IPv6 address. This can be true without enabling dual_stack.
       })
       cilium                         : object({
         cilium_version               : string # release version for cilium

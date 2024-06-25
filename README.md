@@ -222,10 +222,12 @@ If you do need to undo the k8s install on the VMs `./uninstall_k8s.sh` should wo
 ## Dual Stack Networking
 The VLAN and VMs created by Tofu can have IPv6 enabled both on the host level and inside the cluster for dual-stack networking. There are three configurations for IPv6 and dual-stack networking...
 1. `ipv6.enabled = false` will disable IPv6 on the host and VLAN. Of course, the cluster will not be dual-stack enabled in this case.
-2. `ipv6.enabled = true`, but `ipv6.dual_stack = false` will enable IPv6 on the host and VLAN, but the cluster will only have IPv4 addresses. This is helpful so the hosts can resolve ipv6 addresses, but don't need dual stack services. In this case, `prefix delegation` is used by Unifi and the hosts decide their own IP addresses with SLAAC.
-3. `ipv6.enabled = true`, and `ipv6.dual_stack = true` will enable IPv6 on the host and VLAN, and the cluster will have both IPv4 and IPv6 addresses. This is the most complex configuration. In this case, a `static` configuration is used by Unifi and the hosts are assigned their IP addresses similarly to how the IPv4 configuration works. 
+2. `ipv6.enabled = true`, but `ipv6.dual_stack = false` will enable IPv6 on the host and VLAN, but the cluster will only have IPv4 addresses. This is helpful so the hosts can resolve ipv6 addresses, but don't need dual stack services.
+3. `ipv6.enabled = true`, and `ipv6.dual_stack = true` will enable IPv6 on the host and VLAN, and the cluster will have both IPv4 and IPv6 addresses. This is the most complex configuration.
 
 Currently, there is no option to have an IPv6-only cluster. This is a complex use case that complicates the setup for various reasons. For example, github's container registry doesn't have an IPv6 address.
+
+*Note: The HA kube-vip apiserver address can be IPv6 without enabling dual-stack.*
 
 # Final Product
 ### Proxmox Pools with VMs Managed by Tofu

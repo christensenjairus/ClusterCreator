@@ -99,12 +99,8 @@ resource "unifi_network" "vlan" {
   dhcp_dns = [each.value.networking.ipv4.dns1, each.value.networking.ipv4.dns2]
 
   # IPv6 settings
-  # Use pd if ipv6 is enabled, but dual stack isn't. Use static if dual stack is enabled.
-  ipv6_interface_type = each.value.networking.ipv6.enabled ? (each.value.networking.ipv6.dual_stack ? "static" : "pd") : "none"
-  ipv6_static_subnet = each.value.networking.ipv6.dual_stack ? "${each.value.networking.ipv6.subnet_prefix}::1/64": null
-  ipv6_pd_interface = "wan"
-  ipv6_pd_start = "::2"
-  ipv6_pd_stop = "::7d1"
+  ipv6_interface_type = each.value.networking.ipv6.enabled ? "static" : "none"
+  ipv6_static_subnet = "${each.value.networking.ipv6.subnet_prefix}::1/64"
   dhcp_v6_dns_auto = false
   dhcp_v6_enabled = true
   dhcp_v6_start = "::10"
@@ -212,7 +208,7 @@ resource "proxmox_virtual_environment_vm" "node" {
         }
 
         dynamic "ipv6" {
-          for_each = each.value.ipv6.dual_stack ? [1] : []
+          for_each = each.value.ipv6.enabled ? [1] : []
           content {
             address = "${each.value.ipv6.vm_ip}/64"
             gateway = "${each.value.ipv6.gateway}"
