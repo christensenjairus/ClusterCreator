@@ -9,6 +9,8 @@ Having a virtualized k8s cluster allows you to not only simulate a cloud environ
 
 Terraform/OpenTofu & Ansible automate to create even more complex setups, like using an external etcd cluster or using a large number of worker nodes with differing cpu/mem/disk/networking/labels. OpenTofu creates the VMs and VLANs, and Ansible installs Kubernetes as well as various add-ons for networking, metrics, and storage.
 
+See a demo of how it works step by step [on my blog](https://cyber-engine.com/blog/2024/06/25/k8s-on-proxmox-using-clustercreator/).
+
 ##### The `create_template.sh` script will create a cloud-init ready virtual machine template for Tofu to use.
 * Installs apt packages kubeadm, kubelet, kubectl, helm, containerd, nfs tools, iscsi-tools, qemu-guest-agent, mysql-client, ceph, etc.
 * Installs packages from source like the cilium cli, hubble cli, cni plugins, etcdctl, vtctldclient, and vtexplain
