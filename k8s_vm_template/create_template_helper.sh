@@ -18,7 +18,8 @@ echo -e "${GREEN}Removing old image if it exists...${ENDCOLOR}"
 rm -f $PROXMOX_ISO_PATH/$IMAGE_NAME*
 
 echo -e "${GREEN}Downloading the image to get new updates...${ENDCOLOR}"
-wget -q -O $PROXMOX_ISO_PATH/$IMAGE_NAME $IMAGE_LINK
+wget -O $PROXMOX_ISO_PATH/$IMAGE_NAME $IMAGE_LINK
+echo ""
 
 echo -e "${GREEN}Update, add packages, enable services, edit multipath config, set timezone, set firstboot scripts...${ENDCOLOR}"
 virt-customize -a $PROXMOX_ISO_PATH/$IMAGE_NAME \
@@ -83,7 +84,7 @@ qm start $TEMPLATE_VM_ID
 echo -e "${GREEN}Sleeping 30s to allow VM and the QEMU Guest Agent to start...${ENDCOLOR}"
 sleep 30s
 
-echo -e -n "${GREEN}Waiting for packages to be installed...${ENDCOLOR}"
+echo -e -n "${GREEN}Waiting for packages to be installed${ENDCOLOR}"
 while true; do
   output=$(qm guest exec $TEMPLATE_VM_ID cat /tmp/.firstboot 2>/dev/null)
   success=$?

@@ -126,7 +126,7 @@ variable "clusters" {
         start_ip    : number        # last octet of the ip address for the first general node.
         labels      : map(string)   # labels to apply to the nodes
       })
-      # you can add more worker node classes here
+      # you can add more worker node classes here. You must also add a section per node class to the ansible/helpers/ansible_hosts.txt.j2 template file
       # but don't change the name of the apiserver or etcd nodes unless you do a full find-replace.
     })
   }))

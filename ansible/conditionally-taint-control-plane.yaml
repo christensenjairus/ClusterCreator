@@ -13,7 +13,7 @@
 
     - name: Set the count of worker nodes
       set_fact:
-        worker_node_count: "{{ groups['kube_worker_servers'] | default([]) | length | int }}"
+        worker_node_count: "{{ groups | dict2items | selectattr('key', 'search', '^(kube_storage_servers|kube_database_servers|kube_general_servers)$') | map(attribute='value') | map('length') | sum }}"
 
     - name: Fetch current nodes and taint information
       ansible.builtin.command: kubectl get nodes -o json

@@ -48,20 +48,20 @@
     - name: Check if current host's hostname is in the Kubernetes node list
       set_fact:
         is_in_cluster: "{{ inventory_hostname in k8s_node_names }}"
-      when: "'kube_worker_servers' in group_names"
+      when: "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
 
     - name: Check host status if in cluster
       ansible.builtin.debug:
         msg: "Host {{ inventory_hostname }} is already in the cluster"
       when:
-        - "'kube_worker_servers' in group_names"
+        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
         - is_in_cluster
 
     - name: Check host status if not in cluster
       ansible.builtin.debug:
         msg: "Host {{ inventory_hostname }} is not in the cluster and will join"
       when:
-        - "'kube_worker_servers' in group_names"
+        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
         - not is_in_cluster
 
     - name: Update apt cache on worker nodes to be added to cluster
@@ -74,7 +74,7 @@
       retries: 30
       delay: 10
       when:
-        - "'kube_worker_servers' in group_names"
+        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
         - not is_in_cluster
     - name: Upgrade all packages to the latest version on worker nodes to be added to cluster
       become: true
@@ -86,7 +86,7 @@
       retries: 30
       delay: 10
       when:
-        - "'kube_worker_servers' in group_names"
+        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
         - not is_in_cluster
     - name: Remove unused packages and dependencies on worker nodes to be added to cluster
       become: true
@@ -98,7 +98,7 @@
       retries: 30
       delay: 10
       when:
-        - "'kube_worker_servers' in group_names"
+        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
         - not is_in_cluster
     - name: Clean up apt cache on worker nodes to be added to cluster
       become: true
@@ -109,7 +109,7 @@
       retries: 30
       delay: 10
       when:
-        - "'kube_worker_servers' in group_names"
+        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
         - not is_in_cluster
     - name: Check if reboot is required on worker nodes to be added to cluster
       become: true
@@ -117,7 +117,7 @@
         path: /var/run/reboot-required
       register: reboot_required
       when:
-        - "'kube_worker_servers' in group_names"
+        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
         - not is_in_cluster
     - name: Reboot the worker nodes to be added to cluster (if necessary)
       become: true
@@ -129,7 +129,7 @@
         post_reboot_delay: 30
         test_command: uptime
       when:
-        - "'kube_worker_servers' in group_names"
+        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
         - not is_in_cluster
         - reboot_required.stat.exists
 
@@ -138,7 +138,7 @@
         delay: 5
         timeout: 300
       when:
-        - "'kube_worker_servers' in group_names"
+        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
         - not is_in_cluster
         - reboot_required.stat.exists
 
@@ -146,7 +146,7 @@
       set_fact:
         join_command_local: "{{ lookup('file', 'tmp/{{ cluster_name }}/worker_join_command.sh') }}"
       when:
-        - "'kube_worker_servers' in group_names"
+        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
         - not is_in_cluster
       tags:
         - kubeadm_join_wrkrs
@@ -156,7 +156,7 @@
       command: "{{ join_command_local }}"
       become: true
       when:
-        - "'kube_worker_servers' in group_names"
+        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
         - not is_in_cluster
       tags:
         - kubeadm_join_wrkrs

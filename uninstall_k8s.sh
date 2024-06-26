@@ -7,7 +7,7 @@ SINGLE_HOSTNAME="*"
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
-        -c|--cluster-name) CLUSTER_NAME="$2"; shift ;;
+        -n|--cluster-name) CLUSTER_NAME="$2"; shift ;;
         -h|--single-hostname) SINGLE_HOSTNAME="$2"; shift ;;
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
     esac
@@ -16,7 +16,7 @@ done
 
 if [[ -z "$CLUSTER_NAME" ]]; then
     echo "Error: CLUSTER_NAME is required."
-    echo "Usage: $0 -c/--cluster-name <CLUSTER_NAME> [-h/--single-hostname <SINGLE_HOSTNAME>]"
+    echo "Usage: $0 -n/--cluster-name <CLUSTER_NAME> [-h/--single-hostname <SINGLE_HOSTNAME>]"
     exit 1
 fi
 

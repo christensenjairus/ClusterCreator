@@ -126,7 +126,7 @@ variable "clusters" {
         start_ip    : number        # last octet of the ip address for the first general node.
         labels      : map(string)   # labels to apply to the nodes
       })
-      # you can add more worker node classes here
+      # you can add more worker node classes here. You must also add a section per node class to the ansible/helpers/ansible_hosts.txt.j2 template file
       # but don't change the name of the apiserver or etcd nodes unless you do a full find-replace.
     })
   }))
@@ -270,7 +270,7 @@ variable "clusters" {
         }
         ipv6                           = {
           enabled                      = true
-          dual_stack                   = false
+          dual_stack                   = true
           subnet_prefix                = "[replace-me]:200"
           pod_cidr                     = "[replace-me]:200:244::/80"
           svc_cidr                     = "[replace-me]:200:96::/112"
@@ -345,7 +345,7 @@ variable "clusters" {
           }
         }
         general = {
-          count      = 1
+          count      = 2
           cores      = 4
           sockets    = 2
           memory     = 4192

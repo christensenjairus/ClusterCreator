@@ -13,7 +13,7 @@ ENDCOLOR='\033[0m'
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
-        -c|--cluster-name) CLUSTER_NAME="$2"; shift ;;
+        -n|--cluster-name) CLUSTER_NAME="$2"; shift ;;
         -h|--hostname) NODE_HOSTNAME="$2"; shift ;;
         -t|--timeout) TIMEOUT_SECONDS="$2"; shift ;;
         -d|--delete) DELETE_NODE=true ;;
@@ -44,7 +44,7 @@ echo "All required environment variables are set."
 # Validate required parameters
 if [[ -z "$CLUSTER_NAME" || -z "$NODE_HOSTNAME" || -z "$TIMEOUT_SECONDS" ]]; then
     echo -e "${RED}Error: Cluster name, hostname, and timeout are required.${ENDCOLOR}"
-    echo -e "${RED}Usage: $0 -c/--cluster-name <CLUSTER_NAME> -h/--hostname <NODE_HOSTNAME> -t/--timeout <TIMEOUT_SECONDS> [-d/--delete]${ENDCOLOR}"
+    echo -e "${RED}Usage: $0 -n/--cluster-name <CLUSTER_NAME> -h/--hostname <NODE_HOSTNAME> -t/--timeout <TIMEOUT_SECONDS> [-d/--delete]${ENDCOLOR}"
     exit 1
 fi
 
@@ -66,7 +66,7 @@ cleanup_function() {
   echo "Cleanup complete."
 }
 
-if [[ "$(hostname)" == "Jairus-MacBook-Pro.local" && "$NODE_HOSTNAME" != "*" ]]; then
+if [[ "$(hostname)" == "Jairus-MacBook-Pro.local" && "$NODE_HOSTNAME" != "*" && "$CLUSTER_NAME" == "zeta" ]]; then
   echo -e "${GREEN}Confirming this node can be deleted without data loss${ENDCOLOR}"
   ceph_cluster=$(kubectl --context "$CLUSTER_NAME" get cephcluster -n rook-ceph -o=jsonpath='{.items[*].metadata.name}')
   if [ "$ceph_cluster" == "rook-ceph" ]; then

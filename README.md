@@ -77,7 +77,7 @@ The `--add-nodes` flag will prepare and add **new** nodes to an already initiali
 
 ### Drain or remove a node from the cluster
 ```bash
-./remove_node.sh -c/--cluster-name <CLUSTER_NAME> -h/--hostname <NODE_HOSTNAME> -t/--timeout <TIMEOUT_SECONDS> [-d/--delete]
+./remove_node.sh -n/--cluster-name <CLUSTER_NAME> -h/--hostname <NODE_HOSTNAME> -t/--timeout <TIMEOUT_SECONDS> [-d/--delete]
 ```
 This will remove a worker or control plane node from the cluster and optionally delete & reset it. This includes removing etcd membership if the node is a stacked etcd control-plane node as well as untaints the control plane nodes when the last worker node is removed. 
 
@@ -87,7 +87,7 @@ This does not work for external etcd nodes.
 
 ### Uninstall K8S with Ansible
 ```bash
-./uninstall_k8s.sh -c/--cluster_name <CLUSTER_NAME> [-h/--single-hostname <HOSTNAME_TO_RESET>]
+./uninstall_k8s.sh -n/--cluster_name <CLUSTER_NAME> [-h/--single-hostname <HOSTNAME_TO_RESET>]
 ```
 This will run an Ansible playbook to reset k8s. Without the `--single-hostname` flag, all nodes will be reset and the cluster will be deleted.
 
@@ -105,7 +105,7 @@ This will perform QEMU power control functions for the VMs in the specified pool
 
 ### Run bash commands on ansible host groups
 ```bash
-./run_command_on_host_group.sh [--c/--cluster-name <CLUSTER_NAME> [-g/--group <GROUP_NAME>] [-cmd/--command '<command>']
+./run_command_on_host_group.sh [-n/--cluster-name <CLUSTER_NAME> [-g/--group <GROUP_NAME>] [-c/--command '<command>']
 ```
 This will run bash commands on the ansible host group you define. 'all' is the default group name. Multiple groups can be chained together with a comma and surrounding quotations.
 
