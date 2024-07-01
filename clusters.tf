@@ -164,21 +164,21 @@ variable "clusters" {
           dns2                         = "2607:fa18::2"
         }
         kube_vip = {
-          kube_vip_version             = "0.7.0"
+          kube_vip_version             = "0.8.1"
           vip                          = "[replace-me]:100::100"
           vip_hostname                 = "alpha-api-server"
           vip_interface                = "eth0"
           use_ipv6                     = true
         }
         cilium = {
-          cilium_version               = "1.15.5"
+          cilium_version               = "1.15.6"
         }
       }
       local_path_provisioner = {
-        local_path_provisioner_version = "0.0.26"
+        local_path_provisioner_version = "0.0.28"
       }
       metrics_server = {
-        metrics_server_version         = "0.7.0"
+        metrics_server_version         = "0.7.1"
       }
       node_classes = {
         apiserver = {
@@ -278,21 +278,21 @@ variable "clusters" {
           dns2                         = "2607:fa18::2"
         }
         kube_vip = {
-          kube_vip_version             = "0.7.0"
+          kube_vip_version             = "0.8.1"
           vip                          = "10.0.2.100"
           vip_hostname                 = "beta-api-server"
           vip_interface                = "eth0"
           use_ipv6                     = false
         }
         cilium = {
-          cilium_version                 = "1.15.5"
+          cilium_version                 = "1.15.6"
         }
       }
       local_path_provisioner = {
-        local_path_provisioner_version = "0.0.26"
+        local_path_provisioner_version = "0.0.28"
       }
       metrics_server = {
-        metrics_server_version         = "0.7.0"
+        metrics_server_version         = "0.7.1"
       }
       node_classes = {
         apiserver = {
@@ -392,21 +392,21 @@ variable "clusters" {
           dns2                         = "2607:fa18::2"
         }
         kube_vip = {
-          kube_vip_version             = "0.7.0"
+          kube_vip_version             = "0.8.1"
           vip                          = "10.0.3.100"
           vip_hostname                 = "gamma-api-server"
           vip_interface                = "eth0"
           use_ipv6                     = false
         }
         cilium = {
-          cilium_version               = "1.15.5"
+          cilium_version               = "1.15.6"
         }
       }
       local_path_provisioner = {
-        local_path_provisioner_version = "0.0.26"
+        local_path_provisioner_version = "0.0.28"
       }
       metrics_server = {
-        metrics_server_version         = "0.7.0"
+        metrics_server_version         = "0.7.1"
       }
       node_classes = {
         apiserver = {

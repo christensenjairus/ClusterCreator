@@ -86,6 +86,26 @@
         timeout: 300
       when: not kube_config_exists.stat.exists and reboot_required.stat.exists
 
+    - name: Replace admin.conf with super-admin.conf in kube-vip manifest (only on 1.29+)
+      # https://github.com/kube-vip/kube-vip/issues/684
+      ansible.builtin.shell:
+        cmd: >
+          sed -i 's#path: /etc/kubernetes/admin.conf#path: /etc/kubernetes/super-admin.conf#' /etc/kubernetes/manifests/kube-vip.yaml
+      become: true
+      when: not kube_config_exists.stat.exists and 
+        ((kubernetes_version.split('.')[0] | int == 1 and kubernetes_version.split('.')[1] | int >= 29) or
+        (kubernetes_version.split('.')[0] | int > 1))
+      tags:
+        - kubeadm_init
+    - name: Pause for 30s to give kube-vip pod time to restart (only on 1.29+)
+      ansible.builtin.pause:
+        seconds: 30
+      when: not kube_config_exists.stat.exists and
+        ((kubernetes_version.split('.')[0] | int == 1 and kubernetes_version.split('.')[1] | int >= 29) or
+        (kubernetes_version.split('.')[0] | int > 1))
+      tags:
+        - kubeadm_init
+
     - name: Run kubeadm init with custom config
       ansible.builtin.shell:
         cmd: >
@@ -140,5 +160,25 @@
         state: absent
       become: true
       when: not kube_config_exists.stat.exists
+      tags:
+        - kubeadm_init
+
+    - name: Revert replacing admin.conf with super-admin.conf in kube-vip manifest (only on 1.29+)
+      # https://github.com/kube-vip/kube-vip/issues/684
+      ansible.builtin.shell:
+        cmd: >
+          sed -i 's#path: /etc/kubernetes/super-admin.conf#path: /etc/kubernetes/admin.conf#' /etc/kubernetes/manifests/kube-vip.yaml
+      become: true
+      when: not kube_config_exists.stat.exists and 
+        ((kubernetes_version.split('.')[0] | int == 1 and kubernetes_version.split('.')[1] | int >= 29) or
+        (kubernetes_version.split('.')[0] | int > 1))
+      tags:
+        - kubeadm_init
+    - name: Pause for 30s to give kube-vip pod time to restart (only on 1.29+)
+      ansible.builtin.pause:
+        seconds: 30
+      when: not kube_config_exists.stat.exists and
+        ((kubernetes_version.split('.')[0] | int == 1 and kubernetes_version.split('.')[1] | int >= 29) or
+        (kubernetes_version.split('.')[0] | int > 1))
       tags:
         - kubeadm_init

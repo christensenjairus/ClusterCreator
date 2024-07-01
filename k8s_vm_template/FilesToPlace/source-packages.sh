@@ -13,6 +13,7 @@ wget "https://github.com/containernetworking/plugins/releases/download/v${CNI_PL
 mkdir -p /opt/cni/bin
 tar Cxzvf /opt/cni/bin cni-plugins-linux-amd64-v$CNI_PLUGINS_VERSION.tgz
 rm cni-plugins-linux-amd64-v$CNI_PLUGINS_VERSION.tgz
+chown -R root:root /opt/cni/bin # https://github.com/cilium/cilium/issues/23838
 
 # install etcdctl
 wget "https://github.com/etcd-io/etcd/releases/download/v${ETCDCTL_VERSION}/etcd-v${ETCDCTL_VERSION}-linux-amd64.tar.gz"
