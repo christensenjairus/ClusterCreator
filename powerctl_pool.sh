@@ -15,7 +15,7 @@ set +a # stop automatically exporting
 
 # Function to print usage
 usage() {
-    echo "Usage: $0 [--start|--shutdown|--pause|--resume|--hibernate|--stop] [--timeout TIMEOUT] POOL_ID"
+    echo "Usage: $0 [--start|--shutdown|--pause|--resume|--hibernate|--stop|--unlock] [--timeout TIMEOUT] POOL_ID"
     exit 1
 }
 
@@ -28,6 +28,7 @@ while [[ "$#" -gt 0 ]]; do
         --pause) ACTION="pause"; ;;
         --resume) ACTION="resume"; ;;
         --hibernate) ACTION="hibernate"; ;;
+        --unlock) ACTION="unlock"; ;;
         --timeout) TIMEOUT="$2"; shift ;; # Capture the timeout value
         *)
             if [[ -z "$POOL_ID" ]]; then
@@ -88,6 +89,9 @@ for VMID in $VM_IDS; do
     elif [[ "$ACTION" == "hibernate" ]]; then
         echo -e "${GREEN}Hibernating VM ID: $VMID${ENDCOLOR}"
         ${SSH_CMD} qm suspend $VMID --todisk=1 &
+    elif [[ "$ACTION" == "unlock" ]]; then
+        echo -e "${GREEN}Unlocking VM ID: $VMID${ENDCOLOR}"
+        ${SSH_CMD} qm unlock $VMID &
     fi
 done
 

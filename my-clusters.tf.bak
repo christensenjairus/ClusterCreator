@@ -366,7 +366,7 @@ variable "clusters" {
       cluster_name                     = "zeta"
       cluster_id                       = 6
       kubeconfig_file_name             = "zeta.yml"
-      start_on_proxmox_boot            = true
+      start_on_proxmox_boot            = false #true
       max_pods_per_node                = 512
       ssh                              = {
         ssh_user                       = "line6"
