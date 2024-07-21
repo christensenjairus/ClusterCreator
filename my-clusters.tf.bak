@@ -387,7 +387,7 @@ variable "clusters" {
         }
         ipv6                           = {
           enabled                      = true
-          dual_stack                   = false
+          dual_stack                   = true
           subnet_prefix                = "2607:fa18:47ff:600"
           pod_cidr                     = "2607:fa18:47ff:600:244::/80"
           svc_cidr                     = "2607:fa18:47ff:600:96::/112"
