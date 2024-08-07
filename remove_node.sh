@@ -66,7 +66,7 @@ cleanup_function() {
   echo "Cleanup complete."
 }
 
-if [[ "$(hostname)" == "Jairus-MacBook-Pro.local" && "$NODE_HOSTNAME" != "*" && "$CLUSTER_NAME" == "zeta" ]]; then
+if [[ "$(hostname)" == "Jairus-MacBook-Pro.local" && "$NODE_HOSTNAME" != "*" && ("$CLUSTER_NAME" == "zeta" || "$CLUSTER_NAME" == "omega") ]]; then
   echo -e "${GREEN}Confirming this node can be deleted without data loss${ENDCOLOR}"
   ceph_cluster=$(kubectl --context "$CLUSTER_NAME" get cephcluster -n rook-ceph -o=jsonpath='{.items[*].metadata.name}')
   if [ "$ceph_cluster" == "rook-ceph" ]; then
@@ -74,27 +74,28 @@ if [[ "$(hostname)" == "Jairus-MacBook-Pro.local" && "$NODE_HOSTNAME" != "*" && 
     if [ -n "$osd_list" ]; then
 
       # ----------------------------------------------------------------------------------------------
-      # Check if the Ceph cluster is healthy, retrying every 5 seconds up to 10 minutes
-      timeout=600
-      interval=5
-      elapsed=0
-      while true; do
-        ceph_status=$(kubectl rook-ceph --context "$CLUSTER_NAME" ceph status)
-        # removed the HEALTH_OK check because it can be healthy but have HEALTH_WARN when a daemon has recently crashed. We'll rely on the lack of --force in the osd deletion command to prevent data loss.
-#        if echo "$ceph_status" | grep -q "health: HEALTH_OK" && \
-        if echo "$ceph_status" | grep -q "osd: [4-9]\+ osds: [4-9]\+ up (since [0-9]\+[smhd]), [4-9]\+ in (since [0-9]\+[smhd])" && \
-          echo "$ceph_status" | awk '/backfill|remapped|degraded|misplaced|inactive|incomplete|undersized/ { found=1; exit } END { if (found) exit 1; else exit 0; }'; then
-          break
-        fi
-        elapsed=$((elapsed + interval))
-        if [ $elapsed -ge $timeout ]; then
-          echo -e "${RED}Ceph cluster is not healthy enough after $timeout seconds. Will not remove or destroy this node.${ENDCOLOR}"
-          exit 1
-        fi
-        echo -e "${RED}Ceph cluster is degraded and/or does not have least 4 OSDs up and in. Checking again in $interval seconds...${ENDCOLOR}"
-        sleep $interval
-      done
-      echo -e "${GREEN}Node can be deleted without risk of data loss. Proceeding to destroy node's ceph OSDs...${ENDCOLOR}"
+      # COMMENTED OUT BECAUSE ROOK BY DEFAULT WILL NOT PROCEED UNTIL IT IS SAFE TO DO SO
+      ## Check if the Ceph cluster is healthy, retrying every 5 seconds up to 10 minutes
+      #timeout=600
+      #interval=5
+      #elapsed=0
+      #while true; do
+      #  ceph_status=$(kubectl rook-ceph --context "$CLUSTER_NAME" ceph status)
+      #  # removed the HEALTH_OK check because it can be healthy but have HEALTH_WARN when a daemon has recently crashed. We'll rely on the lack of --force in the osd deletion command to prevent data loss.
+#     #   if echo "$ceph_status" | grep -q "health: HEALTH_OK" && \
+      #  if echo "$ceph_status" | grep -q "osd: [4-9]\+ osds: [4-9]\+ up (since [0-9]\+[smhd]), [4-9]\+ in (since [0-9]\+[smhd])" && \
+      #    echo "$ceph_status" | awk '/backfill|remapped|degraded|misplaced|inactive|incomplete|undersized/ { found=1; exit } END { if (found) exit 1; else exit 0; }'; then
+      #    break
+      #  fi
+      #  elapsed=$((elapsed + interval))
+      #  if [ $elapsed -ge $timeout ]; then
+      #    echo -e "${RED}Ceph cluster is not healthy enough after $timeout seconds. Will not remove or destroy this node.${ENDCOLOR}"
+      #    exit 1
+      #  fi
+      #  echo -e "${RED}Ceph cluster is degraded and/or does not have least 4 OSDs up and in. Checking again in $interval seconds...${ENDCOLOR}"
+      #  sleep $interval
+      #done
+      #echo -e "${GREEN}Node can be deleted without risk of data loss. Proceeding to destroy node's ceph OSDs...${ENDCOLOR}"
       # ----------------------------------------------------------------------------------------------
 
       # Destroy OSDs on the node

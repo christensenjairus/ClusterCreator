@@ -63,12 +63,12 @@ cleanup_function() {
   echo "Cleanup complete."
 }
 
-ansible-playbook -u $VM_USERNAME ansible-generate-ansible-hosts-txt.yaml -e "cluster_name=${CLUSTER_NAME}"
+ansible-playbook -u $VM_USERNAME generate-hosts-txt.yaml -e "cluster_name=${CLUSTER_NAME}"
 
 # run ansible playbooks
 if [ "$ADD_NODES" = true ]; then
   echo -e "${GREEN}Running post cluster creation playbook...${ENDCOLOR}"
-  ansible-playbook -i "tmp/${CLUSTER_NAME}/ansible-hosts.txt" -u $VM_USERNAME ansible-add-nodes-playbook.yaml \
+  ansible-playbook -i "tmp/${CLUSTER_NAME}/ansible-hosts.txt" -u $VM_USERNAME add-nodes-playbook.yaml \
     -e "ssh_key_file=$HOME/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}" \
     -e "ssh_hosts_file=$HOME/.ssh/known_hosts" \
     -e "kubernetes_version=${KUBERNETES_MEDIUM_VERSION}"
@@ -84,7 +84,7 @@ if [ "$ADD_NODES" = true ]; then
   fi
 else
   echo -e "${GREEN}Running init cluster creation playbook...${ENDCOLOR}"
-  ansible-playbook -i "tmp/${CLUSTER_NAME}/ansible-hosts.txt" -u $VM_USERNAME ansible-init-cluster-playbook.yaml \
+  ansible-playbook -i "tmp/${CLUSTER_NAME}/ansible-hosts.txt" -u $VM_USERNAME init-cluster-playbook.yaml \
     -e "ssh_key_file=$HOME/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}" \
     -e "ssh_hosts_file=$HOME/.ssh/known_hosts" \
     -e "kubernetes_version=${KUBERNETES_MEDIUM_VERSION}"

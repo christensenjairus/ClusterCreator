@@ -157,15 +157,15 @@ variable "clusters" {
         ipv6                           = {
           enabled                      = true
           dual_stack                   = true
-          subnet_prefix                = "2607:fa18:47ff:400"
-          pod_cidr                     = "2607:fa18:47ff:400:244::/80"
-          svc_cidr                     = "2607:fa18:47ff:400:96::/112"
+          subnet_prefix                = "2607:fa18:47fd:400"
+          pod_cidr                     = "2607:fa18:47fd:400:244::/80"
+          svc_cidr                     = "2607:fa18:47fd:400:96::/112"
           dns1                         = "2607:fa18::1"
           dns2                         = "2607:fa18::2"
         }
         kube_vip = {
           kube_vip_version             = "0.8.1"
-          vip                          = "10.0.4.100" #"2607:fa18:47ff:2::100"
+          vip                          = "10.0.4.100" #"2607:fa18:47fd:2::100"
           vip_hostname                 = "delta-api-server"
           vip_interface                = "eth0"
           use_ipv6                     = false
@@ -271,9 +271,9 @@ variable "clusters" {
         ipv6                           = {
           enabled                      = true
           dual_stack                   = true
-          subnet_prefix                = "2607:fa18:47ff:500"
-          pod_cidr                     = "2607:fa18:47ff:500:244::/80"
-          svc_cidr                     = "2607:fa18:47ff:500:96::/112"
+          subnet_prefix                = "2607:fa18:47fd:500"
+          pod_cidr                     = "2607:fa18:47fd:500:244::/80"
+          svc_cidr                     = "2607:fa18:47fd:500:96::/112"
           dns1                         = "2607:fa18::1"
           dns2                         = "2607:fa18::2"
         }
@@ -388,9 +388,9 @@ variable "clusters" {
         ipv6                           = {
           enabled                      = true
           dual_stack                   = true
-          subnet_prefix                = "2607:fa18:47ff:600"
-          pod_cidr                     = "2607:fa18:47ff:600:244::/80"
-          svc_cidr                     = "2607:fa18:47ff:600:96::/112"
+          subnet_prefix                = "2607:fa18:47fd:600"
+          pod_cidr                     = "2607:fa18:47fd:600:244::/80"
+          svc_cidr                     = "2607:fa18:47fd:600:96::/112"
           dns1                         = "2607:fa18::1"
           dns2                         = "2607:fa18::2"
         }
@@ -431,7 +431,7 @@ variable "clusters" {
           sockets  = 2
           memory   = 3072
           disks    = [
-            { index = 0, datastore = "nvmes", size = 20, backup = true }
+            { index = 0, datastore = "nvmes", size = 30, backup = true } # an extra 10 for extra space for etcd backups. 24+7 of them at 250MB each is 8GB.
           ]
           start_ip = 120
         }
@@ -503,9 +503,9 @@ variable "clusters" {
         ipv6                           = {
           enabled                      = true
           dual_stack                   = true
-          subnet_prefix                = "2607:fa18:47ff:700"
-          pod_cidr                     = "2607:fa18:47ff:700:244::/80"
-          svc_cidr                     = "2607:fa18:47ff:700:96::/112"
+          subnet_prefix                = "2607:fa18:47fd:700"
+          pod_cidr                     = "2607:fa18:47fd:700:244::/80"
+          svc_cidr                     = "2607:fa18:47fd:700:96::/112"
           dns1                         = "2607:fa18::1"
           dns2                         = "2607:fa18::2"
         }
@@ -546,7 +546,7 @@ variable "clusters" {
           sockets  = 2
           memory   = 3072
           disks    = [
-            { index = 0, datastore = "nvmes", size = 20, backup = true }
+            { index = 0, datastore = "nvmes", size = 30, backup = true } # an extra 10 for extra space for etcd backups. 24+7 of them at 250MB each is 8GB.
           ]
           start_ip = 120
         }
@@ -557,7 +557,10 @@ variable "clusters" {
           memory   = 12288
           disks    = [
             { index = 0, datastore = "nvmes", size = 70, backup = true }, # an extra 50 for rook mon folder /rook/rook-ceph
-            { index = 1, datastore = "nvmes", size = 400, backup = false } # could be full and still leave space for os disks in cluster
+            { index = 1, datastore = "nvmes", size = 100, backup = false }, # 400GB could be full and still leave space for os disks on Proxmox
+            { index = 2, datastore = "nvmes", size = 100, backup = false }, # separating them out to help with rook performance
+            { index = 3, datastore = "nvmes", size = 100, backup = false },
+            { index = 4, datastore = "nvmes", size = 100, backup = false }
           ]
           start_ip = 130
           labels   = {
@@ -578,7 +581,7 @@ variable "clusters" {
           }
         }
         general = {
-          count    = 3 # should be three or more. Various apps are spread across these nodes to maintain spread. Like splunk search heads and indexers.
+          count    = 4 # should be three or more. Various apps are spread across these nodes to maintain spread. Like splunk search heads and indexers.
           cores    = 16
           sockets  = 2
           memory   = 32768

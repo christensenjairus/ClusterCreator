@@ -397,6 +397,50 @@
       tags:
         - remove_ssh_key
 
+- name: Ensure etcd backup cronjobs are present
+  hosts: all
+  become: yes
+  tags:
+    - etcd_backup
+  vars:
+    etcd_endpoint: "https://{{ ansible_host }}:2379"
+    etcd_cert: "/etc/kubernetes/pki/etcd/peer.crt"
+    etcd_key: "/etc/kubernetes/pki/etcd/peer.key"
+    etcd_cacert: "/etc/kubernetes/pki/etcd/ca.crt"
+  tasks:
+    - name: Ensure /var/backups/etcd/hourly directory exists
+      file:
+        path: /var/backups/etcd/hourly
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+    - name: Ensure /var/backups/etcd/daily directory exists
+      file:
+        path: /var/backups/etcd/daily
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+    - name: Add cronjob for hourly etcdctl snapshot
+      cron:
+        name: "etcdctl hourly snapshot backup"
+        user: root
+        minute: "0"
+        hour: "*"
+        # run every hour. Delete snapshots older than 24 hours.
+        job: >
+          ETCDCTL_API=3 etcdctl --cert {{ etcd_cert }} --key {{ etcd_key }} --cacert {{ etcd_cacert }} --endpoints {{ etcd_endpoint }} snapshot save /var/backups/etcd/hourly/snapshot_$(date +\%Y\%m\%d\%H\%M).db && find /var/backups/etcd/hourly/ -type f -name 'snapshot_*.db' -mtime +1 -exec rm {} \;
+    - name: Add cronjob for daily etcdctl snapshot
+      cron:
+        name: "etcdctl daily snapshot backup"
+        user: root
+        minute: "0"
+        hour: "12" # noon
+        # run at noon to avoid snapshotting during backup. Delete snapshots older than 7 days.
+        job: >
+          ETCDCTL_API=3 etcdctl --cert {{ etcd_cert }} --key {{ etcd_key }} --cacert {{ etcd_cacert }} --endpoints {{ etcd_endpoint }} snapshot save /var/backups/etcd/daily/snapshot_$(date +\%Y\%m\%d).db && find /var/backups/etcd/daily/ -type f -name 'snapshot_*.db' -mtime +7 -exec rm {} \;
+
 - name: Etcdctl healthcheck
   hosts: kube_etcd_servers[0]
   any_errors_fatal: true

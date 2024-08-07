@@ -36,7 +36,7 @@ cleanup_function() {
 }
 
 ## run ansible playbooks
-ansible-playbook -i "tmp/${CLUSTER_NAME}/ansible-hosts.txt" -u $VM_USERNAME ansible-reset-cluster.yaml \
+ansible-playbook -i "tmp/${CLUSTER_NAME}/ansible-hosts.txt" -u $VM_USERNAME reset-cluster.yaml \
   -e "cluster_name=${CLUSTER_NAME}" \
   --limit="${SINGLE_HOSTNAME}"
 

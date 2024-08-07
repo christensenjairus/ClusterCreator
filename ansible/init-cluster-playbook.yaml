@@ -1,0 +1,16 @@
+- import_playbook: trust-hosts.yaml
+- import_playbook: ping-nodes.yaml
+- import_playbook: prepare-nodes.yaml
+- import_playbook: etcd-nodes-setup.yaml
+- import_playbook: kubevip-setup.yaml
+- import_playbook: cp-nodes-setup.yaml
+- import_playbook: move-kubeconfig-local.yaml
+- import_playbook: join-apiserver-nodes.yaml
+- import_playbook: join-worker-nodes.yaml
+- import_playbook: move-kubeconfig-remote.yaml
+- import_playbook: conditionally-taint-control-plane.yaml
+- import_playbook: cilium-setup.yaml
+- import_playbook: metrics-server-setup.yaml
+- import_playbook: local-storageclasses-setup.yaml
+- import_playbook: label-nodes.yaml
+- import_playbook: ending-output.yaml

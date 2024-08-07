@@ -19,6 +19,7 @@ chown -R root:root /opt/cni/bin # https://github.com/cilium/cilium/issues/23838
 wget "https://github.com/etcd-io/etcd/releases/download/v${ETCDCTL_VERSION}/etcd-v${ETCDCTL_VERSION}-linux-amd64.tar.gz"
 tar xzvf "etcd-v${ETCDCTL_VERSION}-linux-amd64.tar.gz"
 install -o root -g root -m 0755 etcd-v$ETCDCTL_VERSION-linux-amd64/etcdctl /usr/local/bin/etcdctl
+install -o root -g root -m 0755 etcd-v$ETCDCTL_VERSION-linux-amd64/etcdutl /usr/local/bin/etcdutl
 rm -r etcd-v$ETCDCTL_VERSION-linux-amd64*
 
 # install cilium cli
