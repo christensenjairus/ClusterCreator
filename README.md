@@ -36,7 +36,8 @@ See a demo of how it works step by step [on my blog](https://cyber-engine.com/bl
 * Highly available control plane using Kube-VIP
 * Cilium CNI (replacing kube-router, providing full eBPF. Optional dual stack networking)
 * Metrics server
-* Node labeling
+* Node labels
+* Node taints
 * Auto-Provisioning Local StorageClass (rancher) (set as default StorageClass)
 * Non-Auto-Provisioning Local StorageClass (k8s built-in)
 * Prepares, updates, reboots, and joins new nodes to an existing cluster with the `--add-nodes` flag, allowing you to grow your cluster as needed.

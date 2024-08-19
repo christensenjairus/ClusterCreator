@@ -10,5 +10,6 @@
 - import_playbook: move-kubeconfig-remote.yaml # ensures all nodes have the kubeconfig file in their home dir.
 - import_playbook: wait-until-all-nodes-ready.yaml # waits until all nodes are ready so new nodes are completely joined
 - import_playbook: conditionally-taint-control-plane.yaml # untaints the control plane nodes if there are no worker nodes
-- import_playbook: label-nodes.yaml # add labels to all nodes
+- import_playbook: label-nodes.yaml # add labels as needed
+- import_playbook: taint-nodes.yaml # taints nodes as needed
 - import_playbook: ending-output.yaml

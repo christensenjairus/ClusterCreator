@@ -13,4 +13,5 @@
 - import_playbook: metrics-server-setup.yaml
 - import_playbook: local-storageclasses-setup.yaml
 - import_playbook: label-nodes.yaml
+- import_playbook: taint-nodes.yaml
 - import_playbook: ending-output.yaml

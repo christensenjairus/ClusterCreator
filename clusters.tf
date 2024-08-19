@@ -69,6 +69,7 @@ variable "clusters" {
         }))
         start_ip    : number        # last octet of the ip address for the first apiserver node
         labels      : map(string)   # labels to apply to the nodes
+        taints      : map(string)   # taints to apply to the nodes
       })
       etcd          : object({      # required type, but can be 0.
         count       : number        # use 0 for a stacked etcd architecture. Usually 3 if you want an external etcd. Should be an odd number. Should not pass 10 without editing start IPs
@@ -82,7 +83,7 @@ variable "clusters" {
           backup    : bool          # boolean to determine if this disk will be backed up when Proxmox performs a vm backup.
         }))
         start_ip    : number        # last octet of the ip address for the first etcd node
-        # no node labels because etcd nodes are external to the cluster itself
+        # no node labels or taints because etcd nodes are external to the cluster itself
       })
       storage       : object({      # custom worker type, can be 0
         count       : number        # Should not pass 10 without editing start IPs
@@ -97,6 +98,7 @@ variable "clusters" {
         }))
         start_ip    : number        # last octet of the ip address for the first backup node
         labels      : map(string)   # labels to apply to the nodes
+        taints      : map(string)   # taints to apply to the nodes
       })
       database      : object({      # custom worker type, can be 0
         count       : number        # Should not pass 10 without editing start IPs
@@ -111,6 +113,7 @@ variable "clusters" {
         }))
         start_ip    : number        # last octet of the ip address for the first db node
         labels      : map(string)   # labels to apply to the nodes
+        taints      : map(string)   # taints to apply to the nodes
       })
       general       : object({      # custom worker type, can be 0
         count       : number        # Should not pass 50 without editing load balancer ip cidr and nginx ingress controller ip
@@ -125,6 +128,7 @@ variable "clusters" {
         }))
         start_ip    : number        # last octet of the ip address for the first general node.
         labels      : map(string)   # labels to apply to the nodes
+        taints      : map(string)   # taints to apply to the nodes
       })
       # you can add more worker node classes here. You must also add a section per node class to the ansible/helpers/ansible_hosts.txt.j2 template file
       # but don't change the name of the apiserver or etcd nodes unless you do a full find-replace.
@@ -193,6 +197,7 @@ variable "clusters" {
           labels = {
             "nodeclass" = "apiserver"
           }
+          taints = {}
         }
         etcd = {
           count      = 0
@@ -216,6 +221,7 @@ variable "clusters" {
           labels = {
             "nodeclass" = "storage"
           }
+          taints = {}
         }
         database = {
           count      = 0
@@ -229,6 +235,7 @@ variable "clusters" {
           labels = {
             "nodeclass" = "database"
           }
+          taints = {}
         }
         general = {
           count      = 0
@@ -242,6 +249,7 @@ variable "clusters" {
           labels = {
             "nodeclass" = "general"
           }
+          taints = {}
         }
       }
     }
@@ -307,6 +315,7 @@ variable "clusters" {
           labels = {
             "nodeclass" = "apiserver"
           }
+          taints = {}
         }
         etcd = {
           count      = 0
@@ -330,6 +339,7 @@ variable "clusters" {
           labels = {
             "nodeclass" = "storage"
           }
+          taints = {}
         }
         database = {
           count      = 1
@@ -343,6 +353,7 @@ variable "clusters" {
           labels = {
             "nodeclass" = "database"
           }
+          taints = {}
         }
         general = {
           count      = 2
@@ -356,6 +367,7 @@ variable "clusters" {
           labels = {
             "nodeclass" = "general"
           }
+          taints = {}
         }
       }
     }
@@ -421,6 +433,7 @@ variable "clusters" {
           labels   = {
             "nodeclass" = "apiserver"
           }
+          taints = {}
         }
         etcd = {
           count    = 3
@@ -445,6 +458,7 @@ variable "clusters" {
           labels   = {
             "nodeclass" = "storage"
           }
+          taints = {}
         }
         database = {
           count    = 3
@@ -458,6 +472,7 @@ variable "clusters" {
           labels   = {
             "nodeclass" = "database"
           }
+          taints = {}
         }
         general = {
           count    = 5
@@ -471,6 +486,7 @@ variable "clusters" {
           labels   = {
             "nodeclass" = "general"
           }
+          taints = {}
         }
       }
     }

@@ -69,6 +69,7 @@ variable "clusters" {
         }))         
         start_ip    : number        # last octet of the ip address for the first apiserver node
         labels      : map(string)   # labels to apply to the nodes
+        taints      : map(string)   # taints to apply to the nodes
       })            
       etcd          : object({      # required type, but can be 0.
         count       : number        # use 0 for a stacked etcd architecture. Usually 3 if you want an external etcd. Should be an odd number. Should not pass 10 without editing start IPs
@@ -82,7 +83,7 @@ variable "clusters" {
           backup    : bool          # boolean to determine if this disk will be backed up when Proxmox performs a vm backup.
         }))         
         start_ip    : number        # last octet of the ip address for the first etcd node
-        # no node labels because etcd nodes are external to the cluster itself
+        # no node labels or taints because etcd nodes are external to the cluster itself
       })
       storage       : object({      # custom worker type, can be 0
         count       : number        # Should not pass 10 without editing start IPs
@@ -97,6 +98,7 @@ variable "clusters" {
         }))         
         start_ip    : number        # last octet of the ip address for the first backup node
         labels      : map(string)   # labels to apply to the nodes
+        taints      : map(string)   # taints to apply to the nodes
       })            
       database      : object({      # custom worker type, can be 0
         count       : number        # Should not pass 10 without editing start IPs
@@ -111,6 +113,7 @@ variable "clusters" {
         }))         
         start_ip    : number        # last octet of the ip address for the first db node
         labels      : map(string)   # labels to apply to the nodes
+        taints      : map(string)   # taints to apply to the nodes
       })            
       general       : object({      # custom worker type, can be 0
         count       : number        # Should not pass 50 without editing load balancer ip cidr and nginx ingress controller ip
@@ -125,6 +128,7 @@ variable "clusters" {
         }))         
         start_ip    : number        # last octet of the ip address for the first general node.
         labels      : map(string)   # labels to apply to the nodes
+        taints      : map(string)   # taints to apply to the nodes
       })
       # you can add more worker node classes here. You must also add a section per node class to the ansible/helpers/ansible_hosts.txt.j2 template file
       # but don't change the name of the apiserver or etcd nodes unless you do a full find-replace.
@@ -193,6 +197,7 @@ variable "clusters" {
           labels = {
             "nodeclass" = "apiserver"
           }
+          taints = {}
         }
         etcd = {
           count      = 0
@@ -216,6 +221,7 @@ variable "clusters" {
           labels = {
             "nodeclass" = "storage"
           }
+          taints = {}
         }
         database = {
           count      = 0
@@ -229,6 +235,7 @@ variable "clusters" {
           labels = {
             "nodeclass" = "database"
           }
+          taints = {}
         }
         general = {
           count      = 0
@@ -242,6 +249,7 @@ variable "clusters" {
           labels = {
             "nodeclass" = "general"
           }
+          taints = {}
         }
       }
     }
@@ -307,6 +315,7 @@ variable "clusters" {
           labels = {
             "nodeclass" = "apiserver"
           }
+          taints = {}
         }
         etcd = {
           count      = 0
@@ -331,6 +340,7 @@ variable "clusters" {
           labels = {
             "nodeclass" = "storage"
           }
+          taints = {}
         }
         database = {
           count      = 1
@@ -345,6 +355,7 @@ variable "clusters" {
           labels = {
             "nodeclass" = "database"
           }
+          taints = {}
         }
         general = {
           count      = 1
@@ -359,6 +370,7 @@ variable "clusters" {
           labels = {
             "nodeclass" = "general"
           }
+          taints = {}
         }
       }
     }
@@ -424,6 +436,7 @@ variable "clusters" {
           labels   = {
             "nodeclass" = "apiserver"
           }
+          taints   = {}
         }
         etcd = {
           count    = 3
@@ -442,12 +455,16 @@ variable "clusters" {
           memory   = 12288
           disks    = [
             { index = 0, datastore = "nvmes", size = 70, backup = true }, # an extra 50 for rook mon folder /rook/rook-ceph
-            { index = 1, datastore = "nvmes", size = 400, backup = false } # could be full and still leave space for os disks in cluster
+            { index = 1, datastore = "nvmes", size = 100, backup = false }, # 400GB could be full and still leave space for os disks on Proxmox
+            { index = 2, datastore = "nvmes", size = 100, backup = false }, # separating them out to help with rook performance
+            { index = 3, datastore = "nvmes", size = 100, backup = false },
+            { index = 4, datastore = "nvmes", size = 100, backup = false }
           ]
           start_ip = 130
           labels   = {
             "nodeclass" = "storage"
           }
+          taints   = {}
         }
         database = {
           count    = 3 # should be three or more. Redis and postgres clusters are assigned to these nodes. They have three nodes w/ spread constraints.
@@ -461,6 +478,7 @@ variable "clusters" {
           labels   = {
             "nodeclass" = "database"
           }
+          taints   = {}
         }
         general = {
           count    = 3 # should be three or more. Various apps are spread across these nodes to maintain spread. Like splunk search heads and indexers.
@@ -474,6 +492,7 @@ variable "clusters" {
           labels   = {
             "nodeclass" = "general"
           }
+          taints   = {}
         }
       }
     }
@@ -539,6 +558,7 @@ variable "clusters" {
           labels   = {
             "nodeclass" = "apiserver"
           }
+          taints   = {}
         }
         etcd = {
           count    = 3
@@ -556,7 +576,7 @@ variable "clusters" {
           sockets  = 2
           memory   = 12288
           disks    = [
-            { index = 0, datastore = "nvmes", size = 70, backup = true }, # an extra 50 for rook mon folder /rook/rook-ceph
+            { index = 0, datastore = "nvmes", size = 20, backup = true }, # an extra 50 for rook mon folder /rook/rook-ceph
             { index = 1, datastore = "nvmes", size = 100, backup = false }, # 400GB could be full and still leave space for os disks on Proxmox
             { index = 2, datastore = "nvmes", size = 100, backup = false }, # separating them out to help with rook performance
             { index = 3, datastore = "nvmes", size = 100, backup = false },
@@ -565,6 +585,9 @@ variable "clusters" {
           start_ip = 130
           labels   = {
             "nodeclass" = "storage"
+          }
+          taints   = {
+            "storage-node" = "NoSchedule"
           }
         }
         database = {
@@ -579,19 +602,21 @@ variable "clusters" {
           labels   = {
             "nodeclass" = "database"
           }
+          taints   = {}
         }
         general = {
           count    = 4 # should be three or more. Various apps are spread across these nodes to maintain spread. Like splunk search heads and indexers.
           cores    = 16
           sockets  = 2
-          memory   = 32768
+          memory   = 24576
           disks    = [
-            { index = 0, datastore = "nvmes", size = 70, backup = true } # an extra 50 for emptyDir volumes for holding a ton of local copies of images. I got disk pressure taints with 30GB and low kubelet space warnings with 50GB.
+            { index = 0, datastore = "nvmes", size = 120, backup = true } # an extra 50 for emptyDir volumes for holding a ton of local copies of images. I got disk pressure taints with 30GB and low kubelet space warnings with 50GB. An extra 50 for rook mon folder /rook/rook-ceph
           ]
           start_ip = 150
           labels   = {
             "nodeclass" = "general"
           }
+          taints   = {}
         }
       }
     }

@@ -1,0 +1,39 @@
+---
+- name: Taint Kubernetes Nodes
+  hosts: localhost
+
+  vars:
+    ansible_hosts_path: "tmp/{{ cluster_name }}/ansible-hosts.txt"
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+  tasks:
+    - name: Read Ansible Hosts File
+      ansible.builtin.slurp:
+        src: "{{ ansible_hosts_path }}"
+      register: hosts_file_content
+
+    - name: Convert Hosts File Content to String
+      set_fact:
+        hosts_content: "{{ hosts_file_content.content | b64decode }}"
+
+    - name: Initialize an empty list for nodes and taints
+      set_fact:
+        nodes_and_taints: []
+
+    - name: Parse Nodes and Taints
+      set_fact:
+        nodes_and_taints: "{{ nodes_and_taints | default([]) + [{'hostname': item.split()[0], 'taints': (item.split('taints=\"')[1].split('\"')[0] if 'taints=\"' in item else '').split(',')}] }}"
+      loop: "{{ hosts_content.splitlines() }}"
+      when: item | length > 0 and not item.startswith('#') and not 'taints=""' in item and not item.startswith('[') and not item.startswith('cluster_name=')
+
+    - name: Debug Nodes and Taints
+      debug:
+        var: nodes_and_taints
+
+    - name: Apply Taints to Nodes
+      ansible.builtin.command:
+        cmd: "kubectl taint nodes {{ item.hostname }} {{ item.taints | join(' ') }} --overwrite"
+      loop: "{{ nodes_and_taints }}"
+      when: item.taints | length > 0 and item.taints[0] != ''
+      ignore_errors: yes # likely means a node wasn't joined correctly, so we'll taint it on the next run when it joins
+      environment:
+        KUBECONFIG: "{{ lookup('env', 'HOME') }}/.kube/{{ cluster_config.kubeconfig_file_name }}"
