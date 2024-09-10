@@ -124,7 +124,7 @@ resource "proxmox_virtual_environment_pool" "operations_pool" {
     if key == terraform.workspace
   }
   comment = "Managed by Terraform"
-  pool_id = "${upper(each.key)}" # pool id is the cluster name in all caps
+  pool_id = upper(each.key) # pool id is the cluster name in all caps
 }
 
 # add extra output once something is done
@@ -203,7 +203,7 @@ resource "proxmox_virtual_environment_vm" "node" {
           for_each = [1]  # This ensures the block is always created
           content {
             address = "${each.value.ipv4.vm_ip}/24"
-            gateway = "${each.value.ipv4.gateway}"
+            gateway = each.value.ipv4.gateway
           }
         }
 
@@ -211,7 +211,7 @@ resource "proxmox_virtual_environment_vm" "node" {
           for_each = each.value.ipv6.enabled ? [1] : []
           content {
             address = "${each.value.ipv6.vm_ip}/64"
-            gateway = "${each.value.ipv6.gateway}"
+            gateway = each.value.ipv6.gateway
           }
         }
       }
@@ -231,7 +231,7 @@ resource "proxmox_virtual_environment_vm" "node" {
   migrate = true
   on_boot = each.value.on_boot
   started = true
-  pool_id = "${upper(each.value.cluster_name)}"
+  pool_id = upper(each.value.cluster_name)
   lifecycle {
     ignore_changes = [
       tags,
