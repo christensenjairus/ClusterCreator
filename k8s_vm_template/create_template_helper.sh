@@ -3,8 +3,6 @@
 GREEN='\033[32m'
 ENDCOLOR='\033[0m'
 
-set -e
-
 echo -e "${GREEN}Ensuring libguestfs-tools and jq are installed...${ENDCOLOR}"
 apt install jq libguestfs-tools -y
 
