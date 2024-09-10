@@ -186,19 +186,19 @@ variable "vm_ssh_key" {
     default = "ssh-rsa <key_here>"
 }
 variable "proxmox_username" {
-    default = "terraform" # change to the username of the user you created in Proxmox.
+    default = "terraform" # change to the username of the user from Proxmox.
 }
 variable "proxmox_api_token" {
     default = "terraform@pve!provider=<token>"
 }
 variable "unifi_username" {
-    default = "terraform" # change to the username of the user you created in Unifi.
+    default = "terraform" # change to the username of the user from Unifi.
 }
 variable "unifi_password" {
     default = "<terraform_unifi_password>"
 }
 ```
-For the Proxmox user and api token, see [these instructions](https://registry.terraform.io/providers/bpg/proxmox/latest/docs#api-token-authentication
+For the Proxmox user and api token, see [these instructions](https://registry.terraform.io/providers/bpg/proxmox/latest/docs#api-token-authentication)
 
 For the Unifi password, you'll want to create a new service account user for tofu.
 * In the Unifi Controller, go to Settings -> Admins & Users.
