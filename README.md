@@ -43,6 +43,7 @@ See a demo of how it works step by step [on my blog](https://cyber-engine.com/bl
 * Prepares, updates, reboots, and joins new nodes to an existing cluster with the `--add-nodes` flag, allowing you to grow your cluster as needed.
 
 # Usage
+Before using this project, see the [section on configuring your secrets files](#configuring-secrets-files).
 
 ### Create a cloud-init ready virtual machine template for Tofu to use
 ```bash
@@ -168,10 +169,10 @@ The dynamic nature of OpenTofu + Ansible allows the following
   * 5 worker nodes of class `fedramp` # possible new class
   * 5 worker nodes of class `backup` # possible new class
 
-# Configuration/Secrets Files
+# Configuring Secrets Files
 Create the following two files.
 
-## For Tofu
+### For Tofu
 See [here](https://registry.terraform.io/providers/bpg/proxmox/latest/docs#api-token-authentication) for info on how to get a proxmox user and api token set up for this.
 #### `secrets.tf`
 Placed in topmost directory
@@ -217,7 +218,7 @@ For the Unifi password, you'll want to create a new service account user for tof
 * Create a new user named `tofu`. Restrict the user to local access only. Set the user's role to be `Network_Service_Account`.
 * Use the new user password into `secrets.tf` as the unifi password.
 
-## For bash
+### For bash
 #### `.env`
 Placed in topmost directory.
 ```bash
