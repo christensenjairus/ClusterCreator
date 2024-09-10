@@ -7,7 +7,7 @@ This project will assist you in automating bootstrapping k8s clusters on Proxmox
 
 Having a virtualized k8s cluster allows you to not only simulate a cloud environment, but scale and customize your cluster to your needs, adding/removing nodes and disks, managing disk backups and snapshots, customizing node class types, and controlling state.
 
-Terraform/OpenTofu & Ansible automate to create even more complex setups, like using an external etcd cluster or using a large number of worker nodes with differing cpu/mem/disk/networking/labels. OpenTofu creates the VMs and VLANs, and Ansible installs Kubernetes as well as various add-ons for networking, metrics, and storage.
+Terraform/OpenTofu & Ansible automate to create even more complex setups, like using a decoupled etcd cluster or using a large number of worker nodes with differing cpu/mem/disk/networking/labels. OpenTofu creates the VMs and VLANs, and Ansible installs Kubernetes as well as various add-ons for networking, metrics, and storage.
 
 See a demo of how it works step by step [on my blog](https://cyber-engine.com/blog/2024/06/25/k8s-on-proxmox-using-clustercreator/).
 
@@ -20,7 +20,7 @@ See a demo of how it works step by step [on my blog](https://cyber-engine.com/bl
 * Supports both Ubuntu and Debian images
 
 ##### The Tofu cluster configuration allows
-* Optional external etcd cluster
+* Optional decoupled etcd cluster
 * Optional dual stack networking
 * Proxmox pool configuration
 * Custom network & vlan Unifi configuration (optional)
@@ -32,7 +32,7 @@ See a demo of how it works step by step [on my blog](https://cyber-engine.com/bl
 * Custom proxmox tags
 
 ##### `./install_k8s.sh` runs a series of Ansible playbooks to create a fresh, minimal cluster. The Ansible playbooks include configuration and installation of
-* External ETCD cluster (optional)
+* Decoupled ETCD cluster (optional)
 * Highly available control plane using Kube-VIP
 * Cilium CNI (replacing kube-router, providing full eBPF. Optional dual stack networking)
 * Metrics server
@@ -76,7 +76,7 @@ This will run a series of Ansible playbooks to create a fresh, minimal cluster. 
 
 The `--add-nodes` flag will prepare and add **new** nodes to an already initialized cluster. This works for both control-plane and worker nodes.
 
-*Note: Do not use the `--add-nodes` to set up or edit an external etcd cluster. That must be done upon initialization. But it will work for editing control plane nodes that reference the external etcd cluster.*
+*Note: Do not use the `--add-nodes` to set up or edit a decoupled etcd cluster. That must be done upon initialization. But it will work for editing control plane nodes that reference the decoupled etcd cluster.*
 
 ### Drain or remove a node from the cluster
 ```bash
@@ -86,7 +86,7 @@ This will remove a worker or control plane node from the cluster and optionally 
 
 The `--delete` flag will not only delete the node from the cluster, but will run the `./uninstall_k8s.sh` script to ensure that it is completely ready to start fresh when recomissioned. 
 
-This does not work for external etcd nodes.
+This does not work for decoupled etcd nodes.
 
 ### Uninstall K8S with Ansible
 ```bash
@@ -142,12 +142,12 @@ The dynamic nature of OpenTofu + Ansible allows the following
 
 *Note: etcd nodes are not shown in cluster, but they are used by the control plane nodes.*
 
-### Make the control plane highly available. Add an external etcd cluster. Add more custom workers
+### Make the control plane highly available. Add an decoupled etcd cluster. Add more custom workers
 
 * `gamma` cluster
   * 3 control plane nodes
     * 4 cores, 4GB RAM, 30GB disk
-  * 3 external etcd nodes
+  * 3 decoupled etcd nodes
     * 2 cores, 2GB RAM, 30GB disk
   * 3 worker nodes of class `storage`
     * 2 cores, 2GB RAM, 30GB os disk, 100GB extra disk (for a future ceph cluster)
@@ -160,7 +160,7 @@ The dynamic nature of OpenTofu + Ansible allows the following
 
 * Theoretical overkill cluster
   * 9 control plane nodes
-  * 7 external etcd nodes
+  * 7 decoupled etcd nodes
   * 5 worker nodes of class `storage`
   * 15 worker nodes of class `database`
   * 20 worker nodes of class `general`
@@ -186,26 +186,44 @@ variable "vm_ssh_key" {
     default = "ssh-rsa <key_here>"
 }
 variable "proxmox_username" {
-    default = "tofu" # change me to your tofu service account username
+    default = "tofu"
 }
 variable "proxmox_api_token" {
-    default = "tofu@pve!provider=<token_here>"
+    default = "tofu@pve!<token_name>=<token>"
 }
 variable "unifi_username" {
-    default = "network_service_account" # change me to your unifi service account username
+    default = "tofu"
 }
 variable "unifi_password" {
-    default = "<service_acccount_token>"
+    default = "<tofu_unifi_password>"
 }
 ```
+For the proxmox api token, you'll want to create a new user for tofu with only the required permissions and use a token for authentication.
+* In a shell on the proxmox host, run
+  ```bash
+  pveum role add tofu -privs "Datastore.AllocateSpace Datastore.Audit Pool.Allocate Sys.Audit Sys.Console Sys.Modify VM.Allocate VM.Audit VM.Clone VM.Config.CDROM VM.Config.Cloudinit VM.Config.CPU VM.Config.Disk VM.Config.HWType VM.Config.Memory VM.Config.Network VM.Config.Options VM.Migrate VM.Monitor VM.PowerMgmt SDN.Use Pool.Audit"
+  pveum user add tofu@pve --password <password> # this password doesn't need to be saved anywhere, we'll use token auth instead
+  pveum aclmod / -user tofu@pve -role tofu
+  ```
+* Next, log into the Proxmox Console and go to Datacenter -> Permissions -> Api Tokens -> Add API Token.
+* Select the `tofu@pve` user and give the token a name.
+* Uncheck 'Privilege Separation'.
+* Click 'Add'
+* Copy the token and paste it into the `secrets.tf` file using the token name you specify upon creation.
+
+For the Unifi password, you'll want to create a new service account user for tofu.
+* In the Unifi Controller, go to Settings -> Admins & Users.
+* Add a role called `Network_Service_Account` with only the `Site Admin` permissions the Network app.
+* Create a new user named `tofu`. Restrict the user to local access only. Set the user's role to be `Network_Service_Account`.
+* Use the new user password into `secrets.tf` as the unifi password.
 
 ## For bash
 #### `.env`
 Placed in topmost directory.
 ```bash
 # Secrets for ./create_template.sh and ./install_k8s.sh
-VM_USERNAME="<username_here>"                 # username for all k8s_vm_template VMs managed by tofu
-VM_PASSWORD="<password_here>"                 # user password for all k8s_vm_template VMs managed by tofu
+VM_USERNAME="<username_here>"  # username for all k8s_vm_template VMs managed by tofu
+VM_PASSWORD="<password_here>"  # user password for all k8s_vm_template VMs managed by tofu
 ```
 
 ## Other files that need editing

@@ -1,8 +1,9 @@
 #!/bin/bash
 
 GREEN='\033[32m'
-#RED='\033[0;31m'
 ENDCOLOR='\033[0m'
+
+set -e
 
 echo -e "${GREEN}Ensuring libguestfs-tools and jq are installed...${ENDCOLOR}"
 apt install jq libguestfs-tools -y
@@ -18,7 +19,7 @@ echo -e "${GREEN}Removing old image if it exists...${ENDCOLOR}"
 rm -f $PROXMOX_ISO_PATH/$IMAGE_NAME*
 
 echo -e "${GREEN}Downloading the image to get new updates...${ENDCOLOR}"
-wget -O $PROXMOX_ISO_PATH/$IMAGE_NAME $IMAGE_LINK
+wget -qO $PROXMOX_ISO_PATH/$IMAGE_NAME $IMAGE_LINK
 echo ""
 
 echo -e "${GREEN}Update, add packages, enable services, edit multipath config, set timezone, set firstboot scripts...${ENDCOLOR}"
@@ -27,6 +28,7 @@ virt-customize -a $PROXMOX_ISO_PATH/$IMAGE_NAME \
      --copy-in ./FilesToPlace/k8s_mods.conf:/etc/modules-load.d/ \
      --copy-in ./FilesToPlace/k8s_sysctl.conf:/etc/sysctl.d/ \
      --copy-in ./FilesToPlace/99-inotify-limits.conf:/etc/sysctl.d/ \
+     --copy-in ./FilesToPlace/80-hotplug-cpu.rules:/lib/udev/rules.d/ \
      --copy-in ./FilesToPlace/apt-packages.sh:/root/ \
      --copy-in ./FilesToPlace/source-packages.sh:/root/ \
      --copy-in k8s.env:/etc/ \

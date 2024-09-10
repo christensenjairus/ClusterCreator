@@ -2,7 +2,7 @@ terraform {
   required_providers {
     proxmox = {
       source = "bpg/proxmox"
-      version = "0.53.1"
+      version = "0.64.0"
     }
     unifi = {
       source = "paultyng/unifi"
@@ -155,6 +155,7 @@ resource "proxmox_virtual_environment_vm" "node" {
   cpu {
     cores    = each.value.cores
     sockets  = each.value.sockets
+    hotplugged = each.value.cores * each.value.sockets
     numa = true
     type = "host"
     flags = []
@@ -171,10 +172,10 @@ resource "proxmox_virtual_environment_vm" "node" {
       file_format   = "raw"
       backup        = disk.value.backup # backup the disks during vm backup
       iothread      = true
-      cache         = "none" # proxmox default
-      aio           = "io_uring" # proxmox default
+      cache         = "none"   # proxmox default. "writeback" is faster, but it is not compatible with aio=native.
+      aio           = "native" # proxmox default is io_uring. use native with cache=none only. Native is only supported with raw block storage types like iSCSI, CEPH/RBD, and NVMe.
       discard       = "ignore" # proxmox default
-      ssd           = false # not possible with virtio
+      ssd           = false    # not possible with virtio
     }
   }
   agent {
@@ -184,7 +185,6 @@ resource "proxmox_virtual_environment_vm" "node" {
     type = "virtio"
   }
   vga {
-    enabled = true
     memory = 16
     type = "serial0"
   }

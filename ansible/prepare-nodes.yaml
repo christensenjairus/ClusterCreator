@@ -18,12 +18,13 @@
       no_log: true
     - name: Fail the play if 'No space left' is found in any firstboot log file
       fail:
-        msg: "'No space left' found in firstboot log files. Template VM did not have enough space to install all packages. Increase the TEMPLATE_DISK_SIZE and re-create template, then recreate this cluster."
+        msg: "'No space left' found in firstboot log files. Template VM did not have enough space to install all packages. Increase the TEMPLATE_DISK_SIZE and re-create template, then recreate the VM(s)."
       when: grep_output.results | selectattr('rc', 'equalto', 0) | list | count > 0
-    - name: Check each firstboot log file for 'Error' or 'Fatal' text, case-insensitively, ignoring specific patterns
+
+    - name: Check firstboot log files for failures to ensure all packages were installed correctly (excluding specific patterns)
       shell: |
-        grep -iE 'Error|Fatal' {{ item.path }} | grep -vE 'mysql/error.log|errors = false|liberror'
-      # add exclusions here^
+        grep -iE 'Error|Fatal' {{ item.path }} | grep -vE 'mysql/error.log|errors = false|liberror|No error reported'
+      # ADD EXCLUSIONS HERE^
       register: grep_output
       failed_when: grep_output.rc == 0
       with_items: "{{ log_files.files }}"
@@ -31,7 +32,7 @@
       no_log: true
     - name: Warn and pause if 'Error' or 'Fatal' is found in any firstboot log files, excluding specific instances
       pause:
-        prompt: "Warning: 'Error' or 'Fatal' found in firstboot log files. Template VM may have an issue with its firstboot scripts. Investigate /var/log/template-firstboot-*.log files and, if needed, recreate the template and this cluster. You can add exclusions in playbook if necessary. Press enter to ignore this warning or Ctrl+C to abort."
+        prompt: "Warning: 'Error' or 'Fatal' strings found in firstboot log files. Template VM may have an issue with its firstboot scripts. Investigate /var/log/template-firstboot-*.log files and, if needed, recreate the template and the VM(s). You can add exclusions in the prepare-nodes playbook (~ line 26) to filter out false-positives. Press enter to ignore this warning or Ctrl+C to abort."
       when: grep_output.results | selectattr('rc', 'equalto', 0) | list | count > 0
 
 - name: Prepare nodes

@@ -124,6 +124,7 @@ fi
 
 # Execute Ansible playbook
 ansible-playbook remove-node.yaml -u $VM_USERNAME -i "tmp/${CLUSTER_NAME}/ansible-hosts.txt" \
+   --private-key "$HOME/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}" \
    -e "node_name=$NODE_HOSTNAME" \
    -e "timeout_seconds=$TIMEOUT_SECONDS" \
    -e "delete_node=$DELETE_NODE"
