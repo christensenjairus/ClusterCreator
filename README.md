@@ -173,7 +173,6 @@ The dynamic nature of OpenTofu + Ansible allows the following
 Create the following two files.
 
 ### For Tofu
-See [here](https://registry.terraform.io/providers/bpg/proxmox/latest/docs#api-token-authentication) for info on how to get a proxmox user and api token set up for this.
 #### `secrets.tf`
 Placed in topmost directory
 ```tf
@@ -187,36 +186,25 @@ variable "vm_ssh_key" {
     default = "ssh-rsa <key_here>"
 }
 variable "proxmox_username" {
-    default = "tofu"
+    default = "terraform" # change to the username of the user you created in Proxmox.
 }
 variable "proxmox_api_token" {
-    default = "tofu@pve!<token_name>=<token>"
+    default = "terraform@pve!provider=<token>"
 }
 variable "unifi_username" {
-    default = "tofu"
+    default = "terraform" # change to the username of the user you created in Unifi.
 }
 variable "unifi_password" {
-    default = "<tofu_unifi_password>"
+    default = "<terraform_unifi_password>"
 }
 ```
-For the proxmox api token, you'll want to create a new user for tofu with only the required permissions and use a token for authentication.
-* In a shell on the proxmox host, run
-  ```bash
-  pveum role add tofu -privs "Datastore.AllocateSpace Datastore.Audit Pool.Allocate Sys.Audit Sys.Console Sys.Modify VM.Allocate VM.Audit VM.Clone VM.Config.CDROM VM.Config.Cloudinit VM.Config.CPU VM.Config.Disk VM.Config.HWType VM.Config.Memory VM.Config.Network VM.Config.Options VM.Migrate VM.Monitor VM.PowerMgmt SDN.Use Pool.Audit"
-  pveum user add tofu@pve --password <password> # this password doesn't need to be saved anywhere, we'll use token auth instead
-  pveum aclmod / -user tofu@pve -role tofu
-  ```
-* Next, log into the Proxmox Console and go to Datacenter -> Permissions -> Api Tokens -> Add API Token.
-* Select the `tofu@pve` user and give the token a name.
-* Uncheck 'Privilege Separation'.
-* Click 'Add'
-* Copy the token and paste it into the `secrets.tf` file using the token name you specify upon creation.
+For the Proxmox user and api token, see [these instructions](https://registry.terraform.io/providers/bpg/proxmox/latest/docs#api-token-authentication
 
 For the Unifi password, you'll want to create a new service account user for tofu.
 * In the Unifi Controller, go to Settings -> Admins & Users.
-* Add a role called `Network_Service_Account` with only the `Site Admin` permissions the Network app.
-* Create a new user named `tofu`. Restrict the user to local access only. Set the user's role to be `Network_Service_Account`.
-* Use the new user password into `secrets.tf` as the unifi password.
+* Add a role with only the `Site Admin` permissions the *Network* app.
+* Create a new user. Restrict the user to local access only. Set the user's role to be the one we created in the previous step.
+* Use the new username & password in `secrets.tf`.
 
 ### For bash
 #### `.env`
