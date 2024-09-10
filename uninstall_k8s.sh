@@ -37,6 +37,7 @@ cleanup_function() {
 
 ## run ansible playbooks
 ansible-playbook -i "tmp/${CLUSTER_NAME}/ansible-hosts.txt" -u $VM_USERNAME reset-cluster.yaml \
+  --private-key "$HOME/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}" \
   -e "cluster_name=${CLUSTER_NAME}" \
   --limit="${SINGLE_HOSTNAME}"
 

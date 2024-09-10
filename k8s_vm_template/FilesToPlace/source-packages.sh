@@ -16,11 +16,11 @@ rm cni-plugins-linux-amd64-v$CNI_PLUGINS_VERSION.tgz
 chown -R root:root /opt/cni/bin # https://github.com/cilium/cilium/issues/23838
 
 # install etcdctl
-wget "https://github.com/etcd-io/etcd/releases/download/v${ETCDCTL_VERSION}/etcd-v${ETCDCTL_VERSION}-linux-amd64.tar.gz"
-tar xzvf "etcd-v${ETCDCTL_VERSION}-linux-amd64.tar.gz"
-install -o root -g root -m 0755 etcd-v$ETCDCTL_VERSION-linux-amd64/etcdctl /usr/local/bin/etcdctl
-install -o root -g root -m 0755 etcd-v$ETCDCTL_VERSION-linux-amd64/etcdutl /usr/local/bin/etcdutl
-rm -r etcd-v$ETCDCTL_VERSION-linux-amd64*
+wget "https://github.com/etcd-io/etcd/releases/download/v${ETCD_VERSION}/etcd-v${ETCD_VERSION}-linux-amd64.tar.gz"
+tar xzvf "etcd-v${ETCD_VERSION}-linux-amd64.tar.gz"
+install -o root -g root -m 0755 etcd-v$ETCD_VERSION-linux-amd64/etcdctl /usr/local/bin/etcdctl
+install -o root -g root -m 0755 etcd-v$ETCD_VERSION-linux-amd64/etcdutl /usr/local/bin/etcdutl
+rm -r etcd-v$ETCD_VERSION-linux-amd64*
 
 # install cilium cli
 curl -L --remote-name-all https://github.com/cilium/cilium-cli/releases/download/v$CILIUM_CLI_VERSION/cilium-linux-${ARCH}.tar.gz{,.sha256sum}

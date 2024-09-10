@@ -1,7 +1,6 @@
 #!/bin/bash
 
 GREEN='\033[32m'
-#RED='\033[0;31m'
 ENDCOLOR='\033[0m'
 
 echo -e "${GREEN}Ensuring libguestfs-tools and jq are installed...${ENDCOLOR}"
@@ -14,11 +13,13 @@ source .env
 source k8s.env
 set +a # stop automatically exporting
 
+set -e
+
 echo -e "${GREEN}Removing old image if it exists...${ENDCOLOR}"
-rm -f $PROXMOX_ISO_PATH/$IMAGE_NAME*
+rm -f $PROXMOX_ISO_PATH/$IMAGE_NAME* 2&>1 >/dev/null
 
 echo -e "${GREEN}Downloading the image to get new updates...${ENDCOLOR}"
-wget -O $PROXMOX_ISO_PATH/$IMAGE_NAME $IMAGE_LINK
+wget -qO $PROXMOX_ISO_PATH/$IMAGE_NAME $IMAGE_LINK
 echo ""
 
 echo -e "${GREEN}Update, add packages, enable services, edit multipath config, set timezone, set firstboot scripts...${ENDCOLOR}"
@@ -27,6 +28,7 @@ virt-customize -a $PROXMOX_ISO_PATH/$IMAGE_NAME \
      --copy-in ./FilesToPlace/k8s_mods.conf:/etc/modules-load.d/ \
      --copy-in ./FilesToPlace/k8s_sysctl.conf:/etc/sysctl.d/ \
      --copy-in ./FilesToPlace/99-inotify-limits.conf:/etc/sysctl.d/ \
+     --copy-in ./FilesToPlace/80-hotplug-cpu.rules:/lib/udev/rules.d/ \
      --copy-in ./FilesToPlace/apt-packages.sh:/root/ \
      --copy-in ./FilesToPlace/source-packages.sh:/root/ \
      --copy-in k8s.env:/etc/ \
@@ -49,7 +51,6 @@ qm create $TEMPLATE_VM_ID \
   --agent "enabled=1,freeze-fs-on-backup=1,fstrim_cloned_disks=1" \
   --onboot 1 \
   --autostart 1 \
-  --balloon 0 \
   --cpu cputype=host \
   --numa 1
 
@@ -59,7 +60,7 @@ qm importdisk $TEMPLATE_VM_ID $PROXMOX_ISO_PATH/$IMAGE_NAME $PROXMOX_DATASTORE
 echo -e "${GREEN}Setting the VM options...${ENDCOLOR}"
 qm set $TEMPLATE_VM_ID \
   --scsihw virtio-scsi-pci \
-  --virtio0 "${PROXMOX_DATASTORE}:vm-${TEMPLATE_VM_ID}-disk-0" \
+  --virtio0 "${PROXMOX_DATASTORE}:vm-${TEMPLATE_VM_ID}-disk-0,aio=native,iothread=1" \
   --ide2 "${PROXMOX_DATASTORE}:cloudinit" \
   --boot c \
   --bootdisk virtio0 \
@@ -72,7 +73,7 @@ qm set $TEMPLATE_VM_ID \
   --searchdomain "$TEMPLATE_VM_SEARCH_DOMAIN" \
   --sshkeys "${NON_PASSWORD_PROTECTED_SSH_KEY}.pub" \
   --agent 1 \
-  --hotplug disk,network,usb \
+  --hotplug cpu,disk,network,usb \
   --tags "$EXTRA_TEMPLATE_TAGS ${KUBERNETES_MEDIUM_VERSION}"
 
 echo -e "${GREEN}Expanding disk to $TEMPLATE_DISK_SIZE...${ENDCOLOR}"

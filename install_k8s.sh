@@ -69,6 +69,7 @@ ansible-playbook -u $VM_USERNAME generate-hosts-txt.yaml -e "cluster_name=${CLUS
 if [ "$ADD_NODES" = true ]; then
   echo -e "${GREEN}Running post cluster creation playbook...${ENDCOLOR}"
   ansible-playbook -i "tmp/${CLUSTER_NAME}/ansible-hosts.txt" -u $VM_USERNAME add-nodes-playbook.yaml \
+    --private-key "$HOME/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}" \
     -e "ssh_key_file=$HOME/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}" \
     -e "ssh_hosts_file=$HOME/.ssh/known_hosts" \
     -e "kubernetes_version=${KUBERNETES_MEDIUM_VERSION}"
@@ -85,6 +86,7 @@ if [ "$ADD_NODES" = true ]; then
 else
   echo -e "${GREEN}Running init cluster creation playbook...${ENDCOLOR}"
   ansible-playbook -i "tmp/${CLUSTER_NAME}/ansible-hosts.txt" -u $VM_USERNAME init-cluster-playbook.yaml \
+    --private-key "$HOME/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}" \
     -e "ssh_key_file=$HOME/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}" \
     -e "ssh_hosts_file=$HOME/.ssh/known_hosts" \
     -e "kubernetes_version=${KUBERNETES_MEDIUM_VERSION}"
