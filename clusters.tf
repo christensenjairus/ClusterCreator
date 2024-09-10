@@ -241,7 +241,7 @@ variable "clusters" {
           count      = 0
           cores      = 4
           sockets    = 2
-          memory     = 4192
+          memory     = 4096
           disks      = [
             { index = 0, datastore = "nvmes", size = 20, backup = true }
           ]
@@ -277,8 +277,8 @@ variable "clusters" {
           dns2                         = "10.0.2.4"
         }
         ipv6                           = {
-          enabled                      = true
-          dual_stack                   = true
+          enabled                      = false
+          dual_stack                   = false
           subnet_prefix                = "[replace-me]:200"
           pod_cidr                     = "[replace-me]:200:244::/80"
           svc_cidr                     = "[replace-me]:200:96::/112"
@@ -356,10 +356,10 @@ variable "clusters" {
           taints = {}
         }
         general = {
-          count      = 2
+          count      = 1
           cores      = 4
           sockets    = 2
-          memory     = 4192
+          memory     = 4096
           disks      = [
             { index = 0, datastore = "nvmes", size = 20, backup = true }
           ]
@@ -395,7 +395,7 @@ variable "clusters" {
           dns2                         = "10.0.3.4"
         }
         ipv6                           = {
-          enabled                      = true
+          enabled                      = false
           dual_stack                   = false
           subnet_prefix                = "[replace-me]:300"
           pod_cidr                     = "[replace-me]:300:244::/80"
@@ -478,7 +478,7 @@ variable "clusters" {
           count    = 5
           cores    = 4
           sockets  = 2
-          memory   = 4192
+          memory   = 4096
           disks    = [
             { index = 0, datastore = "nvmes", size = 20, backup = true }
           ]

@@ -85,7 +85,7 @@ resource "unifi_network" "vlan" {
     if key == terraform.workspace && value.networking.create_vlan == true
   }
 
-  name    = each.value.networking.vlan_name
+  name      = each.value.networking.vlan_name
   vlan_id   = each.value.networking.vlan_id
   purpose = "corporate" # Must be one of corporate, guest, wan, or vlan-only.
 
@@ -100,7 +100,7 @@ resource "unifi_network" "vlan" {
 
   # IPv6 settings
   ipv6_interface_type = each.value.networking.ipv6.enabled ? "static" : "none"
-  ipv6_static_subnet = "${each.value.networking.ipv6.subnet_prefix}::1/64"
+  ipv6_static_subnet = each.value.networking.ipv6.enabled ? "${each.value.networking.ipv6.subnet_prefix}::1/64" : null
   dhcp_v6_dns_auto = false
   dhcp_v6_enabled = true
   dhcp_v6_start = "::10"
@@ -162,6 +162,9 @@ resource "proxmox_virtual_environment_vm" "node" {
   }
   memory {
     dedicated = each.value.memory
+    floating  = (each.value.memory / 4) > 2048 ? each.value.memory / 4 : 2048
+    # guarantee only 1/4 of the memory, allowing you to overcommit memory and prevent OOMs.
+    # kubeadm stops you if there's less than 1700 MB of memory.
   }
   dynamic "disk" {
     for_each = each.value.disks
