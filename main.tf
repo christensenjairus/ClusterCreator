@@ -176,10 +176,10 @@ resource "proxmox_virtual_environment_vm" "node" {
       file_format   = "raw"
       backup        = disk.value.backup # backup the disks during vm backup
       iothread      = true
-      cache         = "none"   # proxmox default. "writeback" is faster, but it is not compatible with aio=native.
-      aio           = "native" # proxmox default is io_uring. use native with cache=none only. Native is only supported with raw block storage types like iSCSI, CEPH/RBD, and NVMe.
-      discard       = "ignore" # proxmox default
-      ssd           = false    # not possible with virtio
+      cache         = "writeback" # proxmox default is 'none'. "writeback" is faster and safe on most hardware when protected against power loss. See https://pve.proxmox.com/wiki/Performance_Tweaks
+      aio           = "io_uring"  # proxmox default
+      discard       = "ignore"    # proxmox default
+      ssd           = false       # not possible with virtio
     }
   }
   agent {
