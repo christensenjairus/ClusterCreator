@@ -19,7 +19,8 @@ variable "clusters" {
     })
     networking                       : object({
       dns_search_domain              : string # search domain for DNS resolution
-      create_vlan                    : bool   # whether or not to create an IPv4 vlan.
+      assign_vlan                    : bool   # whether or not to assign a vlan to the network interfaces of the VMs.
+      create_vlan                    : bool   # whether or not to create an IPv4 vlan in Unifi.
       vlan_name                      : string # name of the IPv4 vlan for the cluster. Must always be set, even if create_vlan is false.
       vlan_id                        : number # vlan id for the cluster. Must always be set, even if create_vlan is false.
       ipv4                           : object({
@@ -150,7 +151,8 @@ variable "clusters" {
         dns_search_domain              = "lan"
         vlan_name                      = "ALPHA"
         vlan_id                        = 100
-        create_vlan                    = true
+        assign_vlan                    = false
+        create_vlan                    = false
         ipv4                           = {
           subnet_prefix                = "10.0.1"
           pod_cidr                     = "10.8.0.0/16"
@@ -266,6 +268,7 @@ variable "clusters" {
       }
       networking                       = {
         dns_search_domain              = "lan"
+        assign_vlan                    = true
         create_vlan                    = true
         vlan_name                      = "BETA"
         vlan_id                        = 200
@@ -384,6 +387,7 @@ variable "clusters" {
       }
       networking                       = {
         dns_search_domain              = "lan"
+        assign_vlan                    = true
         create_vlan                    = true
         vlan_name                      = "GAMMA"
         vlan_id                        = 600
