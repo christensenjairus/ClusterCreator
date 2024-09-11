@@ -163,9 +163,6 @@ resource "proxmox_virtual_environment_vm" "node" {
   }
   memory {
     dedicated = each.value.memory
-    floating  = (each.value.memory / 4) > 2048 ? each.value.memory / 4 : 2048
-    # guarantee only 1/4 of the memory, allowing you to overcommit memory and prevent OOMs.
-    # kubeadm stops you if there's less than 1700 MB of memory.
   }
   dynamic "disk" {
     for_each = each.value.disks

@@ -69,6 +69,28 @@
       tags:
         - kubelet_node_ip
 
+    # needed on recent Ubuntu versions. https://www.reddit.com/r/kubernetes/comments/1dv6z9d/ubuntu_2404_pod_termination_issue/
+    - name: Check if /etc/apparmor.d/runc profile exists
+      ansible.builtin.stat:
+        path: /etc/apparmor.d/runc
+      register: apparmor_runc_file_exists
+    - name: Check if /etc/apparmor.d/runc profile is disabled
+      ansible.builtin.stat:
+        path: /etc/apparmor.d/disable/runc
+      register: apparmor_runc_file_disabled
+    - name: Disable Default AppArmor Profile for Runc (containerd has its own)
+      ansible.builtin.command: sudo ln -s /etc/apparmor.d/runc /etc/apparmor.d/disable/
+      ignore_errors: yes
+      tags:
+        - disable_apparmor
+      when: apparmor_runc_file_exists.stat.exists and not apparmor_runc_file_disabled.stat.exists
+    - name: Reload AppArmor
+      ansible.builtin.command: sudo apparmor_parser -R /etc/apparmor.d/runc
+      ignore_errors: yes
+      tags:
+        - disable_apparmor
+      when: apparmor_runc_file_exists.stat.exists and not apparmor_runc_file_disabled.stat.exists
+
     - name: Set correct locale
       shell: |
         echo "LANG=en_US.UTF-8
