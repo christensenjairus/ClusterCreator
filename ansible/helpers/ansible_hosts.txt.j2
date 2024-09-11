@@ -1,5 +1,6 @@
 [all:vars]
 cluster_name={{ cluster_name }}
+ansible_python_interpreter=auto_silent
 
 [kube_api_servers]
 {% for i in range(cluster_config.node_classes.apiserver.count) %}

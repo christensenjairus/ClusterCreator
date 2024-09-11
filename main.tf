@@ -42,9 +42,9 @@ locals {
           sockets            = specs.sockets
           memory             = specs.memory
           disks              = specs.disks
-          create_vlan      = cluster.networking.create_vlan
-          vlan_id          = cluster.networking.create_vlan ? cluster.networking.vlan_id: null
-          vlan_name        = cluster.networking.create_vlan ? cluster.networking.vlan_name: null
+          create_vlan        = cluster.networking.create_vlan
+          vlan_id            = cluster.networking.assign_vlan ? cluster.networking.vlan_id: null
+          vlan_name          = cluster.networking.create_vlan ? cluster.networking.vlan_name: null
           ipv4               : {
             vm_ip            = "${cluster.networking.ipv4.subnet_prefix}.${specs.start_ip + i}"
             gateway          = "${cluster.networking.ipv4.subnet_prefix}.1"
@@ -82,7 +82,8 @@ resource "local_file" "cluster_config_json" {
 resource "unifi_network" "vlan" {
   for_each = {
     for key, value in var.clusters : key => value
-    if key == terraform.workspace && value.networking.create_vlan == true
+    # only create a vlan if it's both wanted and the VMs are assigned to it
+    if key == terraform.workspace && value.networking.create_vlan == true && value.networking.assign_vlan == true
   }
 
   name      = each.value.networking.vlan_name
@@ -162,9 +163,6 @@ resource "proxmox_virtual_environment_vm" "node" {
   }
   memory {
     dedicated = each.value.memory
-    floating  = (each.value.memory / 4) > 2048 ? each.value.memory / 4 : 2048
-    # guarantee only 1/4 of the memory, allowing you to overcommit memory and prevent OOMs.
-    # kubeadm stops you if there's less than 1700 MB of memory.
   }
   dynamic "disk" {
     for_each = each.value.disks
@@ -175,10 +173,10 @@ resource "proxmox_virtual_environment_vm" "node" {
       file_format   = "raw"
       backup        = disk.value.backup # backup the disks during vm backup
       iothread      = true
-      cache         = "none"   # proxmox default. "writeback" is faster, but it is not compatible with aio=native.
-      aio           = "native" # proxmox default is io_uring. use native with cache=none only. Native is only supported with raw block storage types like iSCSI, CEPH/RBD, and NVMe.
-      discard       = "ignore" # proxmox default
-      ssd           = false    # not possible with virtio
+      cache         = "none"     # proxmox default https://pve.proxmox.com/wiki/Performance_Tweaks
+      aio           = "io_uring" # proxmox default
+      discard       = "ignore"   # proxmox default
+      ssd           = false      # not possible with virtio
     }
   }
   agent {
