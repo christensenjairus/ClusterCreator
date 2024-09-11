@@ -176,10 +176,10 @@ resource "proxmox_virtual_environment_vm" "node" {
       file_format   = "raw"
       backup        = disk.value.backup # backup the disks during vm backup
       iothread      = true
-      cache         = "writeback" # proxmox default is 'none'. "writeback" is faster and safe on most hardware when protected against power loss. See https://pve.proxmox.com/wiki/Performance_Tweaks
-      aio           = "io_uring"  # proxmox default
-      discard       = "ignore"    # proxmox default
-      ssd           = false       # not possible with virtio
+      cache         = "none"     # proxmox default https://pve.proxmox.com/wiki/Performance_Tweaks
+      aio           = "io_uring" # proxmox default
+      discard       = "ignore"   # proxmox default
+      ssd           = false      # not possible with virtio
     }
   }
   agent {
