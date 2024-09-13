@@ -87,7 +87,8 @@ cat << EOF > $PLAYBOOK_FILE
 EOF
 
 # Execute Ansible playbook
-ansible-playbook -u $VM_USERNAME -i $INVENTORY_FILE $PLAYBOOK_FILE
+ansible-playbook -u $VM_USERNAME -i $INVENTORY_FILE $PLAYBOOK_FILE \
+  --private-key "$HOME/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}"
 
 # Remove the temporary playbook file
 rm $PLAYBOOK_FILE

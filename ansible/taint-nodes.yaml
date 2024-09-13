@@ -23,7 +23,7 @@
       set_fact:
         nodes_and_taints: "{{ nodes_and_taints | default([]) + [{'hostname': item.split()[0], 'taints': (item.split('taints=\"')[1].split('\"')[0] if 'taints=\"' in item else '').split(',')}] }}"
       loop: "{{ hosts_content.splitlines() }}"
-      when: item | length > 0 and not item.startswith('#') and not 'taints=""' in item and not item.startswith('[') and not item.startswith('cluster_name=')
+      when: item | length > 0 and not item.startswith('#') and not 'taints=""' in item and not item.startswith('[') and not item.startswith('cluster_name=') and not item.startswith('ansible_python_interpreter=')
 
     - name: Debug Nodes and Taints
       debug:

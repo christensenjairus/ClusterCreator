@@ -16,7 +16,7 @@ set +a # stop automatically exporting
 set -e
 
 echo -e "${GREEN}Removing old image if it exists...${ENDCOLOR}"
-rm -f $PROXMOX_ISO_PATH/$IMAGE_NAME* 2&>/dev/null
+rm -f $PROXMOX_ISO_PATH/$IMAGE_NAME* 2&>/dev/null || true
 
 echo -e "${GREEN}Downloading the image to get new updates...${ENDCOLOR}"
 wget -qO $PROXMOX_ISO_PATH/$IMAGE_NAME $IMAGE_LINK
@@ -24,6 +24,8 @@ echo ""
 
 echo -e "${GREEN}Update, add packages, enable services, edit multipath config, set timezone, set firstboot scripts...${ENDCOLOR}"
 virt-customize -a $PROXMOX_ISO_PATH/$IMAGE_NAME \
+     --mkdir /etc/systemd/system/containerd.service.d/ \
+     --copy-in ./FilesToPlace/override.conf:/etc/systemd/system/containerd.service.d/ \
      --copy-in ./FilesToPlace/multipath.conf:/etc/ \
      --copy-in ./FilesToPlace/k8s_mods.conf:/etc/modules-load.d/ \
      --copy-in ./FilesToPlace/k8s_sysctl.conf:/etc/sysctl.d/ \
@@ -38,8 +40,8 @@ virt-customize -a $PROXMOX_ISO_PATH/$IMAGE_NAME \
      # firstboot script creates /tmp/.firstboot when finished
 
 echo -e "${GREEN}Deleting the old template vm if it exists...${ENDCOLOR}"
-qm stop $TEMPLATE_VM_ID --skiplock 1 &>/dev/null
-qm destroy $TEMPLATE_VM_ID --purge 1 --skiplock 1 --destroy-unreferenced-disks 1 &>/dev/null
+qm stop $TEMPLATE_VM_ID --skiplock 1 2&>/dev/null || true
+qm destroy $TEMPLATE_VM_ID --purge 1 --skiplock 1 --destroy-unreferenced-disks 1 2&>/dev/null || true
 
 echo -e "${GREEN}Creating the VM...${ENDCOLOR}"
 qm create $TEMPLATE_VM_ID \
