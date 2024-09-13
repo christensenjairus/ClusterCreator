@@ -32,6 +32,11 @@
         - control_plane_host is none
       run_once: true # only needs to succeed once. We only need one ready control plane node for this.
 
+    - name: Show selected control plane host
+      debug:
+        msg: "Selected control plane host: {{ control_plane_host }}"
+      when: control_plane_host is not none
+
     - block:
         - name: Create a new token and print the join command for worker nodes
           ansible.builtin.shell:
@@ -50,6 +55,7 @@
           ansible.builtin.template:
             src: helpers/kubeadm_cp_config.yaml.j2
             dest: "~/kubeadm-config.yaml"
+          delegate_to: "{{ control_plane_host }}"
 
         - name: Re-upload certificates and generate a new certificate key
           ansible.builtin.shell:

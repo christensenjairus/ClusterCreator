@@ -34,6 +34,11 @@
         - item.stderr == ""
         - control_plane_host is none
 
+    - name: Show selected control plane host
+      debug:
+        msg: "Selected control plane host: {{ control_plane_host }}"
+      when: control_plane_host is not none
+
     - name: Ensure a control plane host has been set
       fail:
         msg: "Failed to identify a control plane host. None of the nodes met the criteria."
