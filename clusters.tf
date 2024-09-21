@@ -18,6 +18,7 @@ variable "clusters" {
       ssh_key_type                   : string # type of key to scan and trust for remote hosts. the key of this type gets added to local ~/.ssh/known_hosts.
     })
     networking                       : object({
+      bridge                         : string # name of the proxmox bridge to use for VM's network interface
       dns_search_domain              : string # search domain for DNS resolution
       assign_vlan                    : bool   # whether or not to assign a vlan to the network interfaces of the VMs.
       create_vlan                    : bool   # whether or not to create an IPv4 vlan in Unifi.
@@ -148,6 +149,7 @@ variable "clusters" {
         ssh_key_type                   = "ssh-ed25519"
       }
       networking                       = {
+        bridge                         = "vmbr0"
         dns_search_domain              = "lan"
         vlan_name                      = "ALPHA"
         vlan_id                        = 100
@@ -193,7 +195,7 @@ variable "clusters" {
           sockets    = 2
           memory     = 16384
           disks      = [
-            { index = 0, datastore = "nvmes", size = 100, backup = true }
+            { index = 0, datastore = "pve-block", size = 100, backup = true }
           ]
           start_ip   = 110
           labels = {
@@ -207,7 +209,7 @@ variable "clusters" {
           sockets    = 2
           memory     = 2048
           disks      = [
-            { index = 0, datastore = "nvmes", size = 20, backup = true }
+            { index = 0, datastore = "pve-block", size = 20, backup = true }
           ]
           start_ip   = 120
         }
@@ -217,7 +219,7 @@ variable "clusters" {
           sockets    = 2
           memory     = 2048
           disks      = [
-            { index = 0, datastore = "nvmes", size = 20, backup = true }
+            { index = 0, datastore = "pve-block", size = 20, backup = true }
           ]
           start_ip   = 130
           labels = {
@@ -231,7 +233,7 @@ variable "clusters" {
           sockets    = 2
           memory     = 8192
           disks      = [
-            { index = 0, datastore = "nvmes", size = 20, backup = true }
+            { index = 0, datastore = "pve-block", size = 20, backup = true }
           ]
           start_ip   = 140
           labels = {
@@ -245,7 +247,7 @@ variable "clusters" {
           sockets    = 2
           memory     = 4096
           disks      = [
-            { index = 0, datastore = "nvmes", size = 20, backup = true }
+            { index = 0, datastore = "pve-block", size = 20, backup = true }
           ]
           start_ip   = 150
           labels = {
@@ -267,6 +269,7 @@ variable "clusters" {
         ssh_key_type                   = "ssh-ed25519"
       }
       networking                       = {
+        bridge                         = "vmbr0"
         dns_search_domain              = "lan"
         assign_vlan                    = true
         create_vlan                    = true
@@ -312,7 +315,7 @@ variable "clusters" {
           sockets    = 2
           memory     = 4096
           disks      = [
-            { index = 0, datastore = "nvmes", size = 20, backup = true }
+            { index = 0, datastore = "pve-block", size = 20, backup = true }
           ]
           start_ip   = 110
           labels = {
@@ -326,7 +329,7 @@ variable "clusters" {
           sockets    = 2
           memory     = 2048
           disks      = [
-            { index = 0, datastore = "nvmes", size = 20, backup = true }
+            { index = 0, datastore = "pve-block", size = 20, backup = true }
           ]
           start_ip   = 120
         }
@@ -336,7 +339,7 @@ variable "clusters" {
           sockets    = 2
           memory     = 2048
           disks      = [
-            { index = 0, datastore = "nvmes", size = 100, backup = false }
+            { index = 0, datastore = "pve-block", size = 100, backup = false }
           ]
           start_ip   = 130
           labels = {
@@ -350,7 +353,7 @@ variable "clusters" {
           sockets    = 2
           memory     = 8192
           disks      = [
-            { index = 0, datastore = "nvmes", size = 50, backup = true }
+            { index = 0, datastore = "pve-block", size = 50, backup = true }
           ]
           start_ip   = 140
           labels = {
@@ -364,7 +367,7 @@ variable "clusters" {
           sockets    = 2
           memory     = 4096
           disks      = [
-            { index = 0, datastore = "nvmes", size = 20, backup = true }
+            { index = 0, datastore = "pve-block", size = 20, backup = true }
           ]
           start_ip   = 150
           labels = {
@@ -386,6 +389,7 @@ variable "clusters" {
         ssh_key_type                   = "ssh-ed25519"
       }
       networking                       = {
+        bridge                         = "vmbr0"
         dns_search_domain              = "lan"
         assign_vlan                    = true
         create_vlan                    = true
@@ -431,7 +435,7 @@ variable "clusters" {
           sockets  = 2
           memory   = 4096
           disks    = [
-            { index = 0, datastore = "nvmes", size = 20, backup = true }
+            { index = 0, datastore = "pve-block", size = 20, backup = true }
           ]
           start_ip = 110
           labels   = {
@@ -445,7 +449,7 @@ variable "clusters" {
           sockets  = 2
           memory   = 2048
           disks    = [
-            { index = 0, datastore = "nvmes", size = 20, backup = true }
+            { index = 0, datastore = "pve-block", size = 20, backup = true }
           ]
           start_ip = 120
         }
@@ -455,8 +459,8 @@ variable "clusters" {
           sockets  = 2
           memory   = 2048
           disks    = [
-            { index = 0, datastore = "nvmes", size = 20, backup = true },
-            { index = 1, datastore = "nvmes", size = 100, backup = false }
+            { index = 0, datastore = "pve-block", size = 20, backup = true },
+            { index = 1, datastore = "pve-block", size = 100, backup = false }
           ]
           start_ip = 130
           labels   = {
@@ -470,7 +474,7 @@ variable "clusters" {
           sockets  = 2
           memory   = 8192
           disks    = [
-            { index = 0, datastore = "nvmes", size = 50, backup = true }
+            { index = 0, datastore = "pve-block", size = 50, backup = true }
           ]
           start_ip = 140
           labels   = {
@@ -484,7 +488,7 @@ variable "clusters" {
           sockets  = 2
           memory   = 4096
           disks    = [
-            { index = 0, datastore = "nvmes", size = 20, backup = true }
+            { index = 0, datastore = "pve-block", size = 20, backup = true }
           ]
           start_ip = 150
           labels   = {

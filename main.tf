@@ -42,6 +42,7 @@ locals {
           sockets            = specs.sockets
           memory             = specs.memory
           disks              = specs.disks
+          bridge             = cluster.networking.bridge
           create_vlan        = cluster.networking.create_vlan
           vlan_id            = cluster.networking.assign_vlan ? cluster.networking.vlan_id: null
           vlan_name          = cluster.networking.create_vlan ? cluster.networking.vlan_name: null
@@ -172,11 +173,12 @@ resource "proxmox_virtual_environment_vm" "node" {
       datastore_id  = disk.value.datastore
       file_format   = "raw"
       backup        = disk.value.backup # backup the disks during vm backup
+      # https://pve.proxmox.com/wiki/Performance_Tweaks
       iothread      = true
-      cache         = "none"     # proxmox default https://pve.proxmox.com/wiki/Performance_Tweaks
-      aio           = "io_uring" # proxmox default
-      discard       = "ignore"   # proxmox default
-      ssd           = false      # not possible with virtio
+      cache         = "writeback" # none is proxmox default. Writeback provides a little extra speed with more risk during power failure.
+      aio           = "native"    # io_uring is proxmox default. Native can only be used with raw block devices.
+      discard       = "ignore"    # proxmox default
+      ssd           = false       # not possible with virtio
     }
   }
   agent {
@@ -227,6 +229,7 @@ resource "proxmox_virtual_environment_vm" "node" {
   }
   network_device {
     vlan_id = each.value.vlan_id
+    bridge  = each.value.bridge
   }
   reboot = false # reboot is performed during the ./install_k8s.sh script, but only when needed, and only on nodes not part of the cluster already.
   migrate = true
