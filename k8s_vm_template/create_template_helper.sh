@@ -16,7 +16,7 @@ set +a # stop automatically exporting
 set -e
 
 echo -e "${GREEN}Removing old image if it exists...${ENDCOLOR}"
-rm -f $PROXMOX_ISO_PATH/$IMAGE_NAME* 2&>/dev/null || true
+rm -f "${PROXMOX_ISO_PATH:?PROXMOX_ISO_PATH is not set}/${IMAGE_NAME:?IMAGE_NAME is not set}"* 2>/dev/null || true
 
 echo -e "${GREEN}Downloading the image to get new updates...${ENDCOLOR}"
 wget -qO $PROXMOX_ISO_PATH/$IMAGE_NAME $IMAGE_LINK
@@ -113,6 +113,6 @@ echo -e "${GREEN}Converting the shut-down VM into a template...${ENDCOLOR}"
 qm template $TEMPLATE_VM_ID
 
 echo -e "${GREEN}Deleting the downloaded image...${ENDCOLOR}"
-rm -f $PROXMOX_ISO_PATH/$IMAGE_NAME
+rm -f "${PROXMOX_ISO_PATH:?PROXMOX_ISO_PATH is not set}/${IMAGE_NAME:?IMAGE_NAME is not set}"* 2>/dev/null || true
 
 echo -e "${GREEN}Template created successfully${ENDCOLOR}"
