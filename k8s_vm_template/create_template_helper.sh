@@ -113,6 +113,6 @@ echo -e "${GREEN}Converting the shut-down VM into a template...${ENDCOLOR}"
 qm template $TEMPLATE_VM_ID
 
 echo -e "${GREEN}Deleting the downloaded image...${ENDCOLOR}"
-rm -f "${PROXMOX_ISO_PATH:?PROXMOX_ISO_PATH is not set}/${IMAGE_NAME:?IMAGE_NAME is not set}"* 2>/dev/null || true
+rm -f "${PROXMOX_ISO_PATH:?PROXMOX_ISO_PATH is not set}/${IMAGE_NAME:?IMAGE_NAME is not set}"*
 
 echo -e "${GREEN}Template created successfully${ENDCOLOR}"
