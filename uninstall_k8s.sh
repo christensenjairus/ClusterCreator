@@ -23,6 +23,7 @@ fi
 echo "Running ansible on cluster: $CLUSTER_NAME"
 
 source .env
+source k8s.env
 
 pushd ./ansible || exit
 
