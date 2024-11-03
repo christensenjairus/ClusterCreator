@@ -72,6 +72,11 @@ variable "clusters" {
         start_ip    : number        # last octet of the ip address for the first apiserver node
         labels      : map(string)   # labels to apply to the nodes
         taints      : map(string)   # taints to apply to the nodes
+        devices     : list(object({ # PCI or USB Mappings to pass into the VM.
+          index     : number        # index of the device. 0 is the first device. 1 is the second device. etc. Max of 15 pci devices
+          mapping   : string        # datacenter-level pci or usb resource mapping name. You must make the mapping beforehand. https://pve.proxmox.com/wiki/QEMU/KVM_Virtual_Machines#resource_mapping
+          type      : string        # pci or usb
+        }))
       })
       etcd          : object({      # required type, but can be 0.
         count       : number        # use 0 for a stacked etcd architecture. Usually 3 if you want an external etcd. Should be an odd number. Should not pass 10 without editing start IPs
@@ -86,6 +91,11 @@ variable "clusters" {
         }))
         start_ip    : number        # last octet of the ip address for the first etcd node
         # no node labels or taints because etcd nodes are external to the cluster itself
+        devices     : list(object({ # PCI Mappings to pass into the VM. At the moment this is incompatible with count > 1
+          index     : number        # index of the device. 0 is the first device. 1 is the second device. etc. Max of 15 pci devices
+          mapping   : string        # datacenter-level pci or usb resource mapping name. You must make the mapping beforehand. https://pve.proxmox.com/wiki/QEMU/KVM_Virtual_Machines#resource_mapping
+          type      : string        # pci or usb
+        }))
       })
       storage       : object({      # custom worker type, can be 0
         count       : number        # Should not pass 10 without editing start IPs
@@ -101,6 +111,11 @@ variable "clusters" {
         start_ip    : number        # last octet of the ip address for the first backup node
         labels      : map(string)   # labels to apply to the nodes
         taints      : map(string)   # taints to apply to the nodes
+        devices     : list(object({ # PCI Mappings to pass into the VM. At the moment this is incompatible with count > 1
+          index     : number        # index of the device. 0 is the first device. 1 is the second device. etc. Max of 15 pci devices
+          mapping   : string        # datacenter-level pci or usb resource mapping name. You must make the mapping beforehand. https://pve.proxmox.com/wiki/QEMU/KVM_Virtual_Machines#resource_mapping
+          type      : string        # pci or usb
+        }))
       })
       database      : object({      # custom worker type, can be 0
         count       : number        # Should not pass 10 without editing start IPs
@@ -116,6 +131,11 @@ variable "clusters" {
         start_ip    : number        # last octet of the ip address for the first db node
         labels      : map(string)   # labels to apply to the nodes
         taints      : map(string)   # taints to apply to the nodes
+        devices     : list(object({ # PCI Mappings to pass into the VM. At the moment this is incompatible with count > 1
+          index     : number        # index of the device. 0 is the first device. 1 is the second device. etc. Max of 15 pci devices
+          mapping   : string        # datacenter-level pci or usb resource mapping name. You must make the mapping beforehand. https://pve.proxmox.com/wiki/QEMU/KVM_Virtual_Machines#resource_mapping
+          type      : string        # pci or usb
+        }))
       })
       general       : object({      # custom worker type, can be 0
         count       : number        # Should not pass 50 without editing load balancer ip cidr and nginx ingress controller ip
@@ -131,6 +151,31 @@ variable "clusters" {
         start_ip    : number        # last octet of the ip address for the first general node.
         labels      : map(string)   # labels to apply to the nodes
         taints      : map(string)   # taints to apply to the nodes
+        devices     : list(object({ # PCI Mappings to pass into the VM. At the moment this is incompatible with count > 1
+          index     : number        # index of the device. 0 is the first device. 1 is the second device. etc. Max of 15 pci devices
+          mapping   : string        # datacenter-level pci or usb resource mapping name. You must make the mapping beforehand. https://pve.proxmox.com/wiki/QEMU/KVM_Virtual_Machines#resource_mapping
+          type      : string        # pci or usb
+        }))
+      })
+      gpu      : object({      # custom worker type, can be 0
+        count       : number        # Should not pass 10 without editing start IPs
+        cores       : number
+        sockets     : number        # on my system, the max is 2
+        memory      : number
+        disks       : list(object({ # First disk will be used for OS. Other disks are added for other needs. Must have at least one disk here even if count is 0.
+          index     : number        # index of the disk. 0 is the first disk. 1 is the second disk. etc.
+          size      : number        # size of disk in GB.
+          datastore : string        # name of the proxmox datastore to use for this disk
+          backup    : bool          # boolean to determine if this disk will be backed up when Proxmox performs a vm backup.
+        }))
+        start_ip    : number        # last octet of the ip address for the first gpu node
+        labels      : map(string)   # labels to apply to the nodes
+        taints      : map(string)   # taints to apply to the nodes
+        devices     : list(object({ # PCI Mappings to pass into the VM. At the moment this is incompatible with count > 1
+          index     : number        # index of the device. 0 is the first device. 1 is the second device. etc. Max of 15 pci devices
+          mapping   : string        # datacenter-level pci or usb resource mapping name. You must make the mapping beforehand. https://pve.proxmox.com/wiki/QEMU/KVM_Virtual_Machines#resource_mapping
+          type      : string        # pci or usb
+        }))
       })
       # you can add more worker node classes here. You must also add a section per node class to the ansible/helpers/ansible_hosts.txt.j2 template file
       # but don't change the name of the apiserver or etcd nodes unless you do a full find-replace.
@@ -201,7 +246,8 @@ variable "clusters" {
           labels = {
             "nodeclass" = "apiserver"
           }
-          taints = {}
+          taints  = {}
+          devices = []
         }
         etcd = {
           count      = 0
@@ -212,6 +258,7 @@ variable "clusters" {
             { index = 0, datastore = "pve-block", size = 20, backup = true }
           ]
           start_ip   = 120
+          devices    = []
         }
         storage = {
           count      = 0
@@ -225,7 +272,8 @@ variable "clusters" {
           labels = {
             "nodeclass" = "storage"
           }
-          taints = {}
+          taints  = {}
+          devices = []
         }
         database = {
           count      = 0
@@ -239,7 +287,8 @@ variable "clusters" {
           labels = {
             "nodeclass" = "database"
           }
-          taints = {}
+          taints  = {}
+          devices = []
         }
         general = {
           count      = 0
@@ -253,7 +302,25 @@ variable "clusters" {
           labels = {
             "nodeclass" = "general"
           }
-          taints = {}
+          taints  = {}
+          devices = []
+        }
+        gpu = {
+          count      = 0
+          cores      = 1
+          sockets    = 2
+          memory     = 2048
+          disks      = [
+            { index = 0, datastore = "pve-block", size = 20, backup = true }
+          ]
+          start_ip   = 190
+          labels = {
+            "nodeclass" = "gpu"
+          }
+          taints  = {}
+          devices = [
+            { index = 0, mapping = "my-gpu-mapping", type = "pci" }
+          ]
         }
       }
     }
@@ -321,7 +388,8 @@ variable "clusters" {
           labels = {
             "nodeclass" = "apiserver"
           }
-          taints = {}
+          taints  = {}
+          devices = []
         }
         etcd = {
           count      = 0
@@ -332,6 +400,7 @@ variable "clusters" {
             { index = 0, datastore = "pve-block", size = 20, backup = true }
           ]
           start_ip   = 120
+          devices    = []
         }
         storage = {
           count      = 1
@@ -345,7 +414,8 @@ variable "clusters" {
           labels = {
             "nodeclass" = "storage"
           }
-          taints = {}
+          taints  = {}
+          devices = []
         }
         database = {
           count      = 1
@@ -359,7 +429,8 @@ variable "clusters" {
           labels = {
             "nodeclass" = "database"
           }
-          taints = {}
+          taints  = {}
+          devices = []
         }
         general = {
           count      = 1
@@ -373,7 +444,25 @@ variable "clusters" {
           labels = {
             "nodeclass" = "general"
           }
-          taints = {}
+          taints  = {}
+          devices = []
+        }
+        gpu = {
+          count      = 0
+          cores      = 1
+          sockets    = 2
+          memory     = 2048
+          disks      = [
+            { index = 0, datastore = "pve-block", size = 20, backup = true }
+          ]
+          start_ip   = 190
+          labels = {
+            "nodeclass" = "gpu"
+          }
+          taints  = {}
+          devices = [
+            { index = 0, mapping = "my-gpu-mapping", type = "pci" }
+          ]
         }
       }
     }
@@ -441,7 +530,8 @@ variable "clusters" {
           labels   = {
             "nodeclass" = "apiserver"
           }
-          taints = {}
+          taints  = {}
+          devices = []
         }
         etcd = {
           count    = 3
@@ -452,6 +542,7 @@ variable "clusters" {
             { index = 0, datastore = "pve-block", size = 20, backup = true }
           ]
           start_ip = 120
+          devices  = []
         }
         storage = {
           count    = 3
@@ -466,7 +557,8 @@ variable "clusters" {
           labels   = {
             "nodeclass" = "storage"
           }
-          taints = {}
+          taints  = {}
+          devices = []
         }
         database = {
           count    = 3
@@ -480,7 +572,8 @@ variable "clusters" {
           labels   = {
             "nodeclass" = "database"
           }
-          taints = {}
+          taints  = {}
+          devices = []
         }
         general = {
           count    = 5
@@ -494,7 +587,25 @@ variable "clusters" {
           labels   = {
             "nodeclass" = "general"
           }
-          taints = {}
+          taints  = {}
+          devices = []
+        }
+        gpu = {
+          count      = 0
+          cores      = 1
+          sockets    = 2
+          memory     = 2048
+          disks      = [
+            { index = 0, datastore = "pve-block", size = 20, backup = true }
+          ]
+          start_ip   = 190
+          labels = {
+            "nodeclass" = "gpu"
+          }
+          taints  = {}
+          devices = [
+            { index = 0, mapping = "my-gpu-mapping", type = "pci" }
+          ]
         }
       }
     }

@@ -24,7 +24,7 @@ See a demo of how it works step by step [on my blog](https://cyber-engine.com/bl
 * Optional dual stack networking
 * Proxmox pool configuration
 * Custom network & vlan Unifi configuration (optional)
-* Custom worker classes (general, database, and storage are included, but you can add more)
+* Custom worker classes (general, database, storage, and gpu are included, but you can add more)
 * Custom quantities of control-plane, etcd, and custom worker nodes
 * Custom hardware requirements for each node class
 * Custom disk configurations
@@ -67,7 +67,9 @@ This will ensure that your tofu commands only work on the cluster of your choosi
 ```bash
 tofu apply [--auto-approve] [-var="template_vm_id=<vm_id>"] [-var="proxmox_node=<node_name>"]
 ``` 
-This will clone the template using tofu and set cloud-init parameters, as well as create a pool in proxmox, create a VLAN in Unifi, and create the cluster specifications file `ansible/tmp/<cluster_name>/cluster_config.json`. The cluster config file tells Ansible how the cluster should be configured. Default template_vm_id is 9000. 
+This will clone the template using tofu and set cloud-init parameters, as well as create a pool in proxmox, create a VLAN in Unifi, and create the cluster specifications file `ansible/tmp/<cluster_name>/cluster_config.json`. The cluster config file tells Ansible how the cluster should be configured. Default template_vm_id is 9000.
+
+*Note: Once the VMs are created on the node of choice, you can migrate them to other nodes in your cluster. This tool does not currently distribute the VMs across PVE nodes for you, nor does it setup HA for these VMs. Those tasks are left for the user to perform.*
 
 ### Install K8S with Ansible
 ```bash
@@ -78,6 +80,18 @@ This will run a series of Ansible playbooks to create a fresh, minimal cluster. 
 The `--add-nodes` flag will prepare and add **new** nodes to an already initialized cluster. This works for both control-plane and worker nodes.
 
 *Note: Do not use the `--add-nodes` to set up or edit a decoupled etcd cluster. That must be done upon initialization. But it will work for editing control plane nodes that reference the decoupled etcd cluster.*
+
+### Kubeconfig Files
+
+You can use the resulting kubeconfig file found in `~/.kube/` by setting your KUBECONFIG environment variable. You can also chain kubeconfig files, like this:
+
+```bash
+export KUBECONFIG=~/.kube/config:~/.kube/alpha.yml:~/.kube/beta.yml:~/.kube/gamma.yml
+```
+
+Tweak as needed and place in your `~/.bashrc` or `~/.zshrc` file so it's executed every time your terminal starts.
+
+You can switch between clusters (or contexts) while spanning multiple kubeconfig files with `kubectx` or `kubie`.
 
 ### Drain or remove a node from the cluster
 ```bash
@@ -105,7 +119,7 @@ This will remove the VMs, Pool, and VLAN.
 ```bash
 ./powerctl_pool.sh [--start|--shutdown|--pause|--resume|--hibernate|--stop] <POOL_NAME> [--timeout <timeout_in_seconds>]
 ```
-This will perform QEMU power control functions for the VMs in the specified pool. The timeout is optional, only applied for start/stop/shutdown, and defaults to 600 seconds. Pools are in all-caps. Requires the qemu-guest-agent to be running in the VM.
+This will perform QEMU power control functions for the VMs in the specified pool. The timeout is optional, only applied for start/stop/shutdown, and defaults to 600 seconds. Requires the qemu-guest-agent to be running in the VM.
 
 ### Run bash commands on ansible host groups
 ```bash
@@ -165,40 +179,21 @@ The dynamic nature of OpenTofu + Ansible allows the following
   * 5 worker nodes of class `storage`
   * 15 worker nodes of class `database`
   * 20 worker nodes of class `general`
+  * 3 worker nodes of class `gpu`
   * 5 worker nodes of class `sandbox` # possible new class
   * 5 worker nodes of class `fedramp` # possible new class
   * 5 worker nodes of class `backup` # possible new class
 
 # Configuring Secrets Files
-Create the following two files.
+Rename and edit the following two files.
 
 ### For Tofu
-#### `secrets.tf`
-Placed in topmost directory
-```tf
-variable "vm_username" {
-    default = "line6" # change me to your username
-}
-variable "vm_password" {
-    default = "<password here>"
-}
-variable "vm_ssh_key" {
-    default = "ssh-rsa <key_here>"
-}
-variable "proxmox_username" {
-    default = "terraform" # change to the username of the user from Proxmox.
-}
-variable "proxmox_api_token" {
-    default = "terraform@pve!provider=<token>"
-}
-variable "unifi_username" {
-    default = "terraform" # change to the username of the user from Unifi.
-}
-variable "unifi_password" {
-    default = "<terraform_unifi_password>"
-}
-```
+#### `secrets.tf.example` => `secrets.tf`
+
+These secrets will be used by Tofu to log into Proxmox, create VMs and pools, as well as log into your Unifi controller to create networks. There may be overlap with the .env file that bash uses.
+
 For the Proxmox user and api token, see [these instructions](https://registry.terraform.io/providers/bpg/proxmox/latest/docs#api-token-authentication)
+* You must also add the `Pool.Audit` and `Mapping.Use` permissions to the second command listed under 'Api Token Authentication'.
 
 For the Unifi password, you'll want to create a new service account user for tofu.
 * In the Unifi Controller, go to Settings -> Admins & Users.
@@ -207,13 +202,9 @@ For the Unifi password, you'll want to create a new service account user for tof
 * Use the new username & password in `secrets.tf`.
 
 ### For bash
-#### `.env`
-Placed in topmost directory.
-```bash
-# Secrets for ./create_template.sh and ./install_k8s.sh
-VM_USERNAME="<username_here>"  # username for all k8s_vm_template VMs managed by tofu
-VM_PASSWORD="<password_here>"  # user password for all k8s_vm_template VMs managed by tofu
-```
+#### `.env.example` => `.env`
+
+These secrets are used in the bash scripts that power on/off VMs, create VM templates, etc. There may be overlap with the secrets.tf file that Tofu uses.
 
 ## Other files that need editing
 The other configuration files, listed below, need to be looked through and tweaked to your needs.

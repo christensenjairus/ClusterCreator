@@ -42,6 +42,7 @@ locals {
           sockets            = specs.sockets
           memory             = specs.memory
           disks              = specs.disks
+          devices            = specs.devices
           bridge             = cluster.networking.bridge
           create_vlan        = cluster.networking.create_vlan
           vlan_id            = cluster.networking.assign_vlan ? cluster.networking.vlan_id: null
@@ -149,10 +150,11 @@ resource "proxmox_virtual_environment_vm" "node" {
     each.value.node_class,
   ]
   node_name = var.proxmox_node
+  timeout_clone = 300 # cloning a < 5Gi disk should be quick, but it may need several retries
   clone {
-    vm_id = var.template_vm_id
-    full = true
-    retries = 25 # Proxmox errors with timeout when creating multiple clones at once
+    vm_id   = var.template_vm_id
+    full    = true
+    retries = 5       # Proxmox errors with timeout when creating multiple clones at once
   }
   cpu {
     cores    = each.value.cores
@@ -179,6 +181,20 @@ resource "proxmox_virtual_environment_vm" "node" {
       aio           = "native"    # io_uring is proxmox default. Native can only be used with raw block devices.
       discard       = "ignore"    # proxmox default
       ssd           = false       # not possible with virtio
+    }
+  }
+  dynamic "hostpci" {
+    for_each = { for device in each.value.devices : device.index => device if device.type == "pci" }
+    content {
+      device = "hostpci${hostpci.value.index}"
+      mapping = hostpci.value.mapping
+    }
+  }
+  dynamic "usb" {
+    for_each = { for device in each.value.devices : device.index => device if device.type == "usb" }
+    content {
+      mapping = usb.value.mapping
+      usb3    = true
     }
   }
   agent {

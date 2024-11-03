@@ -42,6 +42,9 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
+# Ensure pool name is uppercase
+POOL_ID=$(echo "$POOL_ID" | tr '[:lower:]' '[:upper:]')
+
 echo -e "${GREEN}Action: $ACTION${ENDCOLOR}"
 echo -e "${GREEN}Pool ID: $POOL_ID${ENDCOLOR}"
 echo -e "${GREEN}Timeout: $TIMEOUT${ENDCOLOR}"
