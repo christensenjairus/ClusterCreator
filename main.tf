@@ -158,6 +158,7 @@ resource "proxmox_virtual_environment_vm" "node" {
     retries   = 25     # Proxmox errors with timeout when creating multiple clones at once
     node_name = var.proxmox_node
   }
+  machine = "q35"
   cpu {
     cores    = each.value.cores
     sockets  = each.value.sockets
@@ -188,9 +189,10 @@ resource "proxmox_virtual_environment_vm" "node" {
   dynamic "hostpci" {
     for_each = { for device in each.value.devices : device.index => device if device.type == "pci" }
     content {
-      device = "hostpci${hostpci.value.index}"
+      device  = "hostpci${hostpci.value.index}"
       mapping = hostpci.value.mapping
-      rombar = true
+      rombar  = true
+      pcie    = true
     }
   }
   dynamic "usb" {
