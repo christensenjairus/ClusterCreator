@@ -148,41 +148,22 @@ The dynamic nature of OpenTofu + Ansible allows the following
 * `beta` cluster
   * 1 control plane node
     * 4 cores, 4GB RAM, 30GB disk
-  * 1 worker node of class `storage`
-    * 2 cores, 2GB RAM, 100GB disk
-  * 1 worker node of class `database`
-    * 4 cores, 8GB RAM, 50GB disk
-  * 1 worker node of class `general`
+  * 2 worker node of class `general`
     * 8 cores, 4GB RAM, 30GB disk
 
 *Note: etcd nodes are not shown in cluster, but they are used by the control plane nodes.*
 
-### Make the control plane highly available. Add an decoupled etcd cluster. Add more custom workers
+### Make the control plane highly available. Add a decoupled etcd cluster. Add more workers.
 
 * `gamma` cluster
   * 3 control plane nodes
     * 4 cores, 4GB RAM, 30GB disk
   * 3 decoupled etcd nodes
     * 2 cores, 2GB RAM, 30GB disk
-  * 3 worker nodes of class `storage`
-    * 2 cores, 2GB RAM, 30GB os disk, 100GB extra disk (for a future ceph cluster)
-  * 3 worker nodes of class `database`
-    * 4 cores, 8GB RAM, 50GB disk
-  * 5 worker nodes of class `general`
+  * 5 worker odes of class `general`
     * 8 cores, 4GB RAM, 30GB os disk
-
-### Add your own worker types for more flexible node configurations
-
-* Theoretical overkill cluster
-  * 9 control plane nodes
-  * 7 decoupled etcd nodes
-  * 5 worker nodes of class `storage`
-  * 15 worker nodes of class `database`
-  * 20 worker nodes of class `general`
-  * 3 worker nodes of class `gpu`
-  * 5 worker nodes of class `sandbox` # possible new class
-  * 5 worker nodes of class `fedramp` # possible new class
-  * 5 worker nodes of class `backup` # possible new class
+  * 2 worker nodes of class `gpu`
+    * 2 cores, 2GB RAM, 20GB os disk, attached GPUs
 
 # Configuring Secrets Files
 Rename and edit the following two files.
@@ -229,6 +210,17 @@ The VLAN and VMs created by Tofu can have IPv6 enabled both on the host level an
 Currently, there is no option to have an IPv6-only cluster. This is a complex use case that complicates the setup for various reasons. For example, github's container registry doesn't have an IPv6 address.
 
 *Note: The HA kube-vip apiserver address can be IPv6 without enabling dual-stack.*
+
+### Custom worker types
+
+You can add more custom worker types under `node_classes` in `clusters.tf`. This can be done to have k8s nodes with differing CPU, memory, disks, ip ranges, labels, taints, and devices.
+
+Ideas for practical worker classes:
+* `gpu` class that has a GPU device for running AI workloads (this is already implemented in `clusters.tf`)
+* `storage` class with extra disks and a taint so only your storage system (i.e. Rook) runs on it
+* `database` class with increased memory
+* `fedramp` class with a taint so only government containers are run on that machine
+* `backup` class with reduced cpu and memory, a taint, and expanded disks, for only storing backups
 
 # Final Product
 ### Proxmox Pools with VMs Managed by Tofu

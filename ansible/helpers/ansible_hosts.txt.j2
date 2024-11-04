@@ -3,35 +3,21 @@ cluster_name={{ cluster_name }}
 ansible_python_interpreter=auto_silent
 
 [kube_api_servers]
-{% for i in range(cluster_config.node_classes.apiserver.count) %}
-{{ cluster_config.cluster_name }}-apiserver-{{ i }} ansible_host={% if not cluster_config.networking.kube_vip.use_ipv6 %}{{ cluster_config.networking.ipv4.subnet_prefix }}.{{ cluster_config.node_classes.apiserver.start_ip + i }}{% else %}{{ cluster_config.networking.ipv6.subnet_prefix }}::{{ cluster_config.node_classes.apiserver.start_ip + i }}{% endif %} ipv4={{ cluster_config.networking.ipv4.subnet_prefix }}.{{ cluster_config.node_classes.apiserver.start_ip + i }} ipv6={{ cluster_config.networking.ipv6.subnet_prefix }}::{{ cluster_config.node_classes.apiserver.start_ip + i }} labels="{% for key, value in cluster_config.node_classes.apiserver.labels.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}" taints="{% for key, value in cluster_config.node_classes.apiserver.taints.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}"
+{% for i in range(node_classes.apiserver.count) %}
+{{ cluster_name }}-apiserver-{{ i }} ansible_host={{ networking.ipv4.subnet_prefix }}.{{ node_classes.apiserver.start_ip + i }} ipv4={{ networking.ipv4.subnet_prefix }}.{{ node_classes.apiserver.start_ip + i }} ipv6={{ networking.ipv6.subnet_prefix }}::{{ node_classes.apiserver.start_ip + i }} labels="{% for key, value in node_classes.apiserver.labels.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}" taints="{% for key, value in node_classes.apiserver.taints.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}"
 {% endfor %}
 
 [kube_etcd_servers]
-{% for i in range(cluster_config.node_classes.etcd.count) %}
-{{ cluster_config.cluster_name }}-etcd-{{ i }} ansible_host={% if not cluster_config.networking.kube_vip.use_ipv6 %}{{ cluster_config.networking.ipv4.subnet_prefix }}.{{ cluster_config.node_classes.etcd.start_ip + i }}{% else %}{{ cluster_config.networking.ipv6.subnet_prefix }}::{{ cluster_config.node_classes.etcd.start_ip + i }}{% endif %} etcd_index={{ i }} ipv4={{ cluster_config.networking.ipv4.subnet_prefix }}.{{ cluster_config.node_classes.etcd.start_ip + i }} ipv6={{ cluster_config.networking.ipv6.subnet_prefix }}::{{ cluster_config.node_classes.etcd.start_ip + i }} labels=""
+{% for i in range(node_classes.etcd.count) %}
+{{ cluster_name }}-etcd-{{ i }} ansible_host={{ networking.ipv4.subnet_prefix }}.{{ node_classes.etcd.start_ip + i }} etcd_index={{ i }} ipv4={{ networking.ipv4.subnet_prefix }}.{{ node_classes.etcd.start_ip + i }} ipv6={{ networking.ipv6.subnet_prefix }}::{{ node_classes.etcd.start_ip + i }}
 {% endfor %}
 
-[kube_storage_servers]
-{% for i in range(cluster_config.node_classes.storage.count) %}
-{{ cluster_config.cluster_name }}-storage-{{ i }} ansible_host={% if not cluster_config.networking.kube_vip.use_ipv6 %}{{ cluster_config.networking.ipv4.subnet_prefix }}.{{ cluster_config.node_classes.storage.start_ip + i }}{% else %}{{ cluster_config.networking.ipv6.subnet_prefix }}::{{ cluster_config.node_classes.storage.start_ip + i }}{% endif %} ipv4={{ cluster_config.networking.ipv4.subnet_prefix }}.{{ cluster_config.node_classes.storage.start_ip + i }} ipv6={{ cluster_config.networking.ipv6.subnet_prefix }}::{{ cluster_config.node_classes.storage.start_ip + i }} labels="{% for key, value in cluster_config.node_classes.storage.labels.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}" taints="{% for key, value in cluster_config.node_classes.storage.taints.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}"
+{% for class_name, class_config in node_classes.items() %}
+{% if class_name not in ['apiserver', 'etcd'] %}
+[kube_{{ class_name }}_servers]
+{% for i in range(class_config.count) %}
+{{ cluster_name }}-{{ class_name }}-{{ i }} ansible_host={{ networking.ipv4.subnet_prefix }}.{{ class_config.start_ip + i }} ipv4={{ networking.ipv4.subnet_prefix }}.{{ class_config.start_ip + i }} ipv6={{ networking.ipv6.subnet_prefix }}::{{ class_config.start_ip + i }} labels="{% for key, value in class_config.labels.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}" taints="{% for key, value in class_config.taints.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}"
 {% endfor %}
 
-[kube_database_servers]
-{% for i in range(cluster_config.node_classes.database.count) %}
-{{ cluster_config.cluster_name }}-database-{{ i }} ansible_host={% if not cluster_config.networking.kube_vip.use_ipv6 %}{{ cluster_config.networking.ipv4.subnet_prefix }}.{{ cluster_config.node_classes.database.start_ip + i }}{% else %}{{ cluster_config.networking.ipv6.subnet_prefix }}::{{ cluster_config.node_classes.database.start_ip + i }}{% endif %} ipv4={{ cluster_config.networking.ipv4.subnet_prefix }}.{{ cluster_config.node_classes.database.start_ip + i }} ipv6={{ cluster_config.networking.ipv6.subnet_prefix }}::{{ cluster_config.node_classes.database.start_ip + i }} labels="{% for key, value in cluster_config.node_classes.database.labels.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}" taints="{% for key, value in cluster_config.node_classes.database.taints.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}"
+{% endif %}
 {% endfor %}
-
-[kube_gpu_servers]
-{% for i in range(cluster_config.node_classes.gpu.count) %}
-{{ cluster_config.cluster_name }}-gpu-{{ i }} ansible_host={% if not cluster_config.networking.kube_vip.use_ipv6 %}{{ cluster_config.networking.ipv4.subnet_prefix }}.{{ cluster_config.node_classes.gpu.start_ip + i }}{% else %}{{ cluster_config.networking.ipv6.subnet_prefix }}::{{ cluster_config.node_classes.gpu.start_ip + i }}{% endif %} ipv4={{ cluster_config.networking.ipv4.subnet_prefix }}.{{ cluster_config.node_classes.gpu.start_ip + i }} ipv6={{ cluster_config.networking.ipv6.subnet_prefix }}::{{ cluster_config.node_classes.gpu.start_ip + i }} labels="{% for key, value in cluster_config.node_classes.gpu.labels.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}" taints="{% for key, value in cluster_config.node_classes.gpu.taints.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}"
-{% endfor %}
-
-[kube_general_servers]
-{% for i in range(cluster_config.node_classes.general.count) %}
-{{ cluster_config.cluster_name }}-general-{{ i }} ansible_host={% if not cluster_config.networking.kube_vip.use_ipv6 %}{{ cluster_config.networking.ipv4.subnet_prefix }}.{{ cluster_config.node_classes.general.start_ip + i }}{% else %}{{ cluster_config.networking.ipv6.subnet_prefix }}::{{ cluster_config.node_classes.general.start_ip + i }}{% endif %} ipv4={{ cluster_config.networking.ipv4.subnet_prefix }}.{{ cluster_config.node_classes.general.start_ip + i }} ipv6={{ cluster_config.networking.ipv6.subnet_prefix }}::{{ cluster_config.node_classes.general.start_ip + i }} labels="{% for key, value in cluster_config.node_classes.general.labels.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}" taints="{% for key, value in cluster_config.node_classes.general.taints.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}"
-{% endfor %}
-
-# ----------------------------------------------------------------------------------------------------
-# Add more worker classes here. Make sure to edit the for loop for each class to match the class type.
-# ----------------------------------------------------------------------------------------------------
