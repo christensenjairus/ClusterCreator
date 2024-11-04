@@ -60,6 +60,7 @@ variable "clusters" {
     node_classes    : object({
       apiserver     : object({      # required type, must be >= 1.
         count       : number        # usually 3 for HA, should be an odd number. Can be 1. Should not pass 10 without editing start IPs
+        pve_nodes   : list(string)  # nodes that these VMs should run on. They will be cycled through and will repeat if count > length(pve_nodes). You may input the same node name more than once.
         cores       : number        # raise when needed, should grow as cluster grows
         sockets     : number        # on my system, the max is 2
         memory      : number        # raise when needed, should grow as cluster grows
@@ -80,6 +81,7 @@ variable "clusters" {
       })
       etcd          : object({      # required type, but can be 0.
         count       : number        # use 0 for a stacked etcd architecture. Usually 3 if you want an external etcd. Should be an odd number. Should not pass 10 without editing start IPs
+        pve_nodes   : list(string)  # nodes that these VMs should run on. They will be cycled through and will repeat if count > length(pve_nodes). You may input the same node name more than once.
         cores       : number        # raise when needed, should grow as cluster grows
         sockets     : number        # on my system, the max is 2
         memory      : number        # raise when needed, should grow as cluster grows
@@ -99,6 +101,7 @@ variable "clusters" {
       })
       general       : object({      # custom worker type, can be 0
         count       : number        # Should not pass 50 without editing load balancer ip cidr and nginx ingress controller ip
+        pve_nodes   : list(string)  # nodes that these VMs should run on. They will be cycled through and will repeat if count > length(pve_nodes). You may input the same node name more than once.
         cores       : number
         sockets     : number        # on my system, the max is 2
         memory      : number
@@ -119,6 +122,7 @@ variable "clusters" {
       })
       gpu      : object({      # custom worker type, can be 0
         count       : number        # Should not pass 10 without editing start IPs
+        pve_nodes   : list(string)  # nodes that these VMs should run on. They will be cycled through and will repeat if count > length(pve_nodes). You may input the same node name more than once.
         cores       : number
         sockets     : number        # on my system, the max is 2
         memory      : number
@@ -195,6 +199,9 @@ variable "clusters" {
       node_classes = {
         apiserver = {
           count      = 1
+          pve_nodes  = [
+            "Citadel"
+          ]
           cores      = 8
           sockets    = 2
           memory     = 16384
@@ -210,6 +217,9 @@ variable "clusters" {
         }
         etcd = {
           count      = 0
+          pve_nodes  = [
+            "Citadel"
+          ]
           cores      = 1
           sockets    = 2
           memory     = 2048
@@ -220,7 +230,12 @@ variable "clusters" {
           devices    = []
         }
         general = {
-          count      = 0
+          count      = 3
+          pve_nodes  = [
+            "Citadel",
+            "Acropolis",
+            "Parthenon"
+          ]
           cores      = 4
           sockets    = 2
           memory     = 4096
@@ -236,6 +251,9 @@ variable "clusters" {
         }
         gpu = {
           count      = 0
+          pve_nodes  = [
+            "Citadel"
+          ]
           cores      = 1
           sockets    = 2
           memory     = 2048
@@ -309,6 +327,9 @@ variable "clusters" {
       node_classes = {
         apiserver = {
           count      = 1
+          pve_nodes  = [
+            "Citadel"
+          ]
           cores      = 2
           sockets    = 2
           memory     = 4096
@@ -324,6 +345,9 @@ variable "clusters" {
         }
         etcd = {
           count      = 0
+          pve_nodes  = [
+            "Citadel"
+          ]
           cores      = 1
           sockets    = 2
           memory     = 2048
@@ -335,6 +359,10 @@ variable "clusters" {
         }
         general = {
           count      = 2
+          pve_nodes  = [
+            "Acropolis",
+            "Parthenon"
+          ]
           cores      = 4
           sockets    = 2
           memory     = 4096
@@ -350,6 +378,9 @@ variable "clusters" {
         }
         gpu = {
           count      = 0
+          pve_nodes  = [
+            "Citadel"
+          ]
           cores      = 1
           sockets    = 2
           memory     = 2048
@@ -423,6 +454,11 @@ variable "clusters" {
       node_classes = {
         apiserver = {
           count    = 3
+          pve_nodes  = [
+            "Citadel",
+            "Acropolis",
+            "Parthenon"
+          ]
           cores    = 2
           sockets  = 2
           memory   = 4096
@@ -438,6 +474,11 @@ variable "clusters" {
         }
         etcd = {
           count    = 3
+          pve_nodes  = [
+            "Citadel",
+            "Acropolis",
+            "Parthenon"
+          ]
           cores    = 1
           sockets  = 2
           memory   = 2048
@@ -449,6 +490,11 @@ variable "clusters" {
         }
         general = {
           count    = 5
+          pve_nodes  = [
+            "Citadel",
+            "Acropolis",
+            "Parthenon"
+          ]
           cores    = 4
           sockets  = 2
           memory   = 4096
@@ -464,6 +510,10 @@ variable "clusters" {
         }
         gpu = {
           count      = 2
+          pve_nodes  = [
+            "Acropolis",
+            "Parthenon"
+          ]
           cores      = 1
           sockets    = 2
           memory     = 2048

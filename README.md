@@ -30,6 +30,7 @@ See a demo of how it works step by step [on my blog](https://cyber-engine.com/bl
 * Custom disk configurations
 * Custom node IPs
 * Custom proxmox tags
+* Distributes VMs across a PVE cluster
 
 ##### `./install_k8s.sh` runs a series of Ansible playbooks to create a fresh, minimal cluster. The Ansible playbooks include configuration and installation of
 * Decoupled ETCD cluster (optional)
@@ -69,7 +70,7 @@ tofu apply [--auto-approve] [-var="template_vm_id=<vm_id>"] [-var="proxmox_node=
 ``` 
 This will clone the template using tofu and set cloud-init parameters, as well as create a pool in proxmox, create a VLAN in Unifi, and create the cluster specifications file `ansible/tmp/<cluster_name>/cluster_config.json`. The cluster config file tells Ansible how the cluster should be configured. Default template_vm_id is 9000.
 
-*Note: Once the VMs are created on the node of choice, you can migrate them to other nodes in your cluster. This tool does not currently distribute the VMs across PVE nodes for you, nor does it setup HA for these VMs. Those tasks are left for the user to perform.*
+*Note: This tool does not currently set up HA for the VMs it creates. This task is currently left for the user to perform.*
 
 ### Install K8S with Ansible
 ```bash

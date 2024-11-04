@@ -43,6 +43,7 @@ locals {
           memory             = specs.memory
           disks              = specs.disks
           devices            = specs.devices
+          pve_nodes          = specs.pve_nodes
           bridge             = cluster.networking.bridge
           create_vlan        = cluster.networking.create_vlan
           vlan_id            = cluster.networking.assign_vlan ? cluster.networking.vlan_id: null
@@ -149,12 +150,14 @@ resource "proxmox_virtual_environment_vm" "node" {
     each.value.cluster_name,
     each.value.node_class,
   ]
-  node_name = var.proxmox_node
+  # Dynamically set node_name based on cycling through the pve_nodes array
+  node_name = each.value.pve_nodes[each.value.index % length(each.value.pve_nodes)]
   timeout_clone = 300 # cloning a < 5Gi disk should be quick, but it may need several retries
   clone {
-    vm_id   = var.template_vm_id
-    full    = true
-    retries = 5       # Proxmox errors with timeout when creating multiple clones at once
+    vm_id     = var.template_vm_id
+    full      = true
+    retries   = 5     # Proxmox errors with timeout when creating multiple clones at once
+    node_name = var.proxmox_node
   }
   cpu {
     cores    = each.value.cores
