@@ -1,5 +1,5 @@
 # ClusterCreator - Terraform & Ansible K8S Bootstrapping on Proxmox
-![alpha, beta, and gamma Example Clusters](https://github.com/christensenjairus/ClusterCreator/assets/58751387/7193a4ad-b3d9-4b90-98f3-e60fde571412)
+![image](https://github.com/user-attachments/assets/01cbdc3a-43e7-450b-8664-954bc8f0bcb7)
 
 ## Automate the creation of fully functional K8S clusters of any size on Proxmox
 
@@ -223,12 +223,12 @@ Ideas for practical worker classes:
 
 # Final Product
 ### Proxmox Pools with VMs Managed by Tofu
-![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/af2718ea-d38c-4787-a5e3-73e7cb95fd82)
+![image](https://github.com/user-attachments/assets/8ab9ddc7-48a0-4dff-a3b6-c96aaf251a50)
 
 ### A Unifi Network with VLAN Managed by Tofu
-![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/ed8bc5a8-dabb-4d5e-9eb2-d2df064a5e33)
+![image](https://github.com/user-attachments/assets/a6af26ca-c711-4744-8067-354d7e5152ac)
 
 ### Gamma Example Cluster in K9s
-![image](https://github.com/christensenjairus/ClusterCreator/assets/58751387/c998958e-91f8-458d-ad0a-738636238749)
+![image](https://github.com/user-attachments/assets/e8d7e2ef-c757-41cc-8765-da361bfb4a67)
 
-Next, see my [Flux Kubernetes Repo](https://github.com/christensenjairus/Flux-Kubernetes) to see how I orchestrate my K8s infrastructure and applications.
+See my [Flux Kubernetes Repo](https://github.com/christensenjairus/Flux-Kubernetes) to see how I orchestrate my K8s infrastructure and applications using infrastructure as code.
