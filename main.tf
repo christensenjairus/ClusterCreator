@@ -152,19 +152,17 @@ resource "proxmox_virtual_environment_vm" "node" {
   ]
   # Dynamically set node_name based on cycling through the pve_nodes array
   node_name = each.value.pve_nodes[each.value.index % length(each.value.pve_nodes)]
-  timeout_clone = 300 # cloning a < 5Gi disk should be quick, but it may need several retries
   clone {
     vm_id     = var.template_vm_id
     full      = true
-    retries   = 5     # Proxmox errors with timeout when creating multiple clones at once
+    retries   = 25     # Proxmox errors with timeout when creating multiple clones at once
     node_name = var.proxmox_node
   }
   cpu {
     cores    = each.value.cores
     sockets  = each.value.sockets
-    hotplugged = each.value.cores * each.value.sockets
     numa = true
-    type = "host"
+    type = "x86-64-v2-AES"
     flags = []
   }
   memory {
@@ -177,13 +175,13 @@ resource "proxmox_virtual_environment_vm" "node" {
       size          = disk.value.size
       datastore_id  = disk.value.datastore
       file_format   = "raw"
-      backup        = disk.value.backup # backup the disks during vm backup
+      backup        = disk.value.backup     # backup the disks during vm backup
       # https://pve.proxmox.com/wiki/Performance_Tweaks
       iothread      = true
-      cache         = "writeback" # none is proxmox default. Writeback provides a little extra speed with more risk during power failure.
-      aio           = "native"    # io_uring is proxmox default. Native can only be used with raw block devices.
-      discard       = "ignore"    # proxmox default
-      ssd           = false       # not possible with virtio
+      cache         = disk.value.cache_mode # none is proxmox default. Writeback provides a little extra speed with more risk during power failure.
+      aio           = disk.value.aio_mode   # io_uring is proxmox default. Native can only be used with raw block devices.
+      discard       = "ignore"              # proxmox default
+      ssd           = false                 # not possible with virtio
     }
   }
   dynamic "hostpci" {
@@ -228,7 +226,6 @@ resource "proxmox_virtual_environment_vm" "node" {
             gateway = each.value.ipv4.gateway
           }
         }
-
         dynamic "ipv6" {
           for_each = each.value.ipv6.enabled ? [1] : []
           content {

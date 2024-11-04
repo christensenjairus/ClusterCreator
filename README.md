@@ -24,7 +24,7 @@ See a demo of how it works step by step [on my blog](https://cyber-engine.com/bl
 * Optional dual stack networking
 * Proxmox pool configuration
 * Custom network & vlan Unifi configuration (optional)
-* Custom worker classes (general, database, storage, and gpu are included, but you can add more)
+* Custom worker classes (general and gpu are included, but you can add more)
 * Custom quantities of control-plane, etcd, and custom worker nodes
 * Custom hardware requirements for each node class
 * Custom disk configurations
@@ -66,11 +66,9 @@ This will ensure that your tofu commands only work on the cluster of your choosi
 
 ### Create the VMs with Tofu
 ```bash
-tofu apply [--auto-approve] [-var="template_vm_id=<vm_id>"] [-var="proxmox_node=<node_name>"]
+tofu apply [--auto-approve] [-var="template_vm_id=<vm_id>"]
 ``` 
 This will clone the template using tofu and set cloud-init parameters, as well as create a pool in proxmox, create a VLAN in Unifi, and create the cluster specifications file `ansible/tmp/<cluster_name>/cluster_config.json`. The cluster config file tells Ansible how the cluster should be configured. Default template_vm_id is 9000.
-
-*Note: This tool does not currently set up HA for the VMs it creates. This task is currently left for the user to perform.*
 
 ### Install K8S with Ansible
 ```bash
@@ -212,7 +210,7 @@ Currently, there is no option to have an IPv6-only cluster. This is a complex us
 
 *Note: The HA kube-vip apiserver address can be IPv6 without enabling dual-stack.*
 
-### Custom worker types
+## Custom worker types
 
 You can add more custom worker types under `node_classes` in `clusters.tf`. This can be done to have k8s nodes with differing CPU, memory, disks, ip ranges, labels, taints, and devices.
 

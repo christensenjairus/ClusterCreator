@@ -69,6 +69,8 @@ variable "clusters" {
           size      : number        # size of disk in GB.
           datastore : string        # name of the proxmox datastore to use for this disk
           backup    : bool          # boolean to determine if this disk will be backed up when Proxmox performs a vm backup.
+          cache_mode: string        # none (pve default), writethrough, writeback, none, directsync, or unsafe. See https://pve.proxmox.com/wiki/Performance_Tweaks#Small_Overview
+          aio_mode  : string        # io_uring (pve default), native, and threads. native can only be used with raw block devices. threads is legacy.
         }))
         start_ip    : number        # last octet of the ip address for the first apiserver node
         labels      : map(string)   # labels to apply to the nodes
@@ -90,6 +92,8 @@ variable "clusters" {
           size      : number        # size of disk in GB.
           datastore : string        # name of the proxmox datastore to use for this disk
           backup    : bool          # boolean to determine if this disk will be backed up when Proxmox performs a vm backup.
+          cache_mode: string        # none (pve default), writethrough, writeback, none, directsync, or unsafe. See https://pve.proxmox.com/wiki/Performance_Tweaks#Small_Overview
+          aio_mode  : string        # io_uring (pve default), native, and threads. native can only be used with raw block devices. threads is legacy.
         }))
         start_ip    : number        # last octet of the ip address for the first etcd node
         # no node labels or taints because etcd nodes are external to the cluster itself
@@ -110,6 +114,8 @@ variable "clusters" {
           size      : number        # size of disk in GB.
           datastore : string        # name of the proxmox datastore to use for this disk
           backup    : bool          # boolean to determine if this disk will be backed up when Proxmox performs a vm backup.
+          cache_mode: string        # none (pve default), writethrough, writeback, none, directsync, or unsafe. See https://pve.proxmox.com/wiki/Performance_Tweaks#Small_Overview
+          aio_mode  : string        # io_uring (pve default), native, and threads. native can only be used with raw block devices. threads is legacy.
         }))
         start_ip    : number        # last octet of the ip address for the first general node.
         labels      : map(string)   # labels to apply to the nodes
@@ -131,6 +137,8 @@ variable "clusters" {
           size      : number        # size of disk in GB.
           datastore : string        # name of the proxmox datastore to use for this disk
           backup    : bool          # boolean to determine if this disk will be backed up when Proxmox performs a vm backup.
+          cache_mode: string        # none (pve default), writethrough, writeback, none, directsync, or unsafe. See https://pve.proxmox.com/wiki/Performance_Tweaks#Small_Overview
+          aio_mode  : string        # io_uring (pve default), native, and threads. native can only be used with raw block devices. threads is legacy.
         }))
         start_ip    : number        # last octet of the ip address for the first gpu node
         labels      : map(string)   # labels to apply to the nodes
@@ -199,14 +207,12 @@ variable "clusters" {
       node_classes = {
         apiserver = {
           count      = 1
-          pve_nodes  = [
-            "Citadel"
-          ]
+          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
           cores      = 8
           sockets    = 2
           memory     = 16384
           disks      = [
-            { index = 0, datastore = "pve-block", size = 100, backup = true }
+            { index = 0, datastore = "nvmes", size = 100, backup = true, cache_mode = "none", aio_mode = "io_uring" }
           ]
           start_ip   = 110
           labels = {
@@ -217,30 +223,24 @@ variable "clusters" {
         }
         etcd = {
           count      = 0
-          pve_nodes  = [
-            "Citadel"
-          ]
+          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
           cores      = 1
           sockets    = 2
           memory     = 2048
           disks      = [
-            { index = 0, datastore = "pve-block", size = 20, backup = true }
+            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
           ]
           start_ip   = 120
           devices    = []
         }
         general = {
-          count      = 3
-          pve_nodes  = [
-            "Citadel",
-            "Acropolis",
-            "Parthenon"
-          ]
+          count      = 0
+          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
           cores      = 4
           sockets    = 2
           memory     = 4096
           disks      = [
-            { index = 0, datastore = "pve-block", size = 20, backup = true }
+            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
           ]
           start_ip   = 130
           labels = {
@@ -251,14 +251,12 @@ variable "clusters" {
         }
         gpu = {
           count      = 0
-          pve_nodes  = [
-            "Citadel"
-          ]
+          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
           cores      = 1
           sockets    = 2
           memory     = 2048
           disks      = [
-            { index = 0, datastore = "pve-block", size = 20, backup = true }
+            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
           ]
           start_ip   = 190
           labels = {
@@ -327,14 +325,12 @@ variable "clusters" {
       node_classes = {
         apiserver = {
           count      = 1
-          pve_nodes  = [
-            "Citadel"
-          ]
+          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
           cores      = 2
           sockets    = 2
           memory     = 4096
           disks      = [
-            { index = 0, datastore = "pve-block", size = 20, backup = true }
+            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
           ]
           start_ip   = 110
           labels = {
@@ -345,29 +341,24 @@ variable "clusters" {
         }
         etcd = {
           count      = 0
-          pve_nodes  = [
-            "Citadel"
-          ]
+          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
           cores      = 1
           sockets    = 2
           memory     = 2048
           disks      = [
-            { index = 0, datastore = "pve-block", size = 20, backup = true }
+            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
           ]
           start_ip   = 120
           devices    = []
         }
         general = {
           count      = 2
-          pve_nodes  = [
-            "Acropolis",
-            "Parthenon"
-          ]
+          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
           cores      = 4
           sockets    = 2
           memory     = 4096
           disks      = [
-            { index = 0, datastore = "pve-block", size = 20, backup = true }
+            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
           ]
           start_ip   = 130
           labels = {
@@ -378,14 +369,12 @@ variable "clusters" {
         }
         gpu = {
           count      = 0
-          pve_nodes  = [
-            "Citadel"
-          ]
+          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
           cores      = 1
           sockets    = 2
           memory     = 2048
           disks      = [
-            { index = 0, datastore = "pve-block", size = 20, backup = true }
+            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
           ]
           start_ip   = 190
           labels = {
@@ -454,16 +443,12 @@ variable "clusters" {
       node_classes = {
         apiserver = {
           count    = 3
-          pve_nodes  = [
-            "Citadel",
-            "Acropolis",
-            "Parthenon"
-          ]
+          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
           cores    = 2
           sockets  = 2
           memory   = 4096
           disks    = [
-            { index = 0, datastore = "pve-block", size = 20, backup = true }
+            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
           ]
           start_ip = 110
           labels   = {
@@ -474,32 +459,24 @@ variable "clusters" {
         }
         etcd = {
           count    = 3
-          pve_nodes  = [
-            "Citadel",
-            "Acropolis",
-            "Parthenon"
-          ]
+          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
           cores    = 1
           sockets  = 2
           memory   = 2048
           disks    = [
-            { index = 0, datastore = "pve-block", size = 20, backup = true }
+            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
           ]
           start_ip = 120
           devices  = []
         }
         general = {
           count    = 5
-          pve_nodes  = [
-            "Citadel",
-            "Acropolis",
-            "Parthenon"
-          ]
+          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
           cores    = 4
           sockets  = 2
           memory   = 4096
           disks    = [
-            { index = 0, datastore = "pve-block", size = 20, backup = true }
+            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
           ]
           start_ip = 130
           labels   = {
@@ -510,15 +487,12 @@ variable "clusters" {
         }
         gpu = {
           count      = 2
-          pve_nodes  = [
-            "Acropolis",
-            "Parthenon"
-          ]
+          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
           cores      = 1
           sockets    = 2
           memory     = 2048
           disks      = [
-            { index = 0, datastore = "pve-block", size = 20, backup = true }
+            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
           ]
           start_ip   = 190
           labels = {
