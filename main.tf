@@ -162,7 +162,8 @@ resource "proxmox_virtual_environment_vm" "node" {
     cores    = each.value.cores
     sockets  = each.value.sockets
     numa = true
-    type = "x86-64-v2-AES"
+    # need host cpu type for pci passthrough. But host VMs can't be live-migrated, so use standard x86-64-v2-AES for the other VMs
+    type = length(each.value.devices) > 0 ? "host" : "x86-64-v2-AES"
     flags = []
   }
   memory {
@@ -189,6 +190,7 @@ resource "proxmox_virtual_environment_vm" "node" {
     content {
       device = "hostpci${hostpci.value.index}"
       mapping = hostpci.value.mapping
+      rombar = true
     }
   }
   dynamic "usb" {
