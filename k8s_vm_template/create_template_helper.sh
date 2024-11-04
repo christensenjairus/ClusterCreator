@@ -54,7 +54,7 @@ qm create $TEMPLATE_VM_ID \
   --onboot 1 \
   --balloon 0 \
   --autostart 1 \
-  --cpu cputype=host \
+  --cpu cputype=x86-64-v2-AES \
   --numa 1
 
 echo -e "${GREEN}Importing the disk...${ENDCOLOR}"

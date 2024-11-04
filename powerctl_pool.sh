@@ -15,7 +15,7 @@ set +a # stop automatically exporting
 
 # Function to print usage
 usage() {
-    echo "Usage: $0 [--start|--shutdown|--pause|--resume|--hibernate|--stop|--unlock] [--timeout TIMEOUT] POOL_ID"
+    echo "Usage: $0 [--start|--shutdown|--pause|--resume|--hibernate|--stop] [--timeout TIMEOUT] POOL_ID"
     exit 1
 }
 
@@ -28,7 +28,6 @@ while [[ "$#" -gt 0 ]]; do
         --pause) ACTION="pause"; ;;
         --resume) ACTION="resume"; ;;
         --hibernate) ACTION="hibernate"; ;;
-        --unlock) ACTION="unlock"; ;;
         --timeout) TIMEOUT="$2"; shift ;; # Capture the timeout value
         *)
             if [[ -z "$POOL_ID" ]]; then
@@ -67,42 +66,59 @@ if [[ -z "$TIMEOUT" ]]; then
     usage
 fi
 
-# Command to be executed on Proxmox host
+# Command to connect to the Proxmox host
 SSH_CMD="ssh ${PROXMOX_USERNAME}@${PROXMOX_HOST}"
 
-# Get the list of VM IDs in the pool
-VM_IDS=$(${SSH_CMD} pvesh get /pools/$POOL_ID --output-format json | jq '.members[] | select(.type == "qemu") | .vmid')
+# Maximum number of retries
+MAX_RETRIES=3
+RETRY_DELAY=5 # Delay in seconds before retrying
 
-for VMID in $VM_IDS; do
-    if [[ "$ACTION" == "start" ]]; then
-        echo -e "${GREEN}Starting VM ID: $VMID${ENDCOLOR}"
-        ${SSH_CMD} qm start $VMID --timeout $TIMEOUT &
-    elif [[ "$ACTION" == "shutdown" ]]; then
-        echo -e "${GREEN}Shutting down VM ID: $VMID${ENDCOLOR}"
-        ${SSH_CMD} qm shutdown $VMID --timeout $TIMEOUT &
-    elif [[ "$ACTION" == "stop" ]]; then
-        echo -e "${GREEN}Stopping VM ID: $VMID${ENDCOLOR}"
-        ${SSH_CMD} qm stop $VMID --skiplock --timeout $TIMEOUT &
-    elif [[ "$ACTION" == "resume" ]]; then
-        echo -e "${GREEN}Resuming VM ID: $VMID${ENDCOLOR}"
-        ${SSH_CMD} qm resume $VMID &
-    elif [[ "$ACTION" == "pause" ]]; then
-        echo -e "${GREEN}Pausing VM ID: $VMID${ENDCOLOR}"
-        ${SSH_CMD} qm suspend $VMID --todisk=0 &
-    elif [[ "$ACTION" == "hibernate" ]]; then
-        echo -e "${GREEN}Hibernating VM ID: $VMID${ENDCOLOR}"
-        ${SSH_CMD} qm suspend $VMID --todisk=1 &
-    elif [[ "$ACTION" == "unlock" ]]; then
-        echo -e "${GREEN}Unlocking VM ID: $VMID${ENDCOLOR}"
-        ${SSH_CMD} qm unlock $VMID &
+# Function to perform the action with retries
+perform_action_with_retry() {
+    local NODE=$1
+    local VMID=$2
+    local ACTION=$3
+    local RETRY_COUNT=0
+
+    until [ $RETRY_COUNT -ge $MAX_RETRIES ]; do
+        if [[ "$ACTION" == "start" ]]; then
+            ${SSH_CMD} "pvesh create /nodes/$NODE/qemu/$VMID/status/start --timeout $TIMEOUT"
+        elif [[ "$ACTION" == "shutdown" ]]; then
+            ${SSH_CMD} "pvesh create /nodes/$NODE/qemu/$VMID/status/shutdown --timeout $TIMEOUT"
+        elif [[ "$ACTION" == "stop" ]]; then
+            ${SSH_CMD} "pvesh create /nodes/$NODE/qemu/$VMID/status/stop --skiplock --timeout $TIMEOUT"
+        elif [[ "$ACTION" == "resume" ]]; then
+            ${SSH_CMD} "pvesh create /nodes/$NODE/qemu/$VMID/status/resume"
+        elif [[ "$ACTION" == "pause" ]]; then
+            ${SSH_CMD} "pvesh create /nodes/$NODE/qemu/$VMID/status/suspend --todisk=0"
+        elif [[ "$ACTION" == "hibernate" ]]; then
+            ${SSH_CMD} "pvesh create /nodes/$NODE/qemu/$VMID/status/suspend --todisk=1"
+        fi
+
+        # Check if the command succeeded
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}Successfully performed $ACTION on VM ID: $VMID on node: $NODE${ENDCOLOR}"
+            break
+        else
+            echo -e "${RED}Failed to perform $ACTION on VM ID: $VMID on node: $NODE. Retrying... ($((RETRY_COUNT + 1))/$MAX_RETRIES)${ENDCOLOR}"
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            sleep $RETRY_DELAY
+        fi
+    done
+
+    # If all retries failed, log a message
+    if [ $RETRY_COUNT -ge $MAX_RETRIES ]; then
+        echo -e "${RED}Failed to perform $ACTION on VM ID: $VMID on node: $NODE after $MAX_RETRIES retries.${ENDCOLOR}"
     fi
-done
+}
+
+# Get the list of nodes and VM IDs in the pool
+VM_NODES=$(${SSH_CMD} pvesh get /pools/$POOL_ID --output-format json | jq -r '.members[] | select(.type == "qemu") | "\(.node) \(.vmid)"')
+
+# Loop through each node and VM ID and execute the specified action with retry logic
+while read -r NODE VMID; do
+    echo -e "${GREEN}Attempting $ACTION on VM ID: $VMID on node: $NODE${ENDCOLOR}"
+    perform_action_with_retry $NODE $VMID $ACTION &
+done <<< "$VM_NODES"
 
 wait
-
-if [[ "$ACTION" == "start" ]]; then
-    echo -e "${GREEN}All VMs in pool $POOL_ID have been started.${ENDCOLOR}"
-elif [[ "$ACTION" == "stop" ]]; then
-    echo -e "${GREEN}All VMs in pool $POOL_ID have been stopped.${ENDCOLOR}"
-fi
-
