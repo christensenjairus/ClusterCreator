@@ -226,8 +226,8 @@ variable "clusters" {
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
           machine    = "q35"
           cpu_type   = "x86-64-v2-AES"
-          cores      = 8
-          sockets    = 2
+          cores      = 16
+          sockets    = 1
           memory     = 16384
           disks      = [
             { index = 0, datastore = "nvmes", size = 100, backup = true, cache_mode = "none", aio_mode = "io_uring" }
@@ -244,8 +244,8 @@ variable "clusters" {
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
           machine    = "q35"
           cpu_type   = "x86-64-v2-AES"
-          cores      = 1
-          sockets    = 2
+          cores      = 2
+          sockets    = 1
           memory     = 2048
           disks      = [
             { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
@@ -258,8 +258,8 @@ variable "clusters" {
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
           machine    = "q35"
           cpu_type   = "x86-64-v2-AES"
-          cores      = 4
-          sockets    = 2
+          cores      = 8
+          sockets    = 1
           memory     = 4096
           disks      = [
             { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
@@ -276,8 +276,8 @@ variable "clusters" {
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
           machine    = "q35"
           cpu_type   = "host"
-          cores      = 1
-          sockets    = 2
+          cores      = 2
+          sockets    = 1
           memory     = 2048
           disks      = [
             { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
@@ -352,8 +352,8 @@ variable "clusters" {
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
           machine    = "q35"
           cpu_type   = "x86-64-v2-AES"
-          cores      = 2
-          sockets    = 2
+          cores      = 4
+          sockets    = 1
           memory     = 4096
           disks      = [
             { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
@@ -370,8 +370,8 @@ variable "clusters" {
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
           machine    = "q35"
           cpu_type   = "x86-64-v2-AES"
-          cores      = 1
-          sockets    = 2
+          cores      = 2
+          sockets    = 1
           memory     = 2048
           disks      = [
             { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
@@ -384,8 +384,8 @@ variable "clusters" {
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
           machine    = "q35"
           cpu_type   = "x86-64-v2-AES"
-          cores      = 4
-          sockets    = 2
+          cores      = 8
+          sockets    = 1
           memory     = 4096
           disks      = [
             { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
@@ -402,8 +402,8 @@ variable "clusters" {
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
           machine    = "q35"
           cpu_type   = "host"
-          cores      = 1
-          sockets    = 2
+          cores      = 2
+          sockets    = 1
           memory     = 2048
           disks      = [
             { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
@@ -478,8 +478,8 @@ variable "clusters" {
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
           machine    = "q35"
           cpu_type   = "x86-64-v2-AES"
-          cores    = 2
-          sockets  = 2
+          cores    = 4
+          sockets  = 1
           memory   = 4096
           disks    = [
             { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
@@ -496,8 +496,8 @@ variable "clusters" {
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
           machine    = "q35"
           cpu_type   = "x86-64-v2-AES"
-          cores    = 1
-          sockets  = 2
+          cores    = 2
+          sockets  = 1
           memory   = 2048
           disks    = [
             { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
@@ -510,8 +510,8 @@ variable "clusters" {
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
           machine    = "q35"
           cpu_type   = "x86-64-v2-AES"
-          cores    = 4
-          sockets  = 2
+          cores    = 8
+          sockets  = 1
           memory   = 4096
           disks    = [
             { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
@@ -528,8 +528,8 @@ variable "clusters" {
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
           machine    = "q35"
           cpu_type   = "host"
-          cores      = 1
-          sockets    = 2
+          cores      = 2
+          sockets    = 1
           memory     = 2048
           disks      = [
             { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
