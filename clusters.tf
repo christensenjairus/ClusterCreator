@@ -62,6 +62,7 @@ variable "clusters" {
         count       : number        # usually 3 for HA, should be an odd number. Can be 1. Should not pass 10 without editing start IPs
         pve_nodes   : list(string)  # nodes that these VMs should run on. They will be cycled through and will repeat if count > length(pve_nodes). You may input the same node name more than once.
         machine     : string        # q35 or i400fx
+        cpu_type    : string        # type of CPU to emulate. Normally you'd want x86-64-v2-AES, but you'll need to use 'host' for PCI passthrough.
         cores       : number        # raise when needed, should grow as cluster grows
         sockets     : number        # on my system, the max is 2
         memory      : number        # raise when needed, should grow as cluster grows
@@ -88,6 +89,7 @@ variable "clusters" {
         count       : number        # use 0 for a stacked etcd architecture. Usually 3 if you want an external etcd. Should be an odd number. Should not pass 10 without editing start IPs
         pve_nodes   : list(string)  # nodes that these VMs should run on. They will be cycled through and will repeat if count > length(pve_nodes). You may input the same node name more than once.
         machine     : string        # q35 or i400fx
+        cpu_type    : string        # type of CPU to emulate. Normally you'd want x86-64-v2-AES, but you'll need to use 'host' for PCI passthrough.
         cores       : number        # raise when needed, should grow as cluster grows
         sockets     : number        # on my system, the max is 2
         memory      : number        # raise when needed, should grow as cluster grows
@@ -113,6 +115,7 @@ variable "clusters" {
         count       : number        # Should not pass 50 without editing load balancer ip cidr and nginx ingress controller ip
         pve_nodes   : list(string)  # nodes that these VMs should run on. They will be cycled through and will repeat if count > length(pve_nodes). You may input the same node name more than once.
         machine     : string        # q35 or i400fx
+        cpu_type    : string        # type of CPU to emulate. Normally you'd want x86-64-v2-AES, but you'll need to use 'host' for PCI passthrough.
         cores       : number
         sockets     : number        # on my system, the max is 2
         memory      : number
@@ -139,6 +142,7 @@ variable "clusters" {
         count       : number        # Should not pass 10 without editing start IPs
         pve_nodes   : list(string)  # nodes that these VMs should run on. They will be cycled through and will repeat if count > length(pve_nodes). You may input the same node name more than once.
         machine     : string        # q35 or i400fx
+        cpu_type    : string        # type of CPU to emulate. Normally you'd want x86-64-v2-AES, but you'll need to use 'host' for PCI passthrough.
         cores       : number
         sockets     : number        # on my system, the max is 2
         memory      : number
@@ -220,7 +224,8 @@ variable "clusters" {
         apiserver = {
           count      = 1
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
-          machine      = "q35"
+          machine    = "q35"
+          cpu_type   = "x86-64-v2-AES"
           cores      = 8
           sockets    = 2
           memory     = 16384
@@ -237,7 +242,8 @@ variable "clusters" {
         etcd = {
           count      = 0
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
-          machine      = "q35"
+          machine    = "q35"
+          cpu_type   = "x86-64-v2-AES"
           cores      = 1
           sockets    = 2
           memory     = 2048
@@ -250,7 +256,8 @@ variable "clusters" {
         general = {
           count      = 0
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
-          machine      = "q35"
+          machine    = "q35"
+          cpu_type   = "x86-64-v2-AES"
           cores      = 4
           sockets    = 2
           memory     = 4096
@@ -267,7 +274,8 @@ variable "clusters" {
         gpu = {
           count      = 0
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
-          machine    = "i440fx"
+          machine    = "q35"
+          cpu_type   = "host"
           cores      = 1
           sockets    = 2
           memory     = 2048
@@ -342,7 +350,8 @@ variable "clusters" {
         apiserver = {
           count      = 1
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
-          machine      = "q35"
+          machine    = "q35"
+          cpu_type   = "x86-64-v2-AES"
           cores      = 2
           sockets    = 2
           memory     = 4096
@@ -359,7 +368,8 @@ variable "clusters" {
         etcd = {
           count      = 0
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
-          machine      = "q35"
+          machine    = "q35"
+          cpu_type   = "x86-64-v2-AES"
           cores      = 1
           sockets    = 2
           memory     = 2048
@@ -372,7 +382,8 @@ variable "clusters" {
         general = {
           count      = 2
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
-          machine      = "q35"
+          machine    = "q35"
+          cpu_type   = "x86-64-v2-AES"
           cores      = 4
           sockets    = 2
           memory     = 4096
@@ -390,6 +401,7 @@ variable "clusters" {
           count      = 0
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
           machine    = "q35"
+          cpu_type   = "host"
           cores      = 1
           sockets    = 2
           memory     = 2048
@@ -464,7 +476,8 @@ variable "clusters" {
         apiserver = {
           count    = 3
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
-          machine      = "q35"
+          machine    = "q35"
+          cpu_type   = "x86-64-v2-AES"
           cores    = 2
           sockets  = 2
           memory   = 4096
@@ -481,7 +494,8 @@ variable "clusters" {
         etcd = {
           count    = 3
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
-          machine      = "q35"
+          machine    = "q35"
+          cpu_type   = "x86-64-v2-AES"
           cores    = 1
           sockets  = 2
           memory   = 2048
@@ -494,7 +508,8 @@ variable "clusters" {
         general = {
           count    = 5
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
-          machine      = "q35"
+          machine    = "q35"
+          cpu_type   = "x86-64-v2-AES"
           cores    = 4
           sockets  = 2
           memory   = 4096
@@ -511,7 +526,8 @@ variable "clusters" {
         gpu = {
           count      = 2
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
-          machine      = "q35"
+          machine    = "q35"
+          cpu_type   = "host"
           cores      = 1
           sockets    = 2
           memory     = 2048

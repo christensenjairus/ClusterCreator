@@ -45,6 +45,7 @@ locals {
           devices            = specs.devices
           pve_nodes          = specs.pve_nodes
           machine            = specs.machine
+          cpu_type           = specs.cpu_type
           bridge             = cluster.networking.bridge
           create_vlan        = cluster.networking.create_vlan
           vlan_id            = cluster.networking.assign_vlan ? cluster.networking.vlan_id: null
@@ -165,7 +166,7 @@ resource "proxmox_virtual_environment_vm" "node" {
     sockets  = each.value.sockets
     numa = true
     # need host cpu type for pci passthrough. But host VMs can't be live-migrated, so use standard x86-64-v2-AES for the other VMs
-    type = length([for device in each.value.devices : device if device.type == "pci"]) > 0 ? "host" : "x86-64-v2-AES"
+    type = each.value.cpu_type
     flags = []
   }
   memory {
