@@ -61,6 +61,7 @@ variable "clusters" {
       apiserver     : object({      # required type, must be >= 1.
         count       : number        # usually 3 for HA, should be an odd number. Can be 1. Should not pass 10 without editing start IPs
         pve_nodes   : list(string)  # nodes that these VMs should run on. They will be cycled through and will repeat if count > length(pve_nodes). You may input the same node name more than once.
+        machine     : string        # q35 or i400fx
         cores       : number        # raise when needed, should grow as cluster grows
         sockets     : number        # on my system, the max is 2
         memory      : number        # raise when needed, should grow as cluster grows
@@ -79,11 +80,14 @@ variable "clusters" {
           index     : number        # index of the device. 0 is the first device. 1 is the second device. etc. Max of 15 pci devices
           mapping   : string        # datacenter-level pci or usb resource mapping name. You must make the mapping beforehand. https://pve.proxmox.com/wiki/QEMU/KVM_Virtual_Machines#resource_mapping
           type      : string        # pci or usb
+          mdev      : string        # mediated device ID (optional, leave blank to not use)
+          rombar    : bool          # include the rombar with the pci device
         }))
       })
       etcd          : object({      # required type, but can be 0.
         count       : number        # use 0 for a stacked etcd architecture. Usually 3 if you want an external etcd. Should be an odd number. Should not pass 10 without editing start IPs
         pve_nodes   : list(string)  # nodes that these VMs should run on. They will be cycled through and will repeat if count > length(pve_nodes). You may input the same node name more than once.
+        machine     : string        # q35 or i400fx
         cores       : number        # raise when needed, should grow as cluster grows
         sockets     : number        # on my system, the max is 2
         memory      : number        # raise when needed, should grow as cluster grows
@@ -101,11 +105,14 @@ variable "clusters" {
           index     : number        # index of the device. 0 is the first device. 1 is the second device. etc. Max of 15 pci devices
           mapping   : string        # datacenter-level pci or usb resource mapping name. You must make the mapping beforehand. https://pve.proxmox.com/wiki/QEMU/KVM_Virtual_Machines#resource_mapping
           type      : string        # pci or usb
+          mdev      : string        # mediated device ID (optional, leave blank to not use)
+          rombar    : bool          # include the rombar with the pci device
         }))
       })
       general       : object({      # custom worker type, can be 0
         count       : number        # Should not pass 50 without editing load balancer ip cidr and nginx ingress controller ip
         pve_nodes   : list(string)  # nodes that these VMs should run on. They will be cycled through and will repeat if count > length(pve_nodes). You may input the same node name more than once.
+        machine     : string        # q35 or i400fx
         cores       : number
         sockets     : number        # on my system, the max is 2
         memory      : number
@@ -124,11 +131,14 @@ variable "clusters" {
           index     : number        # index of the device. 0 is the first device. 1 is the second device. etc. Max of 15 pci devices
           mapping   : string        # datacenter-level pci or usb resource mapping name. You must make the mapping beforehand. https://pve.proxmox.com/wiki/QEMU/KVM_Virtual_Machines#resource_mapping
           type      : string        # pci or usb
+          mdev      : string        # mediated device ID (optional, leave blank to not use)
+          rombar    : bool          # include the rombar with the pci device
         }))
       })
       gpu      : object({      # custom worker type, can be 0
         count       : number        # Should not pass 10 without editing start IPs
         pve_nodes   : list(string)  # nodes that these VMs should run on. They will be cycled through and will repeat if count > length(pve_nodes). You may input the same node name more than once.
+        machine     : string        # q35 or i400fx
         cores       : number
         sockets     : number        # on my system, the max is 2
         memory      : number
@@ -147,6 +157,8 @@ variable "clusters" {
           index     : number        # index of the device. 0 is the first device. 1 is the second device. etc. Max of 15 pci devices
           mapping   : string        # datacenter-level pci or usb resource mapping name. You must make the mapping beforehand. https://pve.proxmox.com/wiki/QEMU/KVM_Virtual_Machines#resource_mapping
           type      : string        # pci or usb
+          mdev      : string        # mediated device ID (optional, leave blank to not use)
+          rombar    : bool          # include the rombar with the pci device
         }))
       })
       # Add more worker node classes here
@@ -208,6 +220,7 @@ variable "clusters" {
         apiserver = {
           count      = 1
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
+          machine      = "q35"
           cores      = 8
           sockets    = 2
           memory     = 16384
@@ -224,6 +237,7 @@ variable "clusters" {
         etcd = {
           count      = 0
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
+          machine      = "q35"
           cores      = 1
           sockets    = 2
           memory     = 2048
@@ -236,6 +250,7 @@ variable "clusters" {
         general = {
           count      = 0
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
+          machine      = "q35"
           cores      = 4
           sockets    = 2
           memory     = 4096
@@ -252,6 +267,7 @@ variable "clusters" {
         gpu = {
           count      = 0
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
+          machine    = "i440fx"
           cores      = 1
           sockets    = 2
           memory     = 2048
@@ -266,7 +282,7 @@ variable "clusters" {
             "gpu" = "true:NoSchedule"
           }
           devices = [
-            { index = 0, mapping = "my-gpu-mapping", type = "pci" }
+            { index = 0, mapping = "my-partial-gpu-passthrough", type = "pci", mdev = "i915-GVTg_V5_4", rombar = true }
           ]
         }
       }
@@ -326,6 +342,7 @@ variable "clusters" {
         apiserver = {
           count      = 1
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
+          machine      = "q35"
           cores      = 2
           sockets    = 2
           memory     = 4096
@@ -342,6 +359,7 @@ variable "clusters" {
         etcd = {
           count      = 0
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
+          machine      = "q35"
           cores      = 1
           sockets    = 2
           memory     = 2048
@@ -354,6 +372,7 @@ variable "clusters" {
         general = {
           count      = 2
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
+          machine      = "q35"
           cores      = 4
           sockets    = 2
           memory     = 4096
@@ -370,6 +389,7 @@ variable "clusters" {
         gpu = {
           count      = 0
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
+          machine    = "q35"
           cores      = 1
           sockets    = 2
           memory     = 2048
@@ -384,7 +404,7 @@ variable "clusters" {
             "gpu" = "true:NoSchedule"
           }
           devices = [
-            { index = 0, mapping = "my-gpu-mapping", type = "pci" }
+            { index = 0, mapping = "my-full-gpu-passthrough", type = "pci", mdev = "", rombar = true }
           ]
         }
       }
@@ -444,6 +464,7 @@ variable "clusters" {
         apiserver = {
           count    = 3
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
+          machine      = "q35"
           cores    = 2
           sockets  = 2
           memory   = 4096
@@ -460,6 +481,7 @@ variable "clusters" {
         etcd = {
           count    = 3
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
+          machine      = "q35"
           cores    = 1
           sockets  = 2
           memory   = 2048
@@ -472,6 +494,7 @@ variable "clusters" {
         general = {
           count    = 5
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
+          machine      = "q35"
           cores    = 4
           sockets  = 2
           memory   = 4096
@@ -488,6 +511,7 @@ variable "clusters" {
         gpu = {
           count      = 2
           pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
+          machine      = "q35"
           cores      = 1
           sockets    = 2
           memory     = 2048
@@ -502,7 +526,7 @@ variable "clusters" {
             "gpu" = "true:NoSchedule"
           }
           devices = [
-            { index = 0, mapping = "my-gpu-mapping", type = "pci" }
+            { index = 0, mapping = "my-full-gpu-passthrough", type = "pci", mdev = "", rombar = true }
           ]
         }
       }

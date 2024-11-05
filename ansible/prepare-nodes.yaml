@@ -158,3 +158,93 @@
       when: ansible_facts['os_family'] == "Debian"
       tags:
         - etc_hosts
+
+- name: Configure settings for nodes with nvidia gpus attached
+  hosts: all
+  become: true
+  gather_facts: no
+  tags:
+    - nvidia
+  tasks:
+    - name: Check for NVIDIA GPU presence
+      ansible.builtin.shell: lspci | grep -i nvidia
+      register: nvidia_check
+      failed_when: false
+
+    - name: Set fact if NVIDIA GPU is present
+      ansible.builtin.set_fact:
+        has_nvidia_gpu: "{{ nvidia_check.rc == 0 }}"
+
+    - name: End play on nodes without NVIDIA GPU
+      ansible.builtin.meta: end_host
+      when: not has_nvidia_gpu | default(false)
+
+    - name: Ensure Nvidia GPU Drivers are present
+      ansible.builtin.command: nvidia-smi
+      register: nvidia_output
+
+    - name: Display Nvidia GPU info
+      ansible.builtin.debug:
+        msg: "{{ nvidia_output.stdout }}"
+
+    - name: Configure NVIDIA container runtime for containerd
+      ansible.builtin.shell: |
+        nvidia-ctk runtime configure --runtime=containerd
+
+    - name: Restart containerd service
+      ansible.builtin.systemd:
+        name: containerd
+        state: restarted
+
+    - name: Enable persistence mode for NVIDIA GPU
+      ansible.builtin.command: sudo nvidia-smi -pm 1
+
+    - name: Reset application clocks to default
+      ansible.builtin.command: sudo nvidia-smi -rac
+
+    - name: Create systemd service for NVIDIA GPU power management
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/nvidia-power-management.service
+        content: |
+          [Unit]
+          Description=NVIDIA GPU Power Management
+          After=network.target
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/bin/nvidia-smi -pm 1
+          ExecStart=/usr/bin/nvidia-smi -rac
+          RemainAfterExit=true
+
+          [Install]
+          WantedBy=multi-user.target
+      when: not ansible_facts.services.get('nvidia-power-management')
+
+    - name: Reload systemd daemon to recognize new service
+      ansible.builtin.command: sudo systemctl daemon-reload
+      when: not ansible_facts.services.get('nvidia-power-management')
+
+    - name: Enable and start NVIDIA GPU power management service
+      ansible.builtin.systemd:
+        name: nvidia-power-management
+        enabled: true
+        state: started
+
+    - name: Check if containerd is configured with NVIDIA runtime
+      ansible.builtin.command: cat /etc/containerd/config.toml | grep "nvidia"
+      register: containerd_config
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Configure containerd to use Nvidia runtime
+      ansible.builtin.shell: |
+        sudo nvidia-ctk runtime configure --runtime=containerd
+      when: containerd_config.rc != 0
+      notify:
+        - Restart containerd
+
+  handlers:
+    - name: Restart containerd
+      ansible.builtin.systemd:
+        name: containerd
+        state: restarted

@@ -44,6 +44,7 @@ locals {
           disks              = specs.disks
           devices            = specs.devices
           pve_nodes          = specs.pve_nodes
+          machine            = specs.machine
           bridge             = cluster.networking.bridge
           create_vlan        = cluster.networking.create_vlan
           vlan_id            = cluster.networking.assign_vlan ? cluster.networking.vlan_id: null
@@ -158,13 +159,13 @@ resource "proxmox_virtual_environment_vm" "node" {
     retries   = 25     # Proxmox errors with timeout when creating multiple clones at once
     node_name = var.proxmox_node
   }
-  machine = "q35"
+  machine = each.value.machine == "i440fx" ? "pc" : "q35"
   cpu {
     cores    = each.value.cores
     sockets  = each.value.sockets
     numa = true
     # need host cpu type for pci passthrough. But host VMs can't be live-migrated, so use standard x86-64-v2-AES for the other VMs
-    type = length(each.value.devices) > 0 ? "host" : "x86-64-v2-AES"
+    type = length([for device in each.value.devices : device if device.type == "pci"]) > 0 ? "host" : "x86-64-v2-AES"
     flags = []
   }
   memory {
@@ -191,8 +192,9 @@ resource "proxmox_virtual_environment_vm" "node" {
     content {
       device  = "hostpci${hostpci.value.index}"
       mapping = hostpci.value.mapping
-      rombar  = true
       pcie    = true
+      mdev    = try(hostpci.value.mdev, null) != "" ? hostpci.value.mdev : null
+      rombar  = hostpci.value.rombar
     }
   }
   dynamic "usb" {

@@ -63,29 +63,19 @@ cleanup_function() {
   echo "Cleanup complete."
 }
 
-ansible-playbook -u $VM_USERNAME generate-hosts-txt.yaml -e "cluster_name=${CLUSTER_NAME}"
+ansible-playbook -u "$VM_USERNAME" generate-hosts-txt.yaml -e "cluster_name=${CLUSTER_NAME}"
 
 # run ansible playbooks
 if [ "$ADD_NODES" = true ]; then
   echo -e "${GREEN}Running post cluster creation playbook...${ENDCOLOR}"
-  ansible-playbook -i "tmp/${CLUSTER_NAME}/ansible-hosts.txt" -u $VM_USERNAME add-nodes-playbook.yaml \
+  ansible-playbook -i "tmp/${CLUSTER_NAME}/ansible-hosts.txt" -u "$VM_USERNAME" add-nodes-playbook.yaml \
     --private-key "$HOME/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}" \
     -e "ssh_key_file=$HOME/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}" \
     -e "ssh_hosts_file=$HOME/.ssh/known_hosts" \
     -e "kubernetes_version=${KUBERNETES_MEDIUM_VERSION}"
-
-  if [[ "$(hostname)" == "Jairus-MacBook-Pro.local" ]]; then
-    if kubectl --context "$CLUSTER_NAME" -n rook-ceph get deploy rook-ceph-operator >/dev/null 2>&1; then
-      echo "Restarting rook-ceph-operator" # w/o this, removing nodes can cause the operator to forget to create OSDs when re-adding the nodes
-      kubectl --context "$CLUSTER_NAME" -n rook-ceph rollout restart deploy rook-ceph-operator
-    else
-      echo "rook-ceph-operator deployment does not exist in namespace rook-ceph"
-    fi
-    echo ""
-  fi
 else
   echo -e "${GREEN}Running init cluster creation playbook...${ENDCOLOR}"
-  ansible-playbook -i "tmp/${CLUSTER_NAME}/ansible-hosts.txt" -u $VM_USERNAME init-cluster-playbook.yaml \
+  ansible-playbook -i "tmp/${CLUSTER_NAME}/ansible-hosts.txt" -u "$VM_USERNAME" init-cluster-playbook.yaml \
     --private-key "$HOME/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}" \
     -e "ssh_key_file=$HOME/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}" \
     -e "ssh_hosts_file=$HOME/.ssh/known_hosts" \

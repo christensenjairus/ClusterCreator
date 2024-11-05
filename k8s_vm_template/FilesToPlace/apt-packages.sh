@@ -25,6 +25,7 @@ bash \
 curl \
 grep \
 git \
+gcc \
 open-iscsi \
 lsscsi \
 multipath-tools \
@@ -36,6 +37,7 @@ apparmor-utils \
 iperf \
 apt-transport-https \
 ca-certificates \
+gnupg \
 gnupg-agent \
 software-properties-common \
 ipvsadm \
@@ -45,12 +47,14 @@ python3-kubernetes \
 python3-pip \
 conntrack \
 unzip \
-default-mysql-client \
 ceph \
-kubelet=$KUBERNETES_LONG_VERSION \
-kubeadm=$KUBERNETES_LONG_VERSION \
-kubectl=$KUBERNETES_LONG_VERSION \
-helm=$HELM_VERSION
+linux-generic \
+intel-gpu-tools \
+intel-opencl-icd \
+kubelet="$KUBERNETES_LONG_VERSION" \
+kubeadm="$KUBERNETES_LONG_VERSION" \
+kubectl="$KUBERNETES_LONG_VERSION" \
+helm="$HELM_VERSION"
 
 # hold back kubernetes packages
 apt-mark hold kubelet kubeadm kubectl helm
@@ -67,11 +71,11 @@ if [[ "$distro" = *"Debian"* ]]; then
       $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
       sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
     sudo apt update
-    sudo apt install -y containerd.io=$CONTAINERD_VERSION
+    sudo apt install -y containerd.io="$CONTAINERD_VERSION"
     apt-mark hold containerd.io
 elif [[ "$distro" = *"Ubuntu"* ]]; then
     echo "Installing containerd on Ubuntu..."
-    sudo apt install -y containerd=$CONTAINERD_VERSION
+    sudo apt install -y containerd="$CONTAINERD_VERSION"
     apt-mark hold containerd
 else
     echo "Unsupported distribution: $distro"
@@ -91,3 +95,24 @@ systemctl enable open-iscsi
 systemctl enable iscsid
 systemctl enable multipathd
 systemctl enable qemu-guest-agent
+
+if [[ -n "$NVIDIA_DRIVER_VERSION" && "$NVIDIA_DRIVER_VERSION" != "none" ]]; then
+  # install nvidia drivers
+  wget -q "https://us.download.nvidia.com/XFree86/Linux-x86_64/${NVIDIA_DRIVER_VERSION}/NVIDIA-Linux-x86_64-${NVIDIA_DRIVER_VERSION}.run"
+  chmod +x "./NVIDIA-Linux-x86_64-${NVIDIA_DRIVER_VERSION}.run"
+  ./"NVIDIA-Linux-x86_64-${NVIDIA_DRIVER_VERSION}.run" --silent
+  rm -f "./NVIDIA-Linux-x86_64-${NVIDIA_DRIVER_VERSION}.run"
+
+  # add nvidia-container-toolkit apt repository
+  curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
+    && curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+      sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+      sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+  apt-get update
+
+  # install nvidia toolkit/runtime
+  apt install -y \
+    nvidia-container-toolkit \
+    nvidia-container-runtime
+fi
