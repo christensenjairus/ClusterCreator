@@ -110,9 +110,9 @@ This will run an Ansible playbook to reset k8s. Without the `--single-hostname` 
 
 ### Destroy the VMs with Tofu
 ```bash
-tofu destroy [--auto-approve]
+tofu destroy [--auto-approve] [--target='proxmox_virtual_environment_vm.node["<vm_name>"]']
 ```
-This will remove the VMs, Pool, and VLAN.
+This will remove the VMs, Pool, and VLAN. Optionally, you can target specific VMs to destroy.
 
 ### Power on/off your cluster
 ```bash
@@ -198,7 +198,7 @@ The other configuration files, listed below, need to be looked through and tweak
 
 A workaround is to add nodes to your cluster in batches and run `tofu apply` to create smaller sets of nodes. You may want to do this anyway so you can distribute the VMs across your proxmox cluster and vary the `proxmox_node` argument.
 
-If you do need to undo the k8s install on the VMs `./uninstall_k8s.sh` should work, but a full tofu rebuild is the best way to ensure a clean slate.
+If you do need to undo the k8s install on the VMs `./uninstall_k8s.sh` should work, but creating brand-new VMs the best way to ensure a clean slate.
 
 ## Dual Stack Networking
 The VLAN and VMs created by Tofu can have IPv6 enabled both on the host level and inside the cluster for dual-stack networking. There are three configurations for IPv6 and dual-stack networking...
