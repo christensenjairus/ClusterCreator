@@ -14,7 +14,7 @@ apt install -y \
   bc
 
 # generate locales
-echo -e "export LANGUAGE=en_US\nexport LANG=en_US.UTF-8" >> /etc/environment
+echo -e "export LANGUAGE=en_US\nexport LANG=en_US.UTF-8\nexport LC_ALL=en_US.UTF-8\nexport LC_CTYPE=en_US.UTF-8" >> /etc/environment
 source /etc/environment
 locale-gen en_US.UTF-8
 dpkg-reconfigure --frontend=noninteractive locales

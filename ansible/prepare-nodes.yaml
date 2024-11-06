@@ -181,6 +181,10 @@
     - name: Reset application clocks to default
       ansible.builtin.command: sudo nvidia-smi -rac
 
+    - name: Gather service facts
+      ansible.builtin.setup:
+        filter: ansible_facts.services
+
     - name: Create systemd service for NVIDIA GPU power management
       ansible.builtin.copy:
         dest: /etc/systemd/system/nvidia-power-management.service
