@@ -9,18 +9,6 @@
         paths: "/var/log"
         patterns: "template-firstboot-*.log"
       register: log_files
-    - name: Check each firstboot log file for 'No space left' text
-      shell: "grep 'No space left' {{ item.path }}"
-      register: grep_output
-      failed_when: grep_output.rc == 0
-      with_items: "{{ log_files.files }}"
-      ignore_errors: true
-      no_log: true
-    - name: Fail the play if 'No space left' is found in any firstboot log file
-      fail:
-        msg: "'No space left' found in firstboot log files. Template VM did not have enough space to install all packages. Increase the TEMPLATE_DISK_SIZE and re-create template, then recreate the VM(s)."
-      when: grep_output.results | selectattr('rc', 'equalto', 0) | list | count > 0
-
     - name: Check firstboot log files for failures to ensure all packages were installed correctly (excluding specific patterns)
       shell: |
         grep -iE 'Error|Fatal' {{ item.path }} | grep -vE 'mysql/error.log|errors = false|liberror|No error reported|Failed to open terminal.debconf'

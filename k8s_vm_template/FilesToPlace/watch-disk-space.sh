@@ -57,7 +57,7 @@ if (( current_space < lowest_space )); then
 
     if (( lowest_space < 10 )); then
         # Warn the user that they have run out of space
-        echo -e -n "\nDisk space is critically low. Increase TEMPLATE_DISK_SIZE and try again" >> "$LOG_FILE"
+        echo -e -n "\nDisk space reached a critically low value" >> "$LOG_FILE"
     elif (( lowest_space >= 300 || lowest_space <= 100 )); then
         # Only provide suggestions if lowest_space is not between 100 and 300
         if (( buffered_space >= 0 )); then
