@@ -48,9 +48,9 @@ echo -e "${GREEN}Creating the VM...${ENDCOLOR}"
 qm create "$TEMPLATE_VM_ID" \
   --name "$TEMPLATE_VM_NAME" \
   --machine "type=q35" \
-  --cores 4 \
+  --cores "$TEMPLATE_VM_CPU" \
   --sockets 1 \
-  --memory 4096 \
+  --memory "$TEMPLATE_VM_MEM" \
   --net0 virtio,bridge=vmbr0 \
   --agent "enabled=1,freeze-fs-on-backup=1,fstrim_cloned_disks=1" \
   --onboot 1 \
