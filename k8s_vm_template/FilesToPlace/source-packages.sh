@@ -42,6 +42,14 @@ rm -f ./clusterctl
 ### install flux
 curl -s https://fluxcd.io/install.sh | bash 2>&1 | grep -v "printf" # silence the log that checks for a downloader and fails
 
+### install yq
+wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
+chmod +x /usr/local/bin/yq
+
+### install yj
+wget https://github.com/sclevine/yj/releases/download/v5.1.0/yj-linux-amd64 -O /usr/local/bin/yj
+chmod +x /usr/local/bin/yj
+
 ### install vtctldclient and vtexplain (optional)
 if [[ -n "$VITESS_DOWNLOAD_FILENAME" && "$VITESS_DOWNLOAD_FILENAME" != "none" && -n "$VITESS_VERSION" && "$VITESS_VERSION" != "none" ]]; then
   wget -q https://github.com/vitessio/vitess/releases/download/v"${VITESS_VERSION}"/"${VITESS_DOWNLOAD_FILENAME}"
