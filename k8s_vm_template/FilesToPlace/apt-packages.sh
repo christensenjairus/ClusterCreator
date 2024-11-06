@@ -4,8 +4,28 @@ set -a # automatically export all variables
 source /etc/k8s.env
 set +a # stop automatically exporting
 
+# Set non-interactive mode for apt commands
+export DEBIAN_FRONTEND=noninteractive
+
+# install all locales, gpg, bc (essentials for scripts to work)
+apt install -y \
+  locales-all \
+  gpg \
+  bc
+
+# generate locales
+echo -e "export LANGUAGE=en_US\nexport LANG=en_US.UTF-8" >> /etc/environment
+source /etc/environment
+locale-gen en_US.UTF-8
+dpkg-reconfigure --frontend=noninteractive locales
+
+# Preconfigure keyboard settings for both Ubuntu and Debian
+echo "keyboard-configuration keyboard-configuration/layout select 'English (US)'" | debconf-set-selections
+echo "keyboard-configuration keyboard-configuration/layoutcode string 'us'" | debconf-set-selections
+echo "keyboard-configuration keyboard-configuration/model select 'Generic 105-key PC (intl.)'" | debconf-set-selections
+echo "keyboard-configuration keyboard-configuration/variant select 'English (US)'" | debconf-set-selections
+
 mkdir -m 755 /etc/apt/keyrings
-apt install gpg -y
 
 # add kubernetes apt repository
 curl -fsSL "https://pkgs.k8s.io/core:/stable:/v${KUBERNETES_SHORT_VERSION}/deb/Release.key" | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
@@ -25,7 +45,6 @@ bash \
 curl \
 grep \
 git \
-gcc \
 open-iscsi \
 lsscsi \
 multipath-tools \
@@ -37,18 +56,15 @@ apparmor-utils \
 iperf \
 apt-transport-https \
 ca-certificates \
-gnupg \
 gnupg-agent \
 software-properties-common \
 ipvsadm \
 apache2-utils \
-locales-all \
 python3-kubernetes \
 python3-pip \
 conntrack \
 unzip \
 ceph \
-linux-generic \
 intel-gpu-tools \
 intel-opencl-icd \
 kubelet="$KUBERNETES_LONG_VERSION" \
@@ -77,6 +93,10 @@ elif [[ "$distro" = *"Ubuntu"* ]]; then
     echo "Installing containerd on Ubuntu..."
     sudo apt install -y containerd="$CONTAINERD_VERSION"
     apt-mark hold containerd
+
+    echo "Installing linux-generic to help with recognizing intel gpus..."
+    apt install -y
+      linux-generic
 else
     echo "Unsupported distribution: $distro"
     exit 1
@@ -97,11 +117,38 @@ systemctl enable multipathd
 systemctl enable qemu-guest-agent
 
 if [[ -n "$NVIDIA_DRIVER_VERSION" && "$NVIDIA_DRIVER_VERSION" != "none" ]]; then
-  # install nvidia drivers
-  wget -q "https://us.download.nvidia.com/XFree86/Linux-x86_64/${NVIDIA_DRIVER_VERSION}/NVIDIA-Linux-x86_64-${NVIDIA_DRIVER_VERSION}.run"
-  chmod +x "./NVIDIA-Linux-x86_64-${NVIDIA_DRIVER_VERSION}.run"
-  ./"NVIDIA-Linux-x86_64-${NVIDIA_DRIVER_VERSION}.run" --silent
-  rm -f "./NVIDIA-Linux-x86_64-${NVIDIA_DRIVER_VERSION}.run"
+  if [[ "$distro" = *"Debian"* ]]; then
+
+    # add contrib, non-free, and non-free-firmware components to sources.list
+    sed -i '/^Components:/ s/main/main contrib non-free non-free-firmware/' /etc/apt/sources.list.d/debian.sources
+
+    apt-get update
+
+    # install nvidia kernel modules
+    apt install -y \
+      "linux-headers-$(uname -r)"
+
+    # install nvidia driver
+    apt install -y \
+      nvidia-driver \
+      firmware-misc-nonfree
+
+  elif [[ "$distro" = *"Ubuntu"* ]]; then
+
+    # install nvidia kernel modules
+    apt install -y \
+      "linux-modules-nvidia-${NVIDIA_DRIVER_VERSION}-server-generic" \
+      "linux-headers-generic" \
+      "nvidia-dkms-${NVIDIA_DRIVER_VERSION}-server"
+
+    # install nvidia driver
+    apt install -y \
+      "nvidia-driver-${NVIDIA_DRIVER_VERSION}-server"
+
+  else
+    echo "Unsupported distribution: $distro"
+    exit 1
+  fi
 
   # add nvidia-container-toolkit apt repository
   curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
@@ -116,3 +163,6 @@ if [[ -n "$NVIDIA_DRIVER_VERSION" && "$NVIDIA_DRIVER_VERSION" != "none" ]]; then
     nvidia-container-toolkit \
     nvidia-container-runtime
 fi
+
+# extraneous package cleanup
+apt autoremove -y
