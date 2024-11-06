@@ -4,7 +4,13 @@
 start_time_total=$(date +%s)
 
 GREEN='\033[32m'
+RED='\033[31m'
 ENDCOLOR='\033[0m'
+
+# Add gpu tags
+if [[ -n "$NVIDIA_DRIVER_VERSION" && "$NVIDIA_DRIVER_VERSION" != "none" ]]; then
+  EXTRA_TEMPLATE_TAGS="${EXTRA_TEMPLATE_TAGS:+$EXTRA_TEMPLATE_TAGS }nvidia"
+fi
 
 echo -e "${GREEN}Ensuring libguestfs-tools and jq are installed...${ENDCOLOR}"
 apt install jq libguestfs-tools -y
