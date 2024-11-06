@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Record the start time
+start_time_total=$(date +%s)
+
 GREEN='\033[32m'
 ENDCOLOR='\033[0m'
 
@@ -34,6 +37,7 @@ virt-customize -a "$PROXMOX_ISO_PATH"/"$IMAGE_NAME" \
      --copy-in ./FilesToPlace/apt-packages.sh:/root/ \
      --copy-in ./FilesToPlace/source-packages.sh:/root/ \
      --copy-in ./FilesToPlace/watch-disk-space.sh:/root/ \
+     --copy-in ./FilesToPlace/extra-kernel-modules.sh:/root/ \
      --copy-in k8s.env:/etc/ \
      --install qemu-guest-agent,cloud-init \
      --timezone "$TIMEZONE" \
@@ -87,6 +91,8 @@ qm resize "$TEMPLATE_VM_ID" virtio0 "$TEMPLATE_DISK_SIZE"
 echo -e "${GREEN}Starting the VM, allowing firstboot script to install packages...${ENDCOLOR}"
 qm start "$TEMPLATE_VM_ID"
 
+start_time_packages=$(date +%s)
+
 echo -e "${GREEN}Sleeping 60s to allow VM and the QEMU Guest Agent to start...${ENDCOLOR}"
 sleep 60s
 
@@ -105,6 +111,13 @@ while true; do
   sleep 2
 done
 
+end_time_packages=$(date +%s)
+elapsed_time_packages=$(( end_time_packages - start_time_packages ))
+echo -e "${GREEN}Elapsed time installing packages: $((elapsed_time_packages / 60)) minutes and $((elapsed_time_packages % 60)) seconds.${ENDCOLOR}"
+
+echo -e "${GREEN}Print out disk space stats...${ENDCOLOR}"
+qm guest exec "$TEMPLATE_VM_ID" -- /bin/sh -c "cat /var/log/watch-disk-space.txt" | jq -r '.["out-data"]'
+
 echo -e "${GREEN}Clean out cloudconfig configuration...${ENDCOLOR}"
 qm guest exec "$TEMPLATE_VM_ID" -- /bin/sh -c  "rm -f /etc/cloud/clean.d/README && cloud-init clean --logs" >/dev/null
 
@@ -118,3 +131,7 @@ echo -e "${GREEN}Deleting the downloaded image...${ENDCOLOR}"
 rm -f "${PROXMOX_ISO_PATH:?PROXMOX_ISO_PATH is not set}/${IMAGE_NAME:?IMAGE_NAME is not set}"*
 
 echo -e "${GREEN}Template created successfully${ENDCOLOR}"
+
+end_time_total=$(date +%s)
+elapsed_time_total=$(( end_time_total - start_time_total ))
+echo -e "${GREEN}Total elapsed time: $((elapsed_time_total / 60)) minutes and $((elapsed_time_total % 60)) seconds.${ENDCOLOR}"

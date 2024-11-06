@@ -78,6 +78,7 @@ apt-mark hold kubelet kubeadm kubectl helm
 # install containerd, which have different package names on Debian and Ubuntu
 distro=$(lsb_release -is)
 if [[ "$distro" = *"Debian"* ]]; then
+
     echo "Installing containerd on Debian..."
     # add docker apt repository
     curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
@@ -89,14 +90,56 @@ if [[ "$distro" = *"Debian"* ]]; then
     sudo apt update
     sudo apt install -y containerd.io="$CONTAINERD_VERSION"
     apt-mark hold containerd.io
+
+    # remove the extra kernel modules script, it's not needed on Debian
+    rm -f /root/extra-kernel-modules.sh
+
 elif [[ "$distro" = *"Ubuntu"* ]]; then
+
     echo "Installing containerd on Ubuntu..."
     sudo apt install -y containerd="$CONTAINERD_VERSION"
     apt-mark hold containerd
 
-    echo "Installing linux-generic to help with recognizing intel gpus..."
-    apt install -y
-      linux-generic
+    echo "Installing extra linux kernel modules to help with recognizing passed through devices..."
+    GRUB_DEFAULT_FILE="/etc/default/grub"
+    GRUB_CFG_FILE="/boot/grub/grub.cfg"
+
+    # Extract the GRUB_DEFAULT value
+    grub_default=$(grep "^GRUB_DEFAULT=" "$GRUB_DEFAULT_FILE" | cut -d'=' -f2 | tr -d '"')
+
+    # Determine which kernel will be booted based on GRUB_DEFAULT setting
+    if [[ "$grub_default" == "saved" ]]; then
+        # Check the saved entry in grubenv if GRUB_DEFAULT is 'saved'
+        saved_entry=$(grep "saved_entry" /boot/grub/grubenv | cut -d'=' -f2)
+        if [[ -z "$saved_entry" ]]; then
+            echo "No saved entry found. Defaulting to the first menu entry."
+            grub_default=0
+        else
+            grub_default=$saved_entry
+        fi
+    fi
+
+    # Check if GRUB_DEFAULT is a number or points to the generic "Ubuntu" entry
+    if [[ "$grub_default" =~ ^[0-9]+$ || "$grub_default" == "0" || "$grub_default" == "Ubuntu" ]]; then
+        # Search for the latest kernel in the submenu entries if the generic "Ubuntu" is selected
+        kernel_entry=$(awk -F\' '/menuentry / {menu++} /menuentry .*Linux/ && menu==2 {print $2; exit}' "$GRUB_CFG_FILE")
+    else
+        # If GRUB_DEFAULT points to a specific menu entry string
+        kernel_entry=$(awk -F\' -v title="$grub_default" '$0 ~ title {print $2; exit}' "$GRUB_CFG_FILE")
+    fi
+
+    # Extract the kernel version from the menu entry (e.g., "Linux 6.8.0-48-generic")
+    kernel_version=$(echo "$kernel_entry" | grep -oP '\b[0-9]+\.[0-9]+\.[0-9]+-[0-9]+-generic\b')
+
+    echo "Kernel version set for the next reboot: $kernel_version"
+    package="linux-modules-extra-$kernel_version"
+    apt install -y "$package"
+
+    # Add a cron job to keep extra kernel modules up-to-date after every reboot.
+    #   This is necessary because apt doesn't keep this package up to date with the kernel
+    #   version unless you install linux-generic or some other large meta package.
+    (crontab -l 2>/dev/null; echo "@reboot /root/extra-kernel-modules.sh") | crontab -
+
 else
     echo "Unsupported distribution: $distro"
     exit 1

@@ -20,7 +20,7 @@ wget -q "https://github.com/etcd-io/etcd/releases/download/v${ETCD_VERSION}/etcd
 tar xzvf "etcd-v${ETCD_VERSION}-linux-amd64.tar.gz"
 install -o root -g root -m 0755 "etcd-v$ETCD_VERSION-linux-amd64/etcdctl" /usr/local/bin/etcdctl
 install -o root -g root -m 0755 "etcd-v$ETCD_VERSION-linux-amd64/etcdutl" /usr/local/bin/etcdutl
-rm -r "etcd-v$ETCD_VERSION-linux-amd64*"
+rm -rf "etcd-v$ETCD_VERSION-linux-amd64"
 
 # install cilium cli
 curl -s -L --remote-name-all "https://github.com/cilium/cilium-cli/releases/download/v$CILIUM_CLI_VERSION/cilium-linux-${ARCH}.tar.gz{,.sha256sum}"
@@ -40,7 +40,7 @@ install -o root -g root -m 0755 clusterctl /usr/local/bin/clusterctl
 rm -f ./clusterctl
 
 ### install flux
-curl -s https://fluxcd.io/install.sh | bash
+curl -s https://fluxcd.io/install.sh | bash 2>&1 | grep -v "printf" # silence the log that checks for a downloader and fails
 
 ### install vtctldclient and vtexplain (optional)
 if [[ -n "$VITESS_DOWNLOAD_FILENAME" && "$VITESS_DOWNLOAD_FILENAME" != "none" && -n "$VITESS_VERSION" && "$VITESS_VERSION" != "none" ]]; then
