@@ -151,8 +151,7 @@
   hosts: all
   become: true
   gather_facts: no
-  tags:
-    - nvidia
+  tags: nvidia
   tasks:
     - name: Check for NVIDIA GPU presence
       ansible.builtin.shell: lspci | grep -i nvidia
@@ -221,31 +220,23 @@
 
         - name: Configure containerd with NVIDIA runtime
           ansible.builtin.shell: |
-            #!/bin/bash
-            
             # Backup the original config.toml
             cp /etc/containerd/config.toml /etc/containerd/config.toml-original
-            
+
             # Run NVIDIA CTK to configure containerd with NVIDIA runtime
             nvidia-ctk runtime configure --runtime=containerd
-            
-            # Convert modified config.toml to YAML format
-            cat /etc/containerd/config.toml | yj -ty > /tmp/nvidia-containerd-config.yaml
-            
-            # Convert original config.toml to YAML format
-            cat /etc/containerd/config.toml-original | yj -ty > /tmp/original-containerd-config.yaml
-            
-            # Merge original and NVIDIA-modified YAML files
-            yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' /tmp/original-containerd-config.yaml /tmp/nvidia-containerd-config.yaml > /tmp/merged-containerd-config.yaml
-            
-            # Convert merged YAML back to TOML format
-            cat /tmp/merged-containerd-config.yaml | yj -yt > /etc/containerd/config.toml
+
+            # Convert modified and original config.toml files to YAML
+            yj -ty < /etc/containerd/config.toml > /tmp/nvidia-containerd-config.yaml
+            yj -ty < /etc/containerd/config.toml-original > /tmp/original-containerd-config.yaml
+
+            # Merge YAML files and convert back to TOML
+            yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' /tmp/original-containerd-config.yaml /tmp/nvidia-containerd-config.yaml | yj -yt > /etc/containerd/config.toml
           when: containerd_config.rc != 0
           notify:
             - Restart containerd
 
   handlers:
-
     - name: Restart containerd
       ansible.builtin.systemd:
         name: containerd
