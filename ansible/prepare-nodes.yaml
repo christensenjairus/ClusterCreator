@@ -214,8 +214,9 @@
             state: started
 
         - name: Check if containerd is configured with NVIDIA runtime
-          ansible.builtin.command: cat /etc/containerd/config.toml | grep "nvidia"
+          ansible.builtin.command: "grep -q 'nvidia' /etc/containerd/config.toml"
           register: containerd_config
+          failed_when: false
           ignore_errors: yes
           changed_when: false
 
