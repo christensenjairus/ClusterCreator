@@ -68,7 +68,7 @@ echo ""
 
 echo -e "${GREEN}Copying relevant files to Proxmox host...${ENDCOLOR}"
 set -e
-ssh-copy-id -i "${HOME}/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}" "$PROXMOX_USERNAME"@"$PROXMOX_HOST"
+ssh-copy-id -f -i "${HOME}/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}" "$PROXMOX_USERNAME"@"$PROXMOX_HOST"
 scp -q -r ./k8s_vm_template "$PROXMOX_USERNAME"@"$PROXMOX_HOST":
 scp -q -r ./.env ./k8s.env "${HOME}/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}.pub" "$PROXMOX_USERNAME"@"$PROXMOX_HOST":k8s_vm_template/
 set +e

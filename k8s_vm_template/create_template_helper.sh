@@ -7,11 +7,6 @@ GREEN='\033[32m'
 RED='\033[31m'
 ENDCOLOR='\033[0m'
 
-# Add gpu tags
-if [[ -n "$NVIDIA_DRIVER_VERSION" && "$NVIDIA_DRIVER_VERSION" != "none" ]]; then
-  EXTRA_TEMPLATE_TAGS="${EXTRA_TEMPLATE_TAGS:+$EXTRA_TEMPLATE_TAGS }nvidia"
-fi
-
 echo -e "${GREEN}Ensuring libguestfs-tools and jq are installed...${ENDCOLOR}"
 apt install jq libguestfs-tools -y
 
@@ -20,6 +15,10 @@ echo -e "${GREEN}Loading the environment variables from the .env files...${ENDCO
 set -a # automatically export all variables
 source .env
 source k8s.env
+# Add gpu tag(s)
+if [[ -n "$NVIDIA_DRIVER_VERSION" && "$NVIDIA_DRIVER_VERSION" != "none" ]]; then
+  EXTRA_TEMPLATE_TAGS="${EXTRA_TEMPLATE_TAGS:+$EXTRA_TEMPLATE_TAGS }nvidia"
+fi
 set +a # stop automatically exporting
 
 set -e
@@ -127,7 +126,16 @@ if echo "$log_output" | grep -q "critically low"; then
     echo -e "${RED}Disk space reached a critically low value during package installation. Please increase TEMPLATE_DISK_SIZE and try again.${ENDCOLOR}"
     exit 1
 else
-    echo "$log_output"
+    echo -e "${GREEN}$log_output${ENDCOLOR}"
+fi
+
+echo -e "${GREEN}Checking for 'No space left' logs...${ENDCOLOR}"
+log_output=$(qm guest exec "$TEMPLATE_VM_ID" -- /bin/sh -c "cat /var/log/template-firstboot-*" | jq -r '.["out-data"]')
+if grep -q "No space left" /var/log/template-firstboot-* 2>/dev/null; then
+    echo -e "${RED}'No space left' logs found. Please increase TEMPLATE_DISK_SIZE and try again.${ENDCOLOR}"
+    exit 1
+else
+    echo -e "${GREEN}No 'No space left' logs found.${ENDCOLOR}"
 fi
 
 echo -e "${GREEN}Clean out cloudconfig configuration...${ENDCOLOR}"
