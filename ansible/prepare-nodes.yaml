@@ -51,7 +51,7 @@
 
         kubelet_extra_args="--node-ip=${node_ip} --max-pods={{ cluster_config.max_pods_per_node }}"
 
-        echo "KUBELET_EXTRA_ARGS=\"$kubelet_extra_args\"" | sudo tee /etc/default/kubelet
+        echo "KUBELET_EXTRA_ARGS=\"$kubelet_extra_args\"" | tee /etc/default/kubelet
       args:
         executable: /bin/bash
       tags:
@@ -67,13 +67,13 @@
         path: /etc/apparmor.d/disable/runc
       register: apparmor_runc_file_disabled
     - name: Disable Default AppArmor Profile for Runc (containerd has its own)
-      ansible.builtin.command: sudo ln -s /etc/apparmor.d/runc /etc/apparmor.d/disable/
+      ansible.builtin.command: ln -s /etc/apparmor.d/runc /etc/apparmor.d/disable/
       ignore_errors: yes
       tags:
         - disable_apparmor
       when: apparmor_runc_file_exists.stat.exists and not apparmor_runc_file_disabled.stat.exists
     - name: Reload AppArmor
-      ansible.builtin.command: sudo apparmor_parser -R /etc/apparmor.d/runc
+      ansible.builtin.command: apparmor_parser -R /etc/apparmor.d/runc
       ignore_errors: yes
       tags:
         - disable_apparmor
@@ -147,7 +147,7 @@
       tags:
         - etc_hosts
 
-- name: Configure settings for nodes with nvidia gpus attached
+- name: Configure settings for nodes with NVIDIA GPUs attached
   hosts: all
   become: true
   gather_facts: no
@@ -165,68 +165,71 @@
 
     - name: End play on nodes without NVIDIA GPU
       ansible.builtin.meta: end_host
-      when: not has_nvidia_gpu | default(false)
+      when: not has_nvidia_gpu
 
-    - name: Ensure Nvidia GPU Drivers are present
-      ansible.builtin.command: nvidia-smi
-      register: nvidia_output
+    - block:
+        - name: Ensure Nvidia GPU Drivers are present
+          ansible.builtin.command: nvidia-smi
+          register: nvidia_output
 
-    - name: Display Nvidia GPU info
-      ansible.builtin.debug:
-        msg: "{{ nvidia_output.stdout }}"
+        - name: Display Nvidia GPU info
+          ansible.builtin.debug:
+            msg: "{{ nvidia_output.stdout }}"
 
-    - name: Enable persistence mode for NVIDIA GPU
-      ansible.builtin.command: sudo nvidia-smi -pm 1
+        - name: Enable persistence mode for NVIDIA GPU
+          ansible.builtin.command: nvidia-smi -pm 1
 
-    - name: Reset application clocks to default
-      ansible.builtin.command: sudo nvidia-smi -rac
+        - name: Reset application clocks to default
+          ansible.builtin.command: nvidia-smi -rac
 
-    - name: Gather service facts
-      ansible.builtin.setup:
-        filter: ansible_facts.services
+        - name: Check if NVIDIA power management service file exists
+          ansible.builtin.stat:
+            path: /etc/systemd/system/nvidia-power-management.service
+          register: nvidia_service_file
 
-    - name: Create systemd service for NVIDIA GPU power management
-      ansible.builtin.copy:
-        dest: /etc/systemd/system/nvidia-power-management.service
-        content: |
-          [Unit]
-          Description=NVIDIA GPU Power Management
-          After=network.target
+        - name: Create systemd service for NVIDIA GPU power management
+          ansible.builtin.copy:
+            dest: /etc/systemd/system/nvidia-power-management.service
+            content: |
+              [Unit]
+              Description=NVIDIA GPU Power Management
+              After=network.target
 
-          [Service]
-          Type=oneshot
-          ExecStart=/usr/bin/nvidia-smi -pm 1
-          ExecStart=/usr/bin/nvidia-smi -rac
-          RemainAfterExit=true
+              [Service]
+              Type=oneshot
+              ExecStart=/usr/bin/nvidia-smi -pm 1
+              ExecStart=/usr/bin/nvidia-smi -rac
+              RemainAfterExit=true
 
-          [Install]
-          WantedBy=multi-user.target
-      when: not ansible_facts.services.get('nvidia-power-management')
+              [Install]
+              WantedBy=multi-user.target
+          when: not nvidia_service_file.stat.exists
+          notify:
+            - Reload systemd daemon
 
-    - name: Reload systemd daemon to recognize new service
-      ansible.builtin.command: sudo systemctl daemon-reload
-      when: not ansible_facts.services.get('nvidia-power-management')
+        - name: Enable and start NVIDIA GPU power management service
+          ansible.builtin.systemd:
+            name: nvidia-power-management
+            enabled: true
+            state: started
 
-    - name: Enable and start NVIDIA GPU power management service
-      ansible.builtin.systemd:
-        name: nvidia-power-management
-        enabled: true
-        state: started
+        - name: Check if containerd is configured with NVIDIA runtime
+          ansible.builtin.command: cat /etc/containerd/config.toml | grep "nvidia"
+          register: containerd_config
+          ignore_errors: yes
+          changed_when: false
 
-    - name: Check if containerd is configured with NVIDIA runtime
-      ansible.builtin.command: cat /etc/containerd/config.toml | grep "nvidia"
-      register: containerd_config
-      ignore_errors: yes
-      changed_when: false
-
-    - name: Configure containerd to use Nvidia runtime
-      ansible.builtin.shell: |
-        sudo nvidia-ctk runtime configure --runtime=containerd
-      when: containerd_config.rc != 0
-      notify:
-        - Restart containerd
+        - name: Configure containerd to use Nvidia runtime
+          ansible.builtin.shell: |
+            nvidia-ctk runtime configure --runtime=containerd
+          when: containerd_config.rc != 0
+          notify:
+            - Restart containerd
 
   handlers:
+    - name: Reload systemd daemon
+      ansible.builtin.command: systemctl daemon-reload
+
     - name: Restart containerd
       ansible.builtin.systemd:
         name: containerd
