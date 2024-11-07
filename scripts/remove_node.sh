@@ -22,6 +22,10 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
+# Get the directory where the script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+pushd "$SCRIPT_DIR" || exit
+
 set -a # automatically export all variables
 source .env
 source k8s.env
@@ -55,7 +59,7 @@ ansible-galaxy collection install kubernetes.core
 set -e
 trap 'echo "An error occurred. Cleaning up..."; cleanup_function' ERR
 
-pushd ./ansible || exit
+cd ../ansible || exit
 
 cleanup_function() {
   rm -f \

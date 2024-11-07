@@ -4,6 +4,18 @@ GREEN='\033[32m'
 RED='\033[0;31m'
 ENDCOLOR='\033[0m'
 
+set -e
+trap 'echo "An error occurred. Cleaning up..."; cleanup_function' ERR
+
+cleanup_function() {
+  popd || true
+  echo "Cleanup complete."
+}
+
+# Get the directory where the script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+pushd "$SCRIPT_DIR" || exit
+
 set -a # automatically export all variables
 source .env
 source k8s.env

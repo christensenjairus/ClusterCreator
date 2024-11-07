@@ -22,10 +22,16 @@ fi
 
 echo "Running ansible on cluster: $CLUSTER_NAME"
 
+# Get the directory where the script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+set -e
+trap 'echo "An error occurred. Cleaning up..."; cleanup_function' ERR
+pushd "$SCRIPT_DIR" || exit
+
 source .env
 source k8s.env
 
-pushd ./ansible || exit
+cd ../ansible || exit
 
 cleanup_function() {
   rm -f \
@@ -37,7 +43,7 @@ cleanup_function() {
 }
 
 ## run ansible playbooks
-ansible-playbook -i "tmp/${CLUSTER_NAME}/ansible-hosts.txt" -u $VM_USERNAME reset-cluster.yaml \
+ansible-playbook -i "tmp/${CLUSTER_NAME}/ansible-hosts.txt" -u "$VM_USERNAME" uninstall-cluster-playbook.yaml \
   --private-key "$HOME/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}" \
   -e "cluster_name=${CLUSTER_NAME}" \
   --limit="${SINGLE_HOSTNAME}"

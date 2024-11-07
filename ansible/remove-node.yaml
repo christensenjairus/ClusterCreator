@@ -113,7 +113,7 @@
     - name: "Drain the node with eviction & timeout of {{ timeout_seconds }}s"
       command: >
         kubectl drain {{ node_name }}
-        --ignore-daemonsets --delete-local-data --timeout {{ timeout_seconds }}s
+        --ignore-daemonsets --delete-emptydir-data --timeout {{ timeout_seconds }}s
       delegate_to: "{{ hostvars[active_api_server_name].ansible_host }}"
       register: drain_result
       ignore_errors: true
@@ -122,7 +122,7 @@
     - name: Force drain the node without eviction
       command: >
         kubectl drain {{ node_name }}
-        --ignore-daemonsets --delete-local-data --disable-eviction --force
+        --ignore-daemonsets --delete-emptydir-data --disable-eviction --force
       delegate_to: "{{ hostvars[active_api_server_name].ansible_host }}"
       run_once: true
       when: drain_result.rc != 0

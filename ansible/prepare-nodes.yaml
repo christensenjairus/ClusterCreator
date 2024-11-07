@@ -49,7 +49,8 @@
         node_ip="{{ ipv4 }}"
         {% endif %}
 
-        kubelet_extra_args="--node-ip=${node_ip} --max-pods={{ cluster_config.max_pods_per_node }}"
+        kubelet_extra_args="--node-ip=${node_ip} --max-pods={{ cluster_config.max_pods_per_node }} --housekeeping-interval=5s"
+        # the housekeeping-interval was a fix I needed to fix cadvisor metrics not being deduplicated correctly when sent to Mimir.
 
         echo "KUBELET_EXTRA_ARGS=\"$kubelet_extra_args\"" | tee /etc/default/kubelet
       args:
@@ -90,15 +91,28 @@
       tags:
         - set_locale
 
-    - name: Set helpful aliases
-      shell: |
-        echo "alias k='kubectl'" | tee -a {{ cluster_config.ssh.ssh_home }}/.bashrc
-        echo "alias c='clear'" | tee -a {{ cluster_config.ssh.ssh_home }}/.bashrc
-        echo "alias h='history'" | tee -a {{ cluster_config.ssh.ssh_home }}/.bashrc
-      args:
-        executable: /bin/bash
+    - name: Add alias for kubectl
+      lineinfile:
+        path: "{{ cluster_config.ssh.ssh_home }}/.bashrc"
+        create: yes
+        line: "alias k='kubectl'"
+        insertafter: EOF
       tags:
         - set_aliases
+    - name: Add alias for clear
+      lineinfile:
+        path: "{{ cluster_config.ssh.ssh_home }}/.bashrc"
+        create: yes
+        line: "alias c='clear'"
+        insertafter: EOF
+      tags:
+        - set_aliases
+    - name: Add alias for history
+      lineinfile:
+        path: "{{ cluster_config.ssh.ssh_home }}/.bashrc"
+        create: yes
+        line: "alias h='history'"
+        insertafter: EOF
 
     - name: Check if any scripts exist in /root directory
       stat:
