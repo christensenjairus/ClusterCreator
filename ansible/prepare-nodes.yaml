@@ -166,75 +166,74 @@
       ansible.builtin.meta: end_host
       when: not has_nvidia_gpu
 
-    - block:
-        - name: Ensure Nvidia GPU Drivers are present
-          ansible.builtin.command: nvidia-smi
-          register: nvidia_output
+    - name: Ensure Nvidia GPU Drivers are present
+      ansible.builtin.command: nvidia-smi
+      register: nvidia_output
 
-        - name: Display Nvidia GPU info
-          ansible.builtin.debug:
-            msg: "{{ nvidia_output.stdout }}"
+    - name: Display Nvidia GPU info
+      ansible.builtin.debug:
+        msg: "{{ nvidia_output.stdout }}"
 
-        - name: Enable persistence mode for NVIDIA GPU
-          ansible.builtin.command: nvidia-smi -pm 1
+    - name: Enable persistence mode for NVIDIA GPU
+      ansible.builtin.command: nvidia-smi -pm 1
 
-        - name: Reset application clocks to default
-          ansible.builtin.command: nvidia-smi -rac
+    - name: Reset application clocks to default
+      ansible.builtin.command: nvidia-smi -rac
 
-        - name: Check if NVIDIA power management service file exists
-          ansible.builtin.stat:
-            path: /etc/systemd/system/nvidia-power-management.service
-          register: nvidia_service_file
+    - name: Check if NVIDIA power management service file exists
+      ansible.builtin.stat:
+        path: /etc/systemd/system/nvidia-power-management.service
+      register: nvidia_service_file
 
-        - name: Create systemd service for NVIDIA GPU power management
-          ansible.builtin.copy:
-            dest: /etc/systemd/system/nvidia-power-management.service
-            content: |
-              [Unit]
-              Description=NVIDIA GPU Power Management
-              After=network.target
+    - name: Create systemd service for NVIDIA GPU power management
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/nvidia-power-management.service
+        content: |
+          [Unit]
+          Description=NVIDIA GPU Power Management
+          After=network.target
 
-              [Service]
-              Type=oneshot
-              ExecStart=/usr/bin/nvidia-smi -pm 1
-              ExecStart=/usr/bin/nvidia-smi -rac
-              RemainAfterExit=true
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/bin/nvidia-smi -pm 1
+          ExecStart=/usr/bin/nvidia-smi -rac
+          RemainAfterExit=true
 
-              [Install]
-              WantedBy=multi-user.target
-          when: not nvidia_service_file.stat.exists
-          notify:
-            - Reload systemd daemon
+          [Install]
+          WantedBy=multi-user.target
+      when: not nvidia_service_file.stat.exists
+      notify:
+        - Reload systemd daemon
 
-        - name: Enable and start NVIDIA GPU power management service
-          ansible.builtin.systemd:
-            name: nvidia-power-management
-            enabled: true
-            state: started
+    - name: Enable and start NVIDIA GPU power management service
+      ansible.builtin.systemd:
+        name: nvidia-power-management
+        enabled: true
+        state: started
 
-        - name: Check if containerd is configured with NVIDIA runtime
-          ansible.builtin.command: "grep -q 'nvidia' /etc/containerd/config.toml"
-          register: containerd_config
-          failed_when: false
-          changed_when: false
+    - name: Check if containerd is configured with NVIDIA runtime
+      ansible.builtin.command: "grep -q 'nvidia' /etc/containerd/config.toml"
+      register: containerd_config
+      failed_when: false
+      changed_when: false
 
-        - name: Configure containerd with NVIDIA runtime
-          ansible.builtin.shell: |
-            # Backup the original config.toml
-            cp /etc/containerd/config.toml /etc/containerd/config.toml-original
+    - name: Configure containerd with NVIDIA runtime
+      ansible.builtin.shell: |
+        # Backup the original config.toml
+        cp /etc/containerd/config.toml /etc/containerd/config.toml-original
 
-            # Run NVIDIA CTK to configure containerd with NVIDIA runtime
-            nvidia-ctk runtime configure --runtime=containerd
+        # Run NVIDIA CTK to configure containerd with NVIDIA runtime
+        nvidia-ctk runtime configure --runtime=containerd
 
-            # Convert modified and original config.toml files to YAML
-            yj -ty < /etc/containerd/config.toml > /tmp/nvidia-containerd-config.yaml
-            yj -ty < /etc/containerd/config.toml-original > /tmp/original-containerd-config.yaml
+        # Convert modified and original config.toml files to YAML
+        yj -ty < /etc/containerd/config.toml > /tmp/nvidia-containerd-config.yaml
+        yj -ty < /etc/containerd/config.toml-original > /tmp/original-containerd-config.yaml
 
-            # Merge YAML files and convert back to TOML
-            yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' /tmp/original-containerd-config.yaml /tmp/nvidia-containerd-config.yaml | yj -yt > /etc/containerd/config.toml
-          when: containerd_config.rc != 0
-          notify:
-            - Restart containerd
+        # Merge YAML files and convert back to TOML
+        yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' /tmp/original-containerd-config.yaml /tmp/nvidia-containerd-config.yaml | yj -yt > /etc/containerd/config.toml
+      when: containerd_config.rc != 0
+      notify:
+        - Restart containerd
 
   handlers:
     - name: Reload systemd daemon
