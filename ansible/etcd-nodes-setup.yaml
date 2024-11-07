@@ -450,9 +450,9 @@
     - etcd_performance_tuning
   tasks:
     - name: Set ionice for etcd process
-      shell: sudo ionice -c2 -n0 -p `pgrep etcd`
+      shell: "ionice -c2 -n0 -p $(pgrep etcd)"
     - name: Disable tc so it can be applied cleanly
-      shell: "tc qdisc del dev eth0 root"
+      shell: "tc qdisc del dev eth0 root || true"
     - name: Add traffic control root qdisc for eth0
       shell: "tc qdisc add dev eth0 root handle 1: prio bands 3"
     - name: Add traffic control filter for etcd port 2380 (source)
