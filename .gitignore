@@ -1,10 +1,8 @@
 .env
 .idea
-ClusterCreator.iml
-encodings.xml
-modules.xml
 .terraform*
-secrets.tf
-terraform.tfstate*
+terraform/secrets.tf
+terraform/terraform.tfstate*
 ansible/tmp
 *.DS_Store
+scripts/.env

@@ -13,3 +13,9 @@ variable "template_vm_id" {
 variable "unifi_api_url" {
     default = "https://10.0.0.1/"
 }
+variable "minio_endpoint" {
+    default = "https://s3.christensencloud.us"
+}
+variable "minio_bucket" {
+    default = "terraform-state"
+}

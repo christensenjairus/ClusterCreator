@@ -20,11 +20,14 @@
             --address {{ cluster_config.networking.kube_vip.vip }} \
             --controlplane \
             --arp \
+            --leaseDuration 30 \
+            --leaseRenewDuration 15 \
+            --leaseRetry 2 \
             --leaderElection > /tmp/kube-vip.yaml
 # add --services above to get kube-vip to publish load balancers for all services that are of type LoadBalancer
 # if you do this, you'll need to add ONE of the following to new LB services
 #   metadata.annotation of kube-vip.io/ignore: "true" (kube-vip will ignore this svc)
-#   spec.loadBalancerClass=kube-vip.io/kube-vip-class (kube-vip will publish this svc - anything else and it will ignore it)
+#   spec.loadBalancerClass=kube-vip.io/kube-vip-class (kube-vip will publish this svc - anything else, and it will ignore it)
       become: true
       when: not kube_vip_manifest.stat.exists
     - name: Ensure /etc/kubernetes/manifests exists
