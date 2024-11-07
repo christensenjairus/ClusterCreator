@@ -486,14 +486,14 @@ variable "clusters" {
       }
       node_classes = {
         apiserver = {
-          count    = 3
-          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
-          machine    = "q35"
-          cpu_type   = "x86-64-v2-AES"
-          cores    = 4
-          sockets  = 1
-          memory   = 4096
-          disks    = [
+          count     = 3
+          pve_nodes = [ "Citadel", "Acropolis", "Parthenon" ]
+          machine   = "q35"
+          cpu_type  = "x86-64-v2-AES"
+          cores     = 4
+          sockets   = 1
+          memory    = 4096
+          disks     = [
             { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
           ]
           start_ip = 110
@@ -504,28 +504,28 @@ variable "clusters" {
           devices = []
         }
         etcd = {
-          count    = 3
-          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
-          machine    = "q35"
-          cpu_type   = "x86-64-v2-AES"
-          cores    = 2
-          sockets  = 1
-          memory   = 2048
-          disks    = [
+          count     = 3
+          pve_nodes = [ "Citadel", "Acropolis", "Parthenon" ]
+          machine   = "q35"
+          cpu_type  = "x86-64-v2-AES"
+          cores     = 2
+          sockets   = 1
+          memory    = 2048
+          disks     = [
             { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
           ]
           start_ip = 120
           devices  = []
         }
         general = {
-          count    = 5
-          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
-          machine    = "q35"
-          cpu_type   = "x86-64-v2-AES"
-          cores    = 8
-          sockets  = 1
-          memory   = 4096
-          disks    = [
+          count     = 5
+          pve_nodes = [ "Citadel", "Acropolis", "Parthenon" ]
+          machine   = "q35"
+          cpu_type  = "x86-64-v2-AES"
+          cores     = 8
+          sockets   = 1
+          memory    = 4096
+          disks     = [
             { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
           ]
           start_ip = 130

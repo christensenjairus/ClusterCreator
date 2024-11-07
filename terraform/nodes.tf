@@ -124,6 +124,7 @@ resource "proxmox_virtual_environment_vm" "node" {
       tags,
       description,
       clone,
+      machine,
       disk, # don't remake disks, could cause data loss! Can comment this out if no production data is present
     ]
   }
