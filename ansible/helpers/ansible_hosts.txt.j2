@@ -9,7 +9,7 @@ ansible_python_interpreter=auto_silent
 
 [kube_etcd_servers]
 {% for i in range(node_classes.etcd.count) %}
-{{ cluster_name }}-etcd-{{ i }} ansible_host={{ networking.ipv4.subnet_prefix }}.{{ node_classes.etcd.start_ip + i }} etcd_index={{ i }} ipv4={{ networking.ipv4.subnet_prefix }}.{{ node_classes.etcd.start_ip + i }} ipv6={{ networking.ipv6.subnet_prefix }}::{{ node_classes.etcd.start_ip + i }}
+{{ cluster_name }}-etcd-{{ i }} ansible_host={{ networking.ipv4.subnet_prefix }}.{{ node_classes.etcd.start_ip + i }} etcd_index={{ i }} ipv4={{ networking.ipv4.subnet_prefix }}.{{ node_classes.etcd.start_ip + i }} ipv6={{ networking.ipv6.subnet_prefix }}::{{ node_classes.etcd.start_ip + i }} labels=""
 {% endfor %}
 
 {% for class_name, class_config in node_classes.items() %}
