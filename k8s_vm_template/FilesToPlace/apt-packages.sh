@@ -4,8 +4,28 @@ set -a # automatically export all variables
 source /etc/k8s.env
 set +a # stop automatically exporting
 
+# Set non-interactive mode for apt commands
+export DEBIAN_FRONTEND=noninteractive
+
+# install all locales, gpg, bc (essentials for scripts to work)
+apt install -y \
+  locales-all \
+  gpg \
+  bc
+
+# generate locales
+echo -e "export LANGUAGE=en_US\nexport LANG=en_US.UTF-8\nexport LC_ALL=en_US.UTF-8\nexport LC_CTYPE=en_US.UTF-8" >> /etc/environment
+source /etc/environment
+locale-gen en_US.UTF-8
+dpkg-reconfigure --frontend=noninteractive locales
+
+# Preconfigure keyboard settings for both Ubuntu and Debian
+echo "keyboard-configuration keyboard-configuration/layout select 'English (US)'" | debconf-set-selections
+echo "keyboard-configuration keyboard-configuration/layoutcode string 'us'" | debconf-set-selections
+echo "keyboard-configuration keyboard-configuration/model select 'Generic 105-key PC (intl.)'" | debconf-set-selections
+echo "keyboard-configuration keyboard-configuration/variant select 'English (US)'" | debconf-set-selections
+
 mkdir -m 755 /etc/apt/keyrings
-apt install gpg -y
 
 # add kubernetes apt repository
 curl -fsSL "https://pkgs.k8s.io/core:/stable:/v${KUBERNETES_SHORT_VERSION}/deb/Release.key" | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
@@ -40,17 +60,19 @@ gnupg-agent \
 software-properties-common \
 ipvsadm \
 apache2-utils \
-locales-all \
 python3-kubernetes \
 python3-pip \
 conntrack \
 unzip \
-default-mysql-client \
 ceph \
-kubelet=$KUBERNETES_LONG_VERSION \
-kubeadm=$KUBERNETES_LONG_VERSION \
-kubectl=$KUBERNETES_LONG_VERSION \
-helm=$HELM_VERSION
+cron \
+iproute2 \
+intel-gpu-tools \
+intel-opencl-icd \
+kubelet="$KUBERNETES_LONG_VERSION" \
+kubeadm="$KUBERNETES_LONG_VERSION" \
+kubectl="$KUBERNETES_LONG_VERSION" \
+helm="$HELM_VERSION"
 
 # hold back kubernetes packages
 apt-mark hold kubelet kubeadm kubectl helm
@@ -58,6 +80,7 @@ apt-mark hold kubelet kubeadm kubectl helm
 # install containerd, which have different package names on Debian and Ubuntu
 distro=$(lsb_release -is)
 if [[ "$distro" = *"Debian"* ]]; then
+
     echo "Installing containerd on Debian..."
     # add docker apt repository
     curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
@@ -67,12 +90,58 @@ if [[ "$distro" = *"Debian"* ]]; then
       $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
       sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
     sudo apt update
-    sudo apt install -y containerd.io=$CONTAINERD_VERSION
+    sudo apt install -y containerd.io="$CONTAINERD_VERSION"
     apt-mark hold containerd.io
+
+    # remove the extra kernel modules script, it's not needed on Debian
+    rm -f /root/extra-kernel-modules.sh
+
 elif [[ "$distro" = *"Ubuntu"* ]]; then
+
     echo "Installing containerd on Ubuntu..."
-    sudo apt install -y containerd=$CONTAINERD_VERSION
+    sudo apt install -y containerd="$CONTAINERD_VERSION"
     apt-mark hold containerd
+
+    echo "Installing extra linux kernel modules to help with recognizing passed through devices..."
+    GRUB_DEFAULT_FILE="/etc/default/grub"
+    GRUB_CFG_FILE="/boot/grub/grub.cfg"
+
+    # Extract the GRUB_DEFAULT value
+    grub_default=$(grep "^GRUB_DEFAULT=" "$GRUB_DEFAULT_FILE" | cut -d'=' -f2 | tr -d '"')
+
+    # Determine which kernel will be booted based on GRUB_DEFAULT setting
+    if [[ "$grub_default" == "saved" ]]; then
+        # Check the saved entry in grubenv if GRUB_DEFAULT is 'saved'
+        saved_entry=$(grep "saved_entry" /boot/grub/grubenv | cut -d'=' -f2)
+        if [[ -z "$saved_entry" ]]; then
+            echo "No saved entry found. Defaulting to the first menu entry."
+            grub_default=0
+        else
+            grub_default=$saved_entry
+        fi
+    fi
+
+    # Check if GRUB_DEFAULT is a number or points to the generic "Ubuntu" entry
+    if [[ "$grub_default" =~ ^[0-9]+$ || "$grub_default" == "0" || "$grub_default" == "Ubuntu" ]]; then
+        # Search for the latest kernel in the submenu entries if the generic "Ubuntu" is selected
+        kernel_entry=$(awk -F\' '/menuentry / {menu++} /menuentry .*Linux/ && menu==2 {print $2; exit}' "$GRUB_CFG_FILE")
+    else
+        # If GRUB_DEFAULT points to a specific menu entry string
+        kernel_entry=$(awk -F\' -v title="$grub_default" '$0 ~ title {print $2; exit}' "$GRUB_CFG_FILE")
+    fi
+
+    # Extract the kernel version from the menu entry (e.g., "Linux 6.8.0-48-generic")
+    kernel_version=$(echo "$kernel_entry" | grep -oP '\b[0-9]+\.[0-9]+\.[0-9]+-[0-9]+-generic\b')
+
+    echo "Kernel version set for the next reboot: $kernel_version"
+    package="linux-modules-extra-$kernel_version"
+    apt install -y "$package"
+
+    # Add a cron job to keep extra kernel modules up-to-date after every reboot.
+    #   This is necessary because apt doesn't keep this package up to date with the kernel
+    #   version unless you install linux-generic or some other large meta package.
+    (crontab -l 2>/dev/null; echo "@reboot /root/extra-kernel-modules.sh") | crontab -
+
 else
     echo "Unsupported distribution: $distro"
     exit 1
@@ -91,3 +160,54 @@ systemctl enable open-iscsi
 systemctl enable iscsid
 systemctl enable multipathd
 systemctl enable qemu-guest-agent
+
+if [[ -n "$NVIDIA_DRIVER_VERSION" && "$NVIDIA_DRIVER_VERSION" != "none" ]]; then
+  if [[ "$distro" = *"Debian"* ]]; then
+
+    # add contrib, non-free, and non-free-firmware components to sources.list
+    sed -i '/^Components:/ s/main/main contrib non-free non-free-firmware/' /etc/apt/sources.list.d/debian.sources
+
+    apt-get update
+
+    # install nvidia kernel modules
+    apt install -y \
+      "linux-headers-$(uname -r)"
+
+    # install nvidia driver
+    apt install -y \
+      nvidia-driver \
+      firmware-misc-nonfree
+
+  elif [[ "$distro" = *"Ubuntu"* ]]; then
+
+    # install nvidia kernel modules
+    apt install -y \
+      "linux-modules-nvidia-${NVIDIA_DRIVER_VERSION}-server-generic" \
+      "linux-headers-generic" \
+      "nvidia-dkms-${NVIDIA_DRIVER_VERSION}-server"
+
+    # install nvidia driver
+    apt install -y \
+      "nvidia-driver-${NVIDIA_DRIVER_VERSION}-server"
+
+  else
+    echo "Unsupported distribution: $distro"
+    exit 1
+  fi
+
+  # add nvidia-container-toolkit apt repository
+  curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
+    && curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+      sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+      sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+  apt-get update
+
+  # install nvidia toolkit/runtime
+  apt install -y \
+    nvidia-container-toolkit \
+    nvidia-container-runtime
+fi
+
+# extraneous package cleanup
+apt autoremove -y

@@ -42,6 +42,10 @@ locals {
           sockets            = specs.sockets
           memory             = specs.memory
           disks              = specs.disks
+          devices            = specs.devices
+          pve_nodes          = specs.pve_nodes
+          machine            = specs.machine
+          cpu_type           = specs.cpu_type
           bridge             = cluster.networking.bridge
           create_vlan        = cluster.networking.create_vlan
           vlan_id            = cluster.networking.assign_vlan ? cluster.networking.vlan_id: null
@@ -148,18 +152,21 @@ resource "proxmox_virtual_environment_vm" "node" {
     each.value.cluster_name,
     each.value.node_class,
   ]
-  node_name = var.proxmox_node
+  # Dynamically set node_name based on cycling through the pve_nodes array
+  node_name = each.value.pve_nodes[each.value.index % length(each.value.pve_nodes)]
   clone {
-    vm_id = var.template_vm_id
-    full = true
-    retries = 25 # Proxmox errors with timeout when creating multiple clones at once
+    vm_id     = var.template_vm_id
+    full      = true
+    retries   = 25     # Proxmox errors with timeout when creating multiple clones at once
+    node_name = var.proxmox_node
   }
+  machine = each.value.machine == "i440fx" ? "pc" : "q35"
   cpu {
     cores    = each.value.cores
     sockets  = each.value.sockets
-    hotplugged = each.value.cores * each.value.sockets
     numa = true
-    type = "host"
+    # need host cpu type for pci passthrough. But host VMs can't be live-migrated, so use standard x86-64-v2-AES for the other VMs
+    type = each.value.cpu_type
     flags = []
   }
   memory {
@@ -172,13 +179,30 @@ resource "proxmox_virtual_environment_vm" "node" {
       size          = disk.value.size
       datastore_id  = disk.value.datastore
       file_format   = "raw"
-      backup        = disk.value.backup # backup the disks during vm backup
+      backup        = disk.value.backup     # backup the disks during vm backup
       # https://pve.proxmox.com/wiki/Performance_Tweaks
       iothread      = true
-      cache         = "writeback" # none is proxmox default. Writeback provides a little extra speed with more risk during power failure.
-      aio           = "native"    # io_uring is proxmox default. Native can only be used with raw block devices.
-      discard       = "ignore"    # proxmox default
-      ssd           = false       # not possible with virtio
+      cache         = disk.value.cache_mode # none is proxmox default. Writeback provides a little extra speed with more risk during power failure.
+      aio           = disk.value.aio_mode   # io_uring is proxmox default. Native can only be used with raw block devices.
+      discard       = "ignore"              # proxmox default
+      ssd           = false                 # not possible with virtio
+    }
+  }
+  dynamic "hostpci" {
+    for_each = { for device in each.value.devices : device.index => device if device.type == "pci" }
+    content {
+      device  = "hostpci${hostpci.value.index}"
+      mapping = hostpci.value.mapping
+      pcie    = true
+      mdev    = try(hostpci.value.mdev, null) != "" ? hostpci.value.mdev : null
+      rombar  = hostpci.value.rombar
+    }
+  }
+  dynamic "usb" {
+    for_each = { for device in each.value.devices : device.index => device if device.type == "usb" }
+    content {
+      mapping = usb.value.mapping
+      usb3    = true
     }
   }
   agent {
@@ -209,7 +233,6 @@ resource "proxmox_virtual_environment_vm" "node" {
             gateway = each.value.ipv4.gateway
           }
         }
-
         dynamic "ipv6" {
           for_each = each.value.ipv6.enabled ? [1] : []
           content {

@@ -1,6 +1,10 @@
 #!/bin/bash
 
+# Record the start time
+start_time_total=$(date +%s)
+
 GREEN='\033[32m'
+RED='\033[31m'
 ENDCOLOR='\033[0m'
 
 echo -e "${GREEN}Ensuring libguestfs-tools and jq are installed...${ENDCOLOR}"
@@ -11,6 +15,10 @@ echo -e "${GREEN}Loading the environment variables from the .env files...${ENDCO
 set -a # automatically export all variables
 source .env
 source k8s.env
+# Add gpu tag(s)
+if [[ -n "$NVIDIA_DRIVER_VERSION" && "$NVIDIA_DRIVER_VERSION" != "none" ]]; then
+  EXTRA_TEMPLATE_TAGS="${EXTRA_TEMPLATE_TAGS:+$EXTRA_TEMPLATE_TAGS }nvidia"
+fi
 set +a # stop automatically exporting
 
 set -e
@@ -19,11 +27,11 @@ echo -e "${GREEN}Removing old image if it exists...${ENDCOLOR}"
 rm -f "${PROXMOX_ISO_PATH:?PROXMOX_ISO_PATH is not set}/${IMAGE_NAME:?IMAGE_NAME is not set}"* 2>/dev/null || true
 
 echo -e "${GREEN}Downloading the image to get new updates...${ENDCOLOR}"
-wget -qO $PROXMOX_ISO_PATH/$IMAGE_NAME $IMAGE_LINK
+wget -qO "$PROXMOX_ISO_PATH"/"$IMAGE_NAME" "$IMAGE_LINK"
 echo ""
 
 echo -e "${GREEN}Update, add packages, enable services, edit multipath config, set timezone, set firstboot scripts...${ENDCOLOR}"
-virt-customize -a $PROXMOX_ISO_PATH/$IMAGE_NAME \
+virt-customize -a "$PROXMOX_ISO_PATH"/"$IMAGE_NAME" \
      --mkdir /etc/systemd/system/containerd.service.d/ \
      --copy-in ./FilesToPlace/override.conf:/etc/systemd/system/containerd.service.d/ \
      --copy-in ./FilesToPlace/multipath.conf:/etc/ \
@@ -33,35 +41,38 @@ virt-customize -a $PROXMOX_ISO_PATH/$IMAGE_NAME \
      --copy-in ./FilesToPlace/80-hotplug-cpu.rules:/lib/udev/rules.d/ \
      --copy-in ./FilesToPlace/apt-packages.sh:/root/ \
      --copy-in ./FilesToPlace/source-packages.sh:/root/ \
+     --copy-in ./FilesToPlace/watch-disk-space.sh:/root/ \
+     --copy-in ./FilesToPlace/extra-kernel-modules.sh:/root/ \
      --copy-in k8s.env:/etc/ \
      --install qemu-guest-agent,cloud-init \
-     --timezone $TIMEZONE \
+     --timezone "$TIMEZONE" \
      --firstboot ./FilesToRun/install_packages.sh
      # firstboot script creates /tmp/.firstboot when finished
 
 echo -e "${GREEN}Deleting the old template vm if it exists...${ENDCOLOR}"
-qm stop $TEMPLATE_VM_ID --skiplock 1 2&>/dev/null || true
-qm destroy $TEMPLATE_VM_ID --purge 1 --skiplock 1 --destroy-unreferenced-disks 1 2&>/dev/null || true
+qm stop "$TEMPLATE_VM_ID" --skiplock 1 || true
+qm destroy "$TEMPLATE_VM_ID" --purge 1 --skiplock 1 --destroy-unreferenced-disks 1 || true
 
 echo -e "${GREEN}Creating the VM...${ENDCOLOR}"
-qm create $TEMPLATE_VM_ID \
-  --name $TEMPLATE_VM_NAME \
-  --cores 1 \
+qm create "$TEMPLATE_VM_ID" \
+  --name "$TEMPLATE_VM_NAME" \
+  --machine "type=q35" \
+  --cores "$TEMPLATE_VM_CPU" \
   --sockets 1 \
-  --memory 1024 \
+  --memory "$TEMPLATE_VM_MEM" \
   --net0 virtio,bridge=vmbr0 \
   --agent "enabled=1,freeze-fs-on-backup=1,fstrim_cloned_disks=1" \
   --onboot 1 \
   --balloon 0 \
   --autostart 1 \
-  --cpu cputype=host \
+  --cpu cputype=x86-64-v2-AES \
   --numa 1
 
 echo -e "${GREEN}Importing the disk...${ENDCOLOR}"
-qm importdisk $TEMPLATE_VM_ID $PROXMOX_ISO_PATH/$IMAGE_NAME $PROXMOX_DATASTORE
+qm importdisk "$TEMPLATE_VM_ID" "$PROXMOX_ISO_PATH"/"$IMAGE_NAME" "$PROXMOX_DATASTORE"
 
 echo -e "${GREEN}Setting the VM options...${ENDCOLOR}"
-qm set $TEMPLATE_VM_ID \
+qm set "$TEMPLATE_VM_ID" \
   --scsihw virtio-scsi-pci \
   --virtio0 "${PROXMOX_DATASTORE}:vm-${TEMPLATE_VM_ID}-disk-0,iothread=1" \
   --ide2 "${PROXMOX_DATASTORE}:cloudinit" \
@@ -69,7 +80,7 @@ qm set $TEMPLATE_VM_ID \
   --bootdisk virtio0 \
   --serial0 socket \
   --vga serial0 \
-  --ciuser $VM_USERNAME \
+  --ciuser "$VM_USERNAME" \
   --cipassword "$VM_PASSWORD" \
   --ipconfig0 gw="$TEMPLATE_VM_GATEWAY",ip="$TEMPLATE_VM_IP" \
   --nameserver "$TWO_DNS_SERVERS $TEMPLATE_VM_GATEWAY" \
@@ -80,17 +91,19 @@ qm set $TEMPLATE_VM_ID \
   --tags "$EXTRA_TEMPLATE_TAGS ${KUBERNETES_MEDIUM_VERSION}"
 
 echo -e "${GREEN}Expanding disk to $TEMPLATE_DISK_SIZE...${ENDCOLOR}"
-qm resize $TEMPLATE_VM_ID virtio0 $TEMPLATE_DISK_SIZE
+qm resize "$TEMPLATE_VM_ID" virtio0 "$TEMPLATE_DISK_SIZE"
 
 echo -e "${GREEN}Starting the VM, allowing firstboot script to install packages...${ENDCOLOR}"
-qm start $TEMPLATE_VM_ID
+qm start "$TEMPLATE_VM_ID"
 
-echo -e "${GREEN}Sleeping 30s to allow VM and the QEMU Guest Agent to start...${ENDCOLOR}"
-sleep 30s
+start_time_packages=$(date +%s)
 
-echo -e -n "${GREEN}Waiting for packages to be installed${ENDCOLOR}"
+echo -e "${GREEN}Sleeping 60s to allow VM and the QEMU Guest Agent to start...${ENDCOLOR}"
+sleep 60s
+
+echo -e -n "${GREEN}Waiting for all packages to be installed${ENDCOLOR}"
 while true; do
-  output=$(qm guest exec $TEMPLATE_VM_ID cat /tmp/.firstboot 2>/dev/null)
+  output=$(qm guest exec "$TEMPLATE_VM_ID" cat /tmp/.firstboot 2>/dev/null)
   success=$?
   if [[ $success -eq 0 ]]; then
     exit_code=$(echo "$output" | jq '.exitcode')
@@ -103,16 +116,42 @@ while true; do
   sleep 2
 done
 
+end_time_packages=$(date +%s)
+elapsed_time_packages=$(( end_time_packages - start_time_packages ))
+echo -e "${GREEN}Elapsed time installing packages: $((elapsed_time_packages / 60)) minutes and $((elapsed_time_packages % 60)) seconds.${ENDCOLOR}"
+
+echo -e "${GREEN}Print out disk space stats...${ENDCOLOR}"
+log_output=$(qm guest exec "$TEMPLATE_VM_ID" -- /bin/sh -c "cat /var/log/watch-disk-space.txt" | jq -r '.["out-data"]')
+if echo "$log_output" | grep -q "critically low"; then
+    echo -e "${RED}Disk space reached a critically low value during package installation. Please increase TEMPLATE_DISK_SIZE and try again.${ENDCOLOR}"
+    exit 1
+else
+    echo -e "${GREEN}$log_output${ENDCOLOR}"
+fi
+
+echo -e "${GREEN}Checking for 'No space left' logs...${ENDCOLOR}"
+log_output=$(qm guest exec "$TEMPLATE_VM_ID" -- /bin/sh -c "cat /var/log/template-firstboot-*" | jq -r '.["out-data"]')
+if grep -q "No space left" /var/log/template-firstboot-* 2>/dev/null; then
+    echo -e "${RED}'No space left' logs found. Please increase TEMPLATE_DISK_SIZE and try again.${ENDCOLOR}"
+    exit 1
+else
+    echo -e "${GREEN}No 'No space left' logs found.${ENDCOLOR}"
+fi
+
 echo -e "${GREEN}Clean out cloudconfig configuration...${ENDCOLOR}"
-qm guest exec $TEMPLATE_VM_ID -- /bin/sh -c  "rm -f /etc/cloud/clean.d/README && cloud-init clean --logs" >/dev/null
+qm guest exec "$TEMPLATE_VM_ID" -- /bin/sh -c  "rm -f /etc/cloud/clean.d/README && cloud-init clean --logs" >/dev/null
 
 echo -e "${GREEN}Shutting down the VM gracefully...${ENDCOLOR}"
-qm shutdown $TEMPLATE_VM_ID
+qm shutdown "$TEMPLATE_VM_ID"
 
 echo -e "${GREEN}Converting the shut-down VM into a template...${ENDCOLOR}"
-qm template $TEMPLATE_VM_ID
+qm template "$TEMPLATE_VM_ID"
 
 echo -e "${GREEN}Deleting the downloaded image...${ENDCOLOR}"
 rm -f "${PROXMOX_ISO_PATH:?PROXMOX_ISO_PATH is not set}/${IMAGE_NAME:?IMAGE_NAME is not set}"*
 
 echo -e "${GREEN}Template created successfully${ENDCOLOR}"
+
+end_time_total=$(date +%s)
+elapsed_time_total=$(( end_time_total - start_time_total ))
+echo -e "${GREEN}Total elapsed time: $((elapsed_time_total / 60)) minutes and $((elapsed_time_total % 60)) seconds.${ENDCOLOR}"

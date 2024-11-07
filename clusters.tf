@@ -60,6 +60,9 @@ variable "clusters" {
     node_classes    : object({
       apiserver     : object({      # required type, must be >= 1.
         count       : number        # usually 3 for HA, should be an odd number. Can be 1. Should not pass 10 without editing start IPs
+        pve_nodes   : list(string)  # nodes that these VMs should run on. They will be cycled through and will repeat if count > length(pve_nodes). You may input the same node name more than once.
+        machine     : string        # q35 or i400fx
+        cpu_type    : string        # type of CPU to emulate. Normally you'd want x86-64-v2-AES, but you'll need to use 'host' for PCI passthrough.
         cores       : number        # raise when needed, should grow as cluster grows
         sockets     : number        # on my system, the max is 2
         memory      : number        # raise when needed, should grow as cluster grows
@@ -68,13 +71,25 @@ variable "clusters" {
           size      : number        # size of disk in GB.
           datastore : string        # name of the proxmox datastore to use for this disk
           backup    : bool          # boolean to determine if this disk will be backed up when Proxmox performs a vm backup.
+          cache_mode: string        # none (pve default), writethrough, writeback, none, directsync, or unsafe. See https://pve.proxmox.com/wiki/Performance_Tweaks#Small_Overview
+          aio_mode  : string        # io_uring (pve default), native, and threads. native can only be used with raw block devices. threads is legacy.
         }))
         start_ip    : number        # last octet of the ip address for the first apiserver node
         labels      : map(string)   # labels to apply to the nodes
         taints      : map(string)   # taints to apply to the nodes
+        devices     : list(object({ # PCI or USB Mappings to pass into the VM.
+          index     : number        # index of the device. 0 is the first device. 1 is the second device. etc. Max of 15 pci devices
+          mapping   : string        # datacenter-level pci or usb resource mapping name. You must make the mapping beforehand. https://pve.proxmox.com/wiki/QEMU/KVM_Virtual_Machines#resource_mapping
+          type      : string        # pci or usb
+          mdev      : string        # mediated device ID (optional, leave blank to not use)
+          rombar    : bool          # include the rombar with the pci device
+        }))
       })
       etcd          : object({      # required type, but can be 0.
         count       : number        # use 0 for a stacked etcd architecture. Usually 3 if you want an external etcd. Should be an odd number. Should not pass 10 without editing start IPs
+        pve_nodes   : list(string)  # nodes that these VMs should run on. They will be cycled through and will repeat if count > length(pve_nodes). You may input the same node name more than once.
+        machine     : string        # q35 or i400fx
+        cpu_type    : string        # type of CPU to emulate. Normally you'd want x86-64-v2-AES, but you'll need to use 'host' for PCI passthrough.
         cores       : number        # raise when needed, should grow as cluster grows
         sockets     : number        # on my system, the max is 2
         memory      : number        # raise when needed, should grow as cluster grows
@@ -83,42 +98,24 @@ variable "clusters" {
           size      : number        # size of disk in GB.
           datastore : string        # name of the proxmox datastore to use for this disk
           backup    : bool          # boolean to determine if this disk will be backed up when Proxmox performs a vm backup.
+          cache_mode: string        # none (pve default), writethrough, writeback, none, directsync, or unsafe. See https://pve.proxmox.com/wiki/Performance_Tweaks#Small_Overview
+          aio_mode  : string        # io_uring (pve default), native, and threads. native can only be used with raw block devices. threads is legacy.
         }))
         start_ip    : number        # last octet of the ip address for the first etcd node
         # no node labels or taints because etcd nodes are external to the cluster itself
-      })
-      storage       : object({      # custom worker type, can be 0
-        count       : number        # Should not pass 10 without editing start IPs
-        cores       : number
-        sockets     : number        # on my system, the max is 2
-        memory      : number
-        disks       : list(object({ # First disk will be used for OS. Other disks are added for other needs. Must have at least one disk here even if count is 0.
-          index     : number        # index of the disk. 0 is the first disk. 1 is the second disk. etc.
-          size      : number        # size of disk in GB.
-          datastore : string        # name of the proxmox datastore to use for this disk
-          backup    : bool          # boolean to determine if this disk will be backed up when Proxmox performs a vm backup.
+        devices     : list(object({ # PCI Mappings to pass into the VM. You must migrate VMs to different nodes if count > 1. If not, only one VM will get the device.
+          index     : number        # index of the device. 0 is the first device. 1 is the second device. etc. Max of 15 pci devices
+          mapping   : string        # datacenter-level pci or usb resource mapping name. You must make the mapping beforehand. https://pve.proxmox.com/wiki/QEMU/KVM_Virtual_Machines#resource_mapping
+          type      : string        # pci or usb
+          mdev      : string        # mediated device ID (optional, leave blank to not use)
+          rombar    : bool          # include the rombar with the pci device
         }))
-        start_ip    : number        # last octet of the ip address for the first backup node
-        labels      : map(string)   # labels to apply to the nodes
-        taints      : map(string)   # taints to apply to the nodes
-      })
-      database      : object({      # custom worker type, can be 0
-        count       : number        # Should not pass 10 without editing start IPs
-        cores       : number
-        sockets     : number        # on my system, the max is 2
-        memory      : number
-        disks       : list(object({ # First disk will be used for OS. Other disks are added for other needs. Must have at least one disk here even if count is 0.
-          index     : number        # index of the disk. 0 is the first disk. 1 is the second disk. etc.
-          size      : number        # size of disk in GB.
-          datastore : string        # name of the proxmox datastore to use for this disk
-          backup    : bool          # boolean to determine if this disk will be backed up when Proxmox performs a vm backup.
-        }))
-        start_ip    : number        # last octet of the ip address for the first db node
-        labels      : map(string)   # labels to apply to the nodes
-        taints      : map(string)   # taints to apply to the nodes
       })
       general       : object({      # custom worker type, can be 0
         count       : number        # Should not pass 50 without editing load balancer ip cidr and nginx ingress controller ip
+        pve_nodes   : list(string)  # nodes that these VMs should run on. They will be cycled through and will repeat if count > length(pve_nodes). You may input the same node name more than once.
+        machine     : string        # q35 or i400fx
+        cpu_type    : string        # type of CPU to emulate. Normally you'd want x86-64-v2-AES, but you'll need to use 'host' for PCI passthrough.
         cores       : number
         sockets     : number        # on my system, the max is 2
         memory      : number
@@ -127,13 +124,48 @@ variable "clusters" {
           size      : number        # size of disk in GB.
           datastore : string        # name of the proxmox datastore to use for this disk
           backup    : bool          # boolean to determine if this disk will be backed up when Proxmox performs a vm backup.
+          cache_mode: string        # none (pve default), writethrough, writeback, none, directsync, or unsafe. See https://pve.proxmox.com/wiki/Performance_Tweaks#Small_Overview
+          aio_mode  : string        # io_uring (pve default), native, and threads. native can only be used with raw block devices. threads is legacy.
         }))
         start_ip    : number        # last octet of the ip address for the first general node.
         labels      : map(string)   # labels to apply to the nodes
         taints      : map(string)   # taints to apply to the nodes
+        devices     : list(object({ # PCI Mappings to pass into the VM. You must migrate VMs to different nodes if count > 1. If not, only one VM will get the device.
+          index     : number        # index of the device. 0 is the first device. 1 is the second device. etc. Max of 15 pci devices
+          mapping   : string        # datacenter-level pci or usb resource mapping name. You must make the mapping beforehand. https://pve.proxmox.com/wiki/QEMU/KVM_Virtual_Machines#resource_mapping
+          type      : string        # pci or usb
+          mdev      : string        # mediated device ID (optional, leave blank to not use)
+          rombar    : bool          # include the rombar with the pci device
+        }))
       })
-      # you can add more worker node classes here. You must also add a section per node class to the ansible/helpers/ansible_hosts.txt.j2 template file
-      # but don't change the name of the apiserver or etcd nodes unless you do a full find-replace.
+      gpu      : object({      # custom worker type, can be 0
+        count       : number        # Should not pass 10 without editing start IPs
+        pve_nodes   : list(string)  # nodes that these VMs should run on. They will be cycled through and will repeat if count > length(pve_nodes). You may input the same node name more than once.
+        machine     : string        # q35 or i400fx
+        cpu_type    : string        # type of CPU to emulate. Normally you'd want x86-64-v2-AES, but you'll need to use 'host' for PCI passthrough.
+        cores       : number
+        sockets     : number        # on my system, the max is 2
+        memory      : number
+        disks       : list(object({ # First disk will be used for OS. Other disks are added for other needs. Must have at least one disk here even if count is 0.
+          index     : number        # index of the disk. 0 is the first disk. 1 is the second disk. etc.
+          size      : number        # size of disk in GB.
+          datastore : string        # name of the proxmox datastore to use for this disk
+          backup    : bool          # boolean to determine if this disk will be backed up when Proxmox performs a vm backup.
+          cache_mode: string        # none (pve default), writethrough, writeback, none, directsync, or unsafe. See https://pve.proxmox.com/wiki/Performance_Tweaks#Small_Overview
+          aio_mode  : string        # io_uring (pve default), native, and threads. native can only be used with raw block devices. threads is legacy.
+        }))
+        start_ip    : number        # last octet of the ip address for the first gpu node
+        labels      : map(string)   # labels to apply to the nodes
+        taints      : map(string)   # taints to apply to the nodes
+        devices     : list(object({ # PCI Mappings to pass into the VM. You must migrate VMs to different nodes if count > 1. If not, only one VM will get the device.
+          index     : number        # index of the device. 0 is the first device. 1 is the second device. etc. Max of 15 pci devices
+          mapping   : string        # datacenter-level pci or usb resource mapping name. You must make the mapping beforehand. https://pve.proxmox.com/wiki/QEMU/KVM_Virtual_Machines#resource_mapping
+          type      : string        # pci or usb
+          mdev      : string        # mediated device ID (optional, leave blank to not use)
+          rombar    : bool          # include the rombar with the pci device
+        }))
+      })
+      # Add more worker node classes here
     })
   }))
   default = { # create your clusters here using the above object
@@ -153,8 +185,8 @@ variable "clusters" {
         dns_search_domain              = "lan"
         vlan_name                      = "ALPHA"
         vlan_id                        = 100
-        assign_vlan                    = false
-        create_vlan                    = false
+        assign_vlan                    = true
+        create_vlan                    = true
         ipv4                           = {
           subnet_prefix                = "10.0.1"
           pod_cidr                     = "10.8.0.0/16"
@@ -191,69 +223,75 @@ variable "clusters" {
       node_classes = {
         apiserver = {
           count      = 1
-          cores      = 8
-          sockets    = 2
+          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
+          machine    = "q35"
+          cpu_type   = "x86-64-v2-AES"
+          cores      = 16
+          sockets    = 1
           memory     = 16384
           disks      = [
-            { index = 0, datastore = "pve-block", size = 100, backup = true }
+            { index = 0, datastore = "nvmes", size = 100, backup = true, cache_mode = "none", aio_mode = "io_uring" }
           ]
           start_ip   = 110
           labels = {
             "nodeclass" = "apiserver"
           }
-          taints = {}
+          taints  = {}
+          devices = []
         }
         etcd = {
           count      = 0
-          cores      = 1
-          sockets    = 2
+          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
+          machine    = "q35"
+          cpu_type   = "x86-64-v2-AES"
+          cores      = 2
+          sockets    = 1
           memory     = 2048
           disks      = [
-            { index = 0, datastore = "pve-block", size = 20, backup = true }
+            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
           ]
           start_ip   = 120
-        }
-        storage = {
-          count      = 0
-          cores      = 1
-          sockets    = 2
-          memory     = 2048
-          disks      = [
-            { index = 0, datastore = "pve-block", size = 20, backup = true }
-          ]
-          start_ip   = 130
-          labels = {
-            "nodeclass" = "storage"
-          }
-          taints = {}
-        }
-        database = {
-          count      = 0
-          cores      = 2
-          sockets    = 2
-          memory     = 8192
-          disks      = [
-            { index = 0, datastore = "pve-block", size = 20, backup = true }
-          ]
-          start_ip   = 140
-          labels = {
-            "nodeclass" = "database"
-          }
-          taints = {}
+          devices    = []
         }
         general = {
           count      = 0
-          cores      = 4
-          sockets    = 2
+          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
+          machine    = "q35"
+          cpu_type   = "x86-64-v2-AES"
+          cores      = 8
+          sockets    = 1
           memory     = 4096
           disks      = [
-            { index = 0, datastore = "pve-block", size = 20, backup = true }
+            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
           ]
-          start_ip   = 150
+          start_ip   = 130
           labels = {
             "nodeclass" = "general"
           }
-          taints = {}
+          taints  = {}
+          devices = []
+        }
+        gpu = {
+          count      = 0
+          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
+          machine    = "q35"
+          cpu_type   = "host"
+          cores      = 2
+          sockets    = 1
+          memory     = 2048
+          disks      = [
+            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
+          ]
+          start_ip   = 190
+          labels = {
+            "nodeclass" = "gpu"
+          }
+          taints  = {
+            "gpu" = "true:NoSchedule"
+          }
+          devices = [
+            { index = 0, mapping = "my-partial-gpu-passthrough", type = "pci", mdev = "i915-GVTg_V5_4", rombar = true }
+          ]
         }
       }
     }
@@ -311,69 +349,75 @@ variable "clusters" {
       node_classes = {
         apiserver = {
           count      = 1
-          cores      = 2
-          sockets    = 2
+          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
+          machine    = "q35"
+          cpu_type   = "x86-64-v2-AES"
+          cores      = 4
+          sockets    = 1
           memory     = 4096
           disks      = [
-            { index = 0, datastore = "pve-block", size = 20, backup = true }
+            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
           ]
           start_ip   = 110
           labels = {
             "nodeclass" = "apiserver"
           }
-          taints = {}
+          taints  = {}
+          devices = []
         }
         etcd = {
           count      = 0
-          cores      = 1
-          sockets    = 2
+          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
+          machine    = "q35"
+          cpu_type   = "x86-64-v2-AES"
+          cores      = 2
+          sockets    = 1
           memory     = 2048
           disks      = [
-            { index = 0, datastore = "pve-block", size = 20, backup = true }
+            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
           ]
           start_ip   = 120
+          devices    = []
         }
-        storage = {
-          count      = 1
-          cores      = 1
-          sockets    = 2
-          memory     = 2048
+        general = {
+          count      = 2
+          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
+          machine    = "q35"
+          cpu_type   = "x86-64-v2-AES"
+          cores      = 8
+          sockets    = 1
+          memory     = 4096
           disks      = [
-            { index = 0, datastore = "pve-block", size = 100, backup = false }
+            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
           ]
           start_ip   = 130
           labels = {
-            "nodeclass" = "storage"
-          }
-          taints = {}
-        }
-        database = {
-          count      = 1
-          cores      = 2
-          sockets    = 2
-          memory     = 8192
-          disks      = [
-            { index = 0, datastore = "pve-block", size = 50, backup = true }
-          ]
-          start_ip   = 140
-          labels = {
-            "nodeclass" = "database"
-          }
-          taints = {}
-        }
-        general = {
-          count      = 1
-          cores      = 4
-          sockets    = 2
-          memory     = 4096
-          disks      = [
-            { index = 0, datastore = "pve-block", size = 20, backup = true }
-          ]
-          start_ip   = 150
-          labels = {
             "nodeclass" = "general"
           }
-          taints = {}
+          taints  = {}
+          devices = []
+        }
+        gpu = {
+          count      = 0
+          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
+          machine    = "q35"
+          cpu_type   = "host"
+          cores      = 2
+          sockets    = 1
+          memory     = 2048
+          disks      = [
+            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
+          ]
+          start_ip   = 190
+          labels = {
+            "nodeclass" = "gpu"
+          }
+          taints  = {
+            "gpu" = "true:NoSchedule"
+          }
+          devices = [
+            { index = 0, mapping = "my-full-gpu-passthrough", type = "pci", mdev = "", rombar = true }
+          ]
         }
       }
     }
@@ -431,70 +475,75 @@ variable "clusters" {
       node_classes = {
         apiserver = {
           count    = 3
-          cores    = 2
-          sockets  = 2
+          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
+          machine    = "q35"
+          cpu_type   = "x86-64-v2-AES"
+          cores    = 4
+          sockets  = 1
           memory   = 4096
           disks    = [
-            { index = 0, datastore = "pve-block", size = 20, backup = true }
+            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
           ]
           start_ip = 110
           labels   = {
             "nodeclass" = "apiserver"
           }
-          taints = {}
+          taints  = {}
+          devices = []
         }
         etcd = {
           count    = 3
-          cores    = 1
-          sockets  = 2
+          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
+          machine    = "q35"
+          cpu_type   = "x86-64-v2-AES"
+          cores    = 2
+          sockets  = 1
           memory   = 2048
           disks    = [
-            { index = 0, datastore = "pve-block", size = 20, backup = true }
+            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
           ]
           start_ip = 120
-        }
-        storage = {
-          count    = 3
-          cores    = 1
-          sockets  = 2
-          memory   = 2048
-          disks    = [
-            { index = 0, datastore = "pve-block", size = 20, backup = true },
-            { index = 1, datastore = "pve-block", size = 100, backup = false }
-          ]
-          start_ip = 130
-          labels   = {
-            "nodeclass" = "storage"
-          }
-          taints = {}
-        }
-        database = {
-          count    = 3
-          cores    = 2
-          sockets  = 2
-          memory   = 8192
-          disks    = [
-            { index = 0, datastore = "pve-block", size = 50, backup = true }
-          ]
-          start_ip = 140
-          labels   = {
-            "nodeclass" = "database"
-          }
-          taints = {}
+          devices  = []
         }
         general = {
           count    = 5
-          cores    = 4
-          sockets  = 2
+          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
+          machine    = "q35"
+          cpu_type   = "x86-64-v2-AES"
+          cores    = 8
+          sockets  = 1
           memory   = 4096
           disks    = [
-            { index = 0, datastore = "pve-block", size = 20, backup = true }
+            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
           ]
-          start_ip = 150
+          start_ip = 130
           labels   = {
             "nodeclass" = "general"
           }
-          taints = {}
+          taints  = {}
+          devices = []
+        }
+        gpu = {
+          count      = 2
+          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
+          machine    = "q35"
+          cpu_type   = "host"
+          cores      = 2
+          sockets    = 1
+          memory     = 2048
+          disks      = [
+            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
+          ]
+          start_ip   = 190
+          labels = {
+            "nodeclass" = "gpu"
+          }
+          taints  = {
+            "gpu" = "true:NoSchedule"
+          }
+          devices = [
+            { index = 0, mapping = "my-full-gpu-passthrough", type = "pci", mdev = "", rombar = true }
+          ]
         }
       }
     }

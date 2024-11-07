@@ -9,18 +9,6 @@
         paths: "/var/log"
         patterns: "template-firstboot-*.log"
       register: log_files
-    - name: Check each firstboot log file for 'No space left' text
-      shell: "grep 'No space left' {{ item.path }}"
-      register: grep_output
-      failed_when: grep_output.rc == 0
-      with_items: "{{ log_files.files }}"
-      ignore_errors: true
-      no_log: true
-    - name: Fail the play if 'No space left' is found in any firstboot log file
-      fail:
-        msg: "'No space left' found in firstboot log files. Template VM did not have enough space to install all packages. Increase the TEMPLATE_DISK_SIZE and re-create template, then recreate the VM(s)."
-      when: grep_output.results | selectattr('rc', 'equalto', 0) | list | count > 0
-
     - name: Check firstboot log files for failures to ensure all packages were installed correctly (excluding specific patterns)
       shell: |
         grep -iE 'Error|Fatal' {{ item.path }} | grep -vE 'mysql/error.log|errors = false|liberror|No error reported|Failed to open terminal.debconf'
@@ -63,7 +51,7 @@
 
         kubelet_extra_args="--node-ip=${node_ip} --max-pods={{ cluster_config.max_pods_per_node }}"
 
-        echo "KUBELET_EXTRA_ARGS=\"$kubelet_extra_args\"" | sudo tee /etc/default/kubelet
+        echo "KUBELET_EXTRA_ARGS=\"$kubelet_extra_args\"" | tee /etc/default/kubelet
       args:
         executable: /bin/bash
       tags:
@@ -79,13 +67,13 @@
         path: /etc/apparmor.d/disable/runc
       register: apparmor_runc_file_disabled
     - name: Disable Default AppArmor Profile for Runc (containerd has its own)
-      ansible.builtin.command: sudo ln -s /etc/apparmor.d/runc /etc/apparmor.d/disable/
+      ansible.builtin.command: ln -s /etc/apparmor.d/runc /etc/apparmor.d/disable/
       ignore_errors: yes
       tags:
         - disable_apparmor
       when: apparmor_runc_file_exists.stat.exists and not apparmor_runc_file_disabled.stat.exists
     - name: Reload AppArmor
-      ansible.builtin.command: sudo apparmor_parser -R /etc/apparmor.d/runc
+      ansible.builtin.command: apparmor_parser -R /etc/apparmor.d/runc
       ignore_errors: yes
       tags:
         - disable_apparmor
@@ -158,3 +146,101 @@
       when: ansible_facts['os_family'] == "Debian"
       tags:
         - etc_hosts
+
+- name: Configure settings for nodes with NVIDIA GPUs attached
+  hosts: all
+  become: true
+  gather_facts: no
+  tags: nvidia
+  tasks:
+    - name: Check for NVIDIA GPU presence
+      ansible.builtin.shell: lspci | grep -i nvidia
+      register: nvidia_check
+      failed_when: false
+
+    - name: Set fact if NVIDIA GPU is present
+      ansible.builtin.set_fact:
+        has_nvidia_gpu: "{{ nvidia_check.rc == 0 }}"
+
+    - name: End play on nodes without NVIDIA GPU
+      ansible.builtin.meta: end_host
+      when: not has_nvidia_gpu
+
+    - name: Ensure Nvidia GPU Drivers are present
+      ansible.builtin.command: nvidia-smi
+      register: nvidia_output
+
+    - name: Display Nvidia GPU info
+      ansible.builtin.debug:
+        msg: "{{ nvidia_output.stdout }}"
+
+    - name: Enable persistence mode for NVIDIA GPU
+      ansible.builtin.command: nvidia-smi -pm 1
+
+    - name: Reset application clocks to default
+      ansible.builtin.command: nvidia-smi -rac
+
+    - name: Check if NVIDIA power management service file exists
+      ansible.builtin.stat:
+        path: /etc/systemd/system/nvidia-power-management.service
+      register: nvidia_service_file
+
+    - name: Create systemd service for NVIDIA GPU power management
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/nvidia-power-management.service
+        content: |
+          [Unit]
+          Description=NVIDIA GPU Power Management
+          After=network.target
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/bin/nvidia-smi -pm 1
+          ExecStart=/usr/bin/nvidia-smi -rac
+          RemainAfterExit=true
+
+          [Install]
+          WantedBy=multi-user.target
+      when: not nvidia_service_file.stat.exists
+      notify:
+        - Reload systemd daemon
+
+    - name: Enable and start NVIDIA GPU power management service
+      ansible.builtin.systemd:
+        name: nvidia-power-management
+        enabled: true
+        state: started
+
+    - name: Check if containerd is configured with NVIDIA runtime
+      ansible.builtin.command: "grep -q 'nvidia' /etc/containerd/config.toml"
+      register: containerd_config
+      failed_when: false
+      changed_when: false
+
+    - name: Configure containerd with NVIDIA runtime
+      ansible.builtin.shell: |
+        # Backup the original config.toml
+        cp /etc/containerd/config.toml /etc/containerd/config.toml-original
+
+        # Run NVIDIA CTK to configure containerd with NVIDIA runtime
+        nvidia-ctk runtime configure --runtime=containerd
+
+        # Convert modified and original config.toml files to YAML
+        yj -ty < /etc/containerd/config.toml > /tmp/nvidia-containerd-config.yaml
+        yj -ty < /etc/containerd/config.toml-original > /tmp/original-containerd-config.yaml
+
+        # Merge YAML files and convert back to TOML
+        yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' /tmp/original-containerd-config.yaml /tmp/nvidia-containerd-config.yaml | yj -yt > /etc/containerd/config.toml
+      when: containerd_config.rc != 0
+      notify:
+        - Restart containerd
+
+  handlers:
+    - name: Reload systemd daemon
+      ansible.builtin.systemd:
+        daemon_reload: yes
+
+    - name: Restart containerd
+      ansible.builtin.systemd:
+        name: containerd
+        state: restarted

@@ -398,7 +398,7 @@
         - remove_ssh_key
 
 - name: Ensure etcd backup cronjobs are present
-  hosts: all
+  hosts: kube_etcd_servers[0]
   become: yes
   tags:
     - etcd_backup
@@ -435,11 +435,90 @@
       cron:
         name: "etcdctl daily snapshot backup"
         user: root
-        minute: "0"
-        hour: "12" # noon
-        # run at noon to avoid snapshotting during backup. Delete snapshots older than 7 days.
+        minute: "30"
+        hour: "0"
+        # run at 12:30am to avoid snapshotting during backup. Delete snapshots older than 7 days.
         job: >
           ETCDCTL_API=3 etcdctl --cert {{ etcd_cert }} --key {{ etcd_key }} --cacert {{ etcd_cacert }} --endpoints {{ etcd_endpoint }} snapshot save /var/backups/etcd/daily/snapshot_$(date +\%Y\%m\%d).db && find /var/backups/etcd/daily/ -type f -name 'snapshot_*.db' -mtime +7 -exec rm {} \;
+
+- name: Apply ionice and traffic control settings for etcd (performance tuning)
+  hosts: kube_etcd_servers
+  become: true
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+  tags:
+    - etcd_performance_tuning
+  tasks:
+    - name: Set ionice for etcd process
+      shell: "ionice -c2 -n0 -p $(pgrep etcd)"
+    - name: Disable tc so it can be applied cleanly
+      shell: "tc qdisc del dev eth0 root || true"
+    - name: Add traffic control root qdisc for eth0
+      shell: "tc qdisc add dev eth0 root handle 1: prio bands 3"
+    - name: Add traffic control filter for etcd port 2380 (source)
+      shell: "tc filter add dev eth0 parent 1: protocol ip prio 1 u32 match ip sport 2380 0xffff flowid 1:1"
+    - name: Add traffic control filter for etcd port 2380 (destination)
+      shell: "tc filter add dev eth0 parent 1: protocol ip prio 1 u32 match ip dport 2380 0xffff flowid 1:1"
+    - name: Add traffic control filter for etcd port 2379 (source)
+      shell: "tc filter add dev eth0 parent 1: protocol ip prio 2 u32 match ip sport 2379 0xffff flowid 1:1"
+    - name: Add traffic control filter for etcd port 2379 (destination)
+      shell: "tc filter add dev eth0 parent 1: protocol ip prio 2 u32 match ip dport 2379 0xffff flowid 1:1"
+
+- name: Create an alias for 'etcd-health'
+  hosts: kube_etcd_servers
+  become: true
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+  tags:
+    - etcd_health_alias
+  tasks:
+    - name: Build the etcd health check command
+      set_fact:
+        etcd_health_command: "watch -n 1 \"echo -------------------------- {{ inventory_hostname }} -------------------------- && sudo ETCDCTL_API=3 etcdctl --cert /etc/kubernetes/pki/etcd/peer.crt --key /etc/kubernetes/pki/etcd/peer.key --cacert /etc/kubernetes/pki/etcd/ca.crt --endpoints https://{{ ansible_host }}:2379 endpoint health || true && echo\""
+
+    - name: Add alias to .bashrc for monitoring etcd health
+      lineinfile:
+        path: "{{ cluster_config.ssh.ssh_home }}/.bashrc"
+        create: yes
+        line: "alias etcd-health='{{ etcd_health_command }}'"
+
+- name: Create an alias for 'etcd-health-all'
+  hosts: kube_etcd_servers
+  become: true
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+  tags:
+    - etcd_health_alias
+  tasks:
+    - name: Build the etcd health check command
+      set_fact:
+        etcd_health_all_command: "{{ etcd_health_all_command | default('') }}{{ 'watch -n 1 \"' if item == groups['kube_etcd_servers'][0] else ' && ' }}echo -------------------------- {{ item }} -------------------------- && sudo ETCDCTL_API=3 etcdctl --cert /etc/kubernetes/pki/etcd/peer.crt --key /etc/kubernetes/pki/etcd/peer.key --cacert /etc/kubernetes/pki/etcd/ca.crt --endpoints https://{{ item }}:2379 endpoint health || true && echo {{ '\"' if item == groups['kube_etcd_servers'][-1] else '' }}"
+      loop: "{{ groups['kube_etcd_servers'] }}"
+
+    - name: Add alias to .bashrc for monitoring etcd health
+      lineinfile:
+        path: "{{ cluster_config.ssh.ssh_home }}/.bashrc"
+        create: yes
+        line: "alias etcd-health-all='{{ etcd_health_all_command }}'"
+
+- name: Add heartbeat-interval and election-timeout to etcd container command if not present
+  hosts: kube_etcd_servers
+  become: true
+  vars:
+    etcd_yaml_path: "/etc/kubernetes/manifests/etcd.yaml"
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+  tasks:
+    - name: Backup the etcd YAML file to ~/.etcd.bak
+      ansible.builtin.command: "cp {{ etcd_yaml_path }} {{ cluster_config.ssh.ssh_home }}/.etcd.bak"
+    - name: Check if heartbeat-interval and election-timeout are already present
+      ansible.builtin.shell: |
+        grep -q -- '--heartbeat-interval=50' {{ etcd_yaml_path }} && grep -q -- '--election-timeout=5000' {{ etcd_yaml_path }}
+      register: etcd_args_present
+      failed_when: false
+    - name: Add heartbeat-interval and election-timeout to etcd container command using sed
+      ansible.builtin.command: |
+        sed -i '/- etcd/a \    - --heartbeat-interval=500\n    - --election-timeout=2500' {{ etcd_yaml_path }}
+      when: etcd_args_present.rc != 0
 
 - name: Etcdctl healthcheck
   hosts: kube_etcd_servers[0]
@@ -454,11 +533,11 @@
         seconds: 30
     - name: Check health for each etcd endpoint
       ansible.builtin.shell: |
-          ETCDCTL_API=3 etcdctl \
-          --cert /etc/kubernetes/pki/etcd/peer.crt \
-          --key /etc/kubernetes/pki/etcd/peer.key \
-          --cacert /etc/kubernetes/pki/etcd/ca.crt \
-          --endpoints https://{{ hostvars[host].ansible_host }}:2379 endpoint health
+        ETCDCTL_API=3 etcdctl \
+        --cert /etc/kubernetes/pki/etcd/peer.crt \
+        --key /etc/kubernetes/pki/etcd/peer.key \
+        --cacert /etc/kubernetes/pki/etcd/ca.crt \
+        --endpoints https://{{ hostvars[host].ansible_host }}:2379 endpoint health
       loop: "{{ groups['kube_etcd_servers'] }}"
       loop_control:
         loop_var: host
