@@ -237,6 +237,10 @@
             - Restart containerd
 
   handlers:
+    - name: Reload systemd daemon
+      ansible.builtin.systemd:
+        daemon_reload: yes
+
     - name: Restart containerd
       ansible.builtin.systemd:
         name: containerd
