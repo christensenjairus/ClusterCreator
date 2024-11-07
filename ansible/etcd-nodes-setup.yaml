@@ -113,7 +113,7 @@
         - etcd_kubelet_config
 
 - name: Generate kubeadmcfg.yaml for each etcd host and generate a certificate authority
-  hosts: kube_etcd_servers[0] # Ensures these tasks run on only the first etcd server
+  hosts: kube_etcd_servers[0] # Ensures these tasks run on only etcd-0
   any_errors_fatal: true
   become: true
   tasks:
@@ -145,43 +145,43 @@
       tags:
         - etcd_cert_generation
 
-- name: Setup configs for other etcd nodes
+- name: Setup configs for remaining etcd nodes
   become: true
   any_errors_fatal: true
-  hosts: kube_etcd_servers[0] # Commands run on the first etcd server
+  hosts: kube_etcd_servers[0] # Commands run on etcd-0
   tasks:
-    - name: Generate certificates for other etcd nodes
+    - name: Generate certificates for remaining etcd nodes
       loop: "{{ groups['kube_etcd_servers'] | difference([groups['kube_etcd_servers'][0]]) }}"
       loop_control:
         loop_var: host
       include_tasks: helpers/ansible_etcd_cert_creation.yaml
       tags:
         - etcd_cert_generation
-    - name: Cleanup non-reusable certificates in /etc/kubernetes/pki after generation for other etcd nodes
+    - name: Cleanup non-reusable certificates in /etc/kubernetes/pki after generation for remaining etcd nodes
       become: true
       command: find /etc/kubernetes/pki -not -name ca.crt -not -name ca.key -type f -delete
       run_once: true
       tags:
         - etcd_cert_generation
-- name: Setup config for etcd node 1
+- name: Setup config for etcd-0
   become: true
   any_errors_fatal: true
-  hosts: kube_etcd_servers[0] # Commands run on the first etcd server
+  hosts: kube_etcd_servers[0] # Commands run on etcd-0
   tasks:
-    - name: Generate certificates for etcd node 1
+    - name: Generate certificates for etcd-0
       block:
-        - name: Generate etcd-server certificates for node 1
+        - name: Generate etcd-server certificates for etcd-0
           command: kubeadm init phase certs etcd-server --config=/tmp/{{ hostvars[groups['kube_etcd_servers'][0]].ansible_host }}/kubeadmcfg.yaml
-        - name: Generate etcd-peer certificates for node 1
+        - name: Generate etcd-peer certificates for etcd-0
           command: kubeadm init phase certs etcd-peer --config=/tmp/{{ hostvars[groups['kube_etcd_servers'][0]].ansible_host }}/kubeadmcfg.yaml
-        - name: Generate etcd-healthcheck-client certificates for node 1
+        - name: Generate etcd-healthcheck-client certificates for etcd-0
           command: kubeadm init phase certs etcd-healthcheck-client --config=/tmp/{{ hostvars[groups['kube_etcd_servers'][0]].ansible_host }}/kubeadmcfg.yaml
-        - name: Generate apiserver-etcd-client certificates for node 1
+        - name: Generate apiserver-etcd-client certificates for etcd-0
           command: kubeadm init phase certs apiserver-etcd-client --config=/tmp/{{ hostvars[groups['kube_etcd_servers'][0]].ansible_host }}/kubeadmcfg.yaml
       tags:
         - etcd_cert_generation
 
-- name: Copy root SSH key to the first etcd server
+- name: Copy root SSH key to etcd-0
   hosts: kube_etcd_servers[0]
   gather_facts: no
   become: yes
@@ -206,7 +206,7 @@
         group: root
         mode: '0600'
 
-- name: Ensure specific directories and files do not exist on other etcd nodes
+- name: Ensure specific directories and files do not exist on remaining etcd nodes
   hosts: kube_etcd_servers[1:]
   any_errors_fatal: true
   gather_facts: false
@@ -241,14 +241,14 @@
       become: true
       tags:
         - etcd_cert_copy
-- name: Synchronize PKI directories from the first etcd node to others
-  hosts: kube_etcd_servers[0]  # Running tasks from the first etcd node
+- name: Synchronize PKI directories from etcd-0 to remaining etcd nodes
+  hosts: kube_etcd_servers[0]  # Running tasks from etcd-0
   any_errors_fatal: true
   gather_facts: false
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
   tasks:
-    - name: Adjust permissions on PKI files for synchronization on the first node
+    - name: Adjust permissions on PKI files for synchronization on etcd-0
       ansible.builtin.file:
         path: "/tmp/{{ hostvars[item].ansible_host }}/pki"
         mode: 'u+r,g+r,o+r'  # Adds read permission for user, group, and others
@@ -264,7 +264,7 @@
       become: true
       tags:
         - etcd_cert_copy
-- name: Correct ownership and relocate PKI directories on other etcd nodes
+- name: Correct ownership and relocate PKI directories on remaining etcd nodes
   hosts: kube_etcd_servers[1:]
   any_errors_fatal: true
   gather_facts: false
@@ -291,7 +291,7 @@
       tags:
         - etcd_cert_copy
 
-- name: Initialize etcd on the first etcd node
+- name: Initialize etcd on etcd-0
   hosts: kube_etcd_servers[0]
   any_errors_fatal: true
   gather_facts: false
@@ -301,7 +301,7 @@
       become: true
       tags:
         - etcd_init
-- name: Create static pod manifests on the second and third etcd nodes
+- name: Create static pod manifests on remaining etcd nodes
   hosts: kube_etcd_servers[1:]
   any_errors_fatal: true
   gather_facts: false
@@ -315,7 +315,7 @@
         - etcd_init
 
 - name: Transfer PKI files to the control plane and organize them
-  hosts: kube_etcd_servers[0]  # Assuming this playbook runs on the first etcd node
+  hosts: kube_etcd_servers[0]  # Assuming this playbook runs on etcd-0
   any_errors_fatal: true
   gather_facts: false
   vars:
@@ -342,8 +342,8 @@
       when: groups['kube_etcd_servers'] | default([]) | length > 0
       tags:
         - kubeadm_config_copy
-- name: Prepare and organize PKI files on the first control plane node
-  hosts: kube_api_servers[0]  # Targeting the first control plane server
+- name: Prepare and organize PKI files on apiserver-0
+  hosts: kube_api_servers[0]  # Targeting apiserver-0
   any_errors_fatal: true
   gather_facts: false
   vars:

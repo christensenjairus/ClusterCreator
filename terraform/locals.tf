@@ -52,5 +52,5 @@ locals {
 # Local file resource to write the clusters config to a JSON file
 resource "local_file" "cluster_config_json" {
   content  = jsonencode(local.cluster_config)
-  filename = "ansible/tmp/${local.cluster_config.cluster_name}/cluster_config.json"
+  filename = "../ansible/tmp/${local.cluster_config.cluster_name}/cluster_config.json"
 }
