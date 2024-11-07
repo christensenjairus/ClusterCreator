@@ -65,6 +65,8 @@ python3-pip \
 conntrack \
 unzip \
 ceph \
+cron \
+iproute2 \
 intel-gpu-tools \
 intel-opencl-icd \
 kubelet="$KUBERNETES_LONG_VERSION" \
