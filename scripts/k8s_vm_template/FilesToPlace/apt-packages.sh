@@ -2,6 +2,7 @@
 
 set -a # automatically export all variables
 source /etc/k8s.env
+source /etc/.env
 set +a # stop automatically exporting
 
 # Set non-interactive mode for apt commands
@@ -18,6 +19,7 @@ echo -e "export LANGUAGE=en_US\nexport LANG=en_US.UTF-8\nexport LC_ALL=en_US.UTF
 source /etc/environment
 locale-gen en_US.UTF-8
 dpkg-reconfigure --frontend=noninteractive locales
+touch /var/lib/cloud/instance/locale-check.skip
 
 # Preconfigure keyboard settings for both Ubuntu and Debian
 echo "keyboard-configuration keyboard-configuration/layout select 'English (US)'" | debconf-set-selections
@@ -101,6 +103,41 @@ elif [[ "$distro" = *"Ubuntu"* ]]; then
     echo "Installing containerd on Ubuntu..."
     sudo apt install -y containerd="$CONTAINERD_VERSION"
     apt-mark hold containerd
+
+    # ----------------- Disable Runc AppArmor Profile -----------------
+
+    # Define paths for the AppArmor runc profile and the disable directory
+    RUNC_PROFILE="/etc/apparmor.d/runc"
+    DISABLE_DIR="/etc/apparmor.d/disable"
+    DISABLED_PROFILE="$DISABLE_DIR/runc"
+
+    # Check if AppArmor runc profile exists
+    if [[ -f "$RUNC_PROFILE" ]]; then
+        echo "AppArmor runc profile found at $RUNC_PROFILE"
+
+        # Ensure the disable directory exists
+        if [[ ! -d "$DISABLE_DIR" ]]; then
+            echo "Creating disable directory at $DISABLE_DIR"
+            mkdir -p "$DISABLE_DIR"
+        fi
+
+        # Check if runc profile is already disabled
+        if [[ ! -L "$DISABLED_PROFILE" ]]; then
+            # Create symbolic link to disable the profile
+            echo "Disabling AppArmor profile for runc"
+            ln -s "$RUNC_PROFILE" "$DISABLED_PROFILE"
+
+            # Reload AppArmor to apply the changes
+            echo "Reloading AppArmor profile for runc"
+            apparmor_parser -R "$RUNC_PROFILE" || echo "Warning: Failed to reload AppArmor profile"
+        else
+            echo "AppArmor runc profile is already disabled."
+        fi
+    else
+        echo "AppArmor runc profile does not exist, no action required."
+    fi
+
+    # ----------------- Extra kernel modules package -----------------
 
     echo "Installing extra linux kernel modules to help with recognizing passed through devices..."
     GRUB_DEFAULT_FILE="/etc/default/grub"

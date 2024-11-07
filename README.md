@@ -3,21 +3,22 @@
 
 ## Automate the creation of fully functional K8S clusters of any size on Proxmox
 
-This project will assist you in automating bootstrapping k8s clusters on Proxmox, optionally with a dedicated Unifi network and VLAN, as well as maintaining that cluster.
+This project will assist you in automating bootstrapping k8s clusters on Proxmox, optionally with a dedicated Unifi network and VLAN, as well as maintain your clusters.
 
 Having a virtualized k8s cluster allows you to not only simulate a cloud environment, but scale and customize your cluster to your needs, adding/removing nodes and disks, managing disk backups and snapshots, customizing node class types, and controlling state.
 
-Terraform/OpenTofu & Ansible automate to create even more complex setups, like using a decoupled etcd cluster or using a large number of worker nodes with differing cpu/mem/disk/networking/labels. OpenTofu creates the VMs and VLANs, and Ansible installs Kubernetes as well as various add-ons for networking, metrics, and storage.
+Terraform/OpenTofu & Ansible automate to create even more complex setups, like using a decoupled etcd cluster, attached GPUs, or using a large number of worker nodes with differing cpu/mem/disk/networking/devices/labels. OpenTofu creates the VMs & VLAN and Ansible installs Kubernetes with various add-ons for networking, metrics, and storage.
 
 See a demo of how it works step by step [on my blog](https://cyber-engine.com/blog/2024/06/25/k8s-on-proxmox-using-clustercreator/).
 
 ##### The `create_template.sh` script will create a cloud-init ready virtual machine template for Tofu to use.
-* Installs apt packages kubeadm, kubelet, kubectl, helm, containerd, nfs tools, iscsi-tools, qemu-guest-agent, mysql-client, ceph, etc.
-* Installs packages from source like the cilium cli, hubble cli, cni plugins, etcdctl, vtctldclient, and vtexplain
-* Updates to operating system
+* Installs apt packages kubeadm, kubelet, kubectl, helm, containerd, nfs tools, iscsi-tools, qemu-guest-agent, ceph, etc
+* Installs packages from source like the cilium cli, hubble cli, cni plugins, etcdctl, etc
+* Updates to the operating system and it's packages
 * Adds various necessary system configurations for k8s, like kernel modules and sysctl settings
-* Adds multipath configuration, which is important for storage systems like Longhorn.
+* Adds multipath configuration, which is important for storage systems like Longhorn
 * Supports both Ubuntu and Debian images
+* Optionally installs nvidia drivers
 
 ##### The Tofu cluster configuration allows
 * Optional decoupled etcd cluster
@@ -31,6 +32,7 @@ See a demo of how it works step by step [on my blog](https://cyber-engine.com/bl
 * Custom node IPs
 * Custom proxmox tags
 * Distributes VMs across a PVE cluster
+* PCI & USB pass-through (optional)
 
 ##### `./install_k8s.sh` runs a series of Ansible playbooks to create a fresh, minimal cluster. The Ansible playbooks include configuration and installation of
 * Decoupled ETCD cluster (optional)
@@ -39,8 +41,9 @@ See a demo of how it works step by step [on my blog](https://cyber-engine.com/bl
 * Metrics server
 * Node labels
 * Node taints
-* Auto-Provisioning Local StorageClass (rancher) (set as default StorageClass)
-* Non-Auto-Provisioning Local StorageClass (k8s built-in)
+* Nvidia card configuration
+* Auto-Provisioning Local StorageClass (rancher) (set as the default StorageClass)
+* Non-Auto-Provisioning Local StorageClass (k8s built-in class)
 * Prepares, updates, reboots, and joins new nodes to an existing cluster with the `--add-nodes` flag, allowing you to grow your cluster as needed.
 
 # Usage
@@ -50,7 +53,7 @@ Before using this project, see the [section on configuring your secrets files](#
 ```bash
 ./create_template.sh
 ```
-This will ssh into proxmox and create you a cloud-init ready template. This template is based on the files found in `k8s_vm_template`, `.env`, and `k8s.env`. The vm that is created will start for few minutes install all the necessary packages, then will reset the cloud-init configuration and shut down. The packages installed include containerd, runc, kubeadm, kubelet, kubectl, etcdctl, cilium cli, hubble cli, helm, and other necessary system packages.
+This will ssh into proxmox and create you a cloud-init ready template. This template is based on the files found in `k8s_vm_template`, `.env`, and `k8s.env`. The vm that is created will start for several minutes install all the necessary packages, then will reset the cloud-init configuration and shut down. The packages installed include containerd, runc, kubeadm, kubelet, kubectl, etcdctl, cilium cli, hubble cli, helm, and other necessary system packages.
 
 ### Initialize Tofu
 ```bash
@@ -72,13 +75,13 @@ This will clone the template using tofu and set cloud-init parameters, as well a
 
 ### Install K8S with Ansible
 ```bash
-./install_k8s.sh --cluster_name <CLUSTER_NAME> [-a/--add-nodes]
+./install_k8s.sh -n/--cluster_name <CLUSTER_NAME> [-a/--add-nodes]
 ```
 This will run a series of Ansible playbooks to create a fresh, minimal cluster. This is independent of the Tofu workspace and uses the `cluster_config.json` file and creates its own `ansible-hosts.txt` file based on the cluster configuration.
 
 The `--add-nodes` flag will prepare and add **new** nodes to an already initialized cluster. This works for both control-plane and worker nodes.
 
-*Note: Do not use the `--add-nodes` to set up or edit a decoupled etcd cluster. That must be done upon initialization. But it will work for editing control plane nodes that reference the decoupled etcd cluster.*
+*Note: Do not use the `--add-nodes` to set up or edit a decoupled etcd cluster. That must be done upon initialization. However, `--add-nodes` will work for adding/removing control plane nodes that reference your decoupled etcd cluster.*
 
 ### Kubeconfig Files
 
@@ -90,23 +93,23 @@ export KUBECONFIG=~/.kube/config:~/.kube/alpha.yml:~/.kube/beta.yml:~/.kube/gamm
 
 Tweak as needed and place in your `~/.bashrc` or `~/.zshrc` file so it's executed every time your terminal starts.
 
-You can switch between clusters (or contexts) while spanning multiple kubeconfig files with `kubectx` or `kubie`.
+You can switch between clusters (or contexts) while spanning multiple kubeconfig files with `kubectx` or `kubie ctx`.
 
 ### Drain or remove a node from the cluster
 ```bash
 ./remove_node.sh -n/--cluster-name <CLUSTER_NAME> -h/--hostname <NODE_HOSTNAME> -t/--timeout <TIMEOUT_SECONDS> [-d/--delete]
 ```
-This will remove a worker or control plane node from the cluster and optionally delete & reset it. This includes removing etcd membership if the node is a stacked etcd control-plane node as well as untaints the control plane nodes when the last worker node is removed. 
+This will remove a worker or control plane node from the cluster and optionally delete from the k8s api & remove all k8s files from it. This includes removing etcd membership if the node is a stacked etcd control-plane node as well as untainting the control plane nodes when the last worker node is removed. 
 
-The `--delete` flag will not only delete the node from the cluster, but will run the `./uninstall_k8s.sh` script to ensure that it is completely ready to start fresh when recomissioned. 
+The `-d/--delete` flag will not only delete the node from the cluster, but will run the `./uninstall_k8s.sh` script to ensure that it is completely ready to start fresh when recommissioned. 
 
-This does not work for decoupled etcd nodes.
+This script does not work for decoupled etcd nodes.
 
 ### Uninstall K8S with Ansible
 ```bash
 ./uninstall_k8s.sh -n/--cluster_name <CLUSTER_NAME> [-h/--single-hostname <HOSTNAME_TO_RESET>]
 ```
-This will run an Ansible playbook to reset k8s. Without the `--single-hostname` flag, all nodes will be reset and the cluster will be deleted.
+This will run an Ansible playbook to reset k8s. Without the `-h/--single-hostname` flag, all nodes will have their k8s files removed.
 
 ### Destroy the VMs with Tofu
 ```bash
@@ -130,7 +133,7 @@ This will run bash commands on the ansible host group you define. 'all' is the d
 The dynamic nature of OpenTofu + Ansible allows the following
 * 1 - ∞ control plane nodes
 * 0 - ∞ etcd nodes
-* 0 - ∞ worker nodes of different classes. The 'classes' are defined by name, cpu, memory, and disk requirements.
+* 0 - ∞ worker nodes of different classes. The 'classes' are defined by name, cpu, memory, device, and disk requirements.
 
 # Included Examples
 
@@ -196,9 +199,9 @@ The other configuration files, listed below, need to be looked through and tweak
 ## Installation Errors
 `tofu apply` may exit with errors because it is difficult for Proxmox to clone the same template over and over. You may need to run `tofu apply` a few times with larger clusters because of this. Proxmox may also need help if it says that configs already exist or if a VM is not responding.
 
-A workaround is to add nodes to your cluster in batches and run `tofu apply` to create smaller sets of nodes. You may want to do this anyway so you can distribute the VMs across your proxmox cluster and vary the `proxmox_node` argument.
+A workaround is to add nodes to your cluster in batches and run `tofu apply` to create smaller sets of nodes.
 
-If you do need to undo the k8s install on the VMs `./uninstall_k8s.sh` should work, but creating brand-new VMs the best way to ensure a clean slate.
+If you do need to undo the k8s installation on the VMs `./uninstall_k8s.sh` should work, but creating brand-new VMs the best way to ensure a clean slate.
 
 ## Dual Stack Networking
 The VLAN and VMs created by Tofu can have IPv6 enabled both on the host level and inside the cluster for dual-stack networking. There are three configurations for IPv6 and dual-stack networking...
@@ -206,7 +209,7 @@ The VLAN and VMs created by Tofu can have IPv6 enabled both on the host level an
 2. `ipv6.enabled = true`, but `ipv6.dual_stack = false` will enable IPv6 on the host and VLAN, but the cluster will only have IPv4 addresses. This is helpful so the hosts can resolve ipv6 addresses, but don't need dual stack services.
 3. `ipv6.enabled = true`, and `ipv6.dual_stack = true` will enable IPv6 on the host and VLAN, and the cluster will have both IPv4 and IPv6 addresses. This is the most complex configuration.
 
-Currently, there is no option to have an IPv6-only cluster. This is a complex use case that complicates the setup for various reasons. For example, github's container registry doesn't have an IPv6 address.
+Currently, there is no option to have an IPv6-only cluster. This is a complex use case that complicates the setup for various reasons. For example, Github's container registry doesn't have an IPv6 address.
 
 *Note: The HA kube-vip apiserver address can be IPv6 without enabling dual-stack.*
 
