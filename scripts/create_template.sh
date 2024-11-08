@@ -1,20 +1,22 @@
 #!/bin/bash
 
-GREEN='\033[32m'
-RED='\033[0;31m'
-ENDCOLOR='\033[0m'
-
-set -e
-trap 'echo "An error occurred. Cleaning up..."; cleanup_function' ERR
-
-cleanup_function() {
-  popd || true
-  echo "Cleanup complete."
+usage() {
+  echo "Usage: clustercreator.sh|ccr template"
+  echo ""
+  echo "This copies vm template creation files over to your proxmox node and runs them. This downloads a vm image, edits it, allows it to turn on, then installs various packages into it before turning it off and templating it."
 }
 
-# Get the directory where the script is located
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-pushd "$SCRIPT_DIR" || exit
+# Parse command-line arguments
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        -h|--help) usage; exit 0 ;;
+        *) echo "Unknown parameter passed: $1"; usage; exit 1 ;;
+    esac
+    shift
+done
+
+check_required_vars "REPO_PATH"
+cd "$REPO_PATH/scripts"
 
 set -a # automatically export all variables
 source .env
@@ -49,34 +51,11 @@ required_vars=(
   "KUBERNETES_SHORT_VERSION"
   "KUBERNETES_MEDIUM_VERSION"
   "KUBERNETES_LONG_VERSION"
+  "CLUSTER_NAME"
 )
 
-max_length=0
-
-# Find the maximum length of the variable names (to print aligned output)
-for var in "${required_vars[@]}"; do
-  if [ ${#var} -gt $max_length ]; then
-    max_length=${#var}
-  fi
-done
-
-# Print each variable with aligned output
-for var in "${required_vars[@]}"; do
-  if [ -z "${!var}" ]; then  # Using indirect parameter expansion to check variable by name
-    echo -e "${RED}Error: Environment variable $var is not set.${ENDCOLOR}" >&2
-    exit 1
-  else
-    if [ "$var" = "VM_PASSWORD" ]; then
-      password_length=${#VM_PASSWORD}
-      masked_password=$(printf "%${password_length}s" | tr ' ' '*') # Create a string of asterisks
-      printf "%-${max_length}s = %s\n" "$var" "$masked_password"
-    else
-      printf "%-${max_length}s = %s\n" "$var" "${!var}"
-    fi
-  fi
-done
-
-echo ""
+check_required_vars "${required_vars[@]}"
+print_env_vars "${required_vars[@]}"
 
 echo -e "${GREEN}Copying relevant files to Proxmox host...${ENDCOLOR}"
 set -e

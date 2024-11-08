@@ -1,84 +1,56 @@
 #!/bin/bash
 
+usage() {
+    echo "Usage: clustercreator.sh|ccr power [start|shutdown|pause|resume|hibernate|stop] [--timeout <seconds>]"
+}
+
 ACTION=""
 POOL_ID=""
 TIMEOUT=300 # Default timeout value
 
-GREEN='\033[32m'
-RED='\033[0;31m'
-ENDCOLOR='\033[0m'
+# Parse command line arguments
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        start) ACTION="start"; ;;
+        shutdown) ACTION="shutdown"; ;;
+        stop) ACTION="stop"; ;;
+        pause) ACTION="pause"; ;;
+        resume) ACTION="resume"; ;;
+        hibernate) ACTION="hibernate"; ;;
+        -t|--timeout) TIMEOUT="$2"; shift ;; # Capture the timeout value
+        -h|--help) usage; exit 0 ;;
+        *) echo "Unknown parameter passed: $1"; usage; exit 1 ;;
+    esac
+    shift
+done
 
-cleanup_function() {
-  popd || true
-  echo "Cleanup complete."
-}
+# Ensure pool name is uppercase
+POOL_ID=$(echo "$CLUSTER_NAME" | tr '[:lower:]' '[:upper:]')
 
-# Get the directory where the script is located
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-set -e
-trap 'echo "An error occurred. Cleaning up..."; cleanup_function' ERR
-pushd "$SCRIPT_DIR" || exit
+check_required_vars "REPO_PATH"
+cd "$REPO_PATH/scripts" || exit
 
 set -a # automatically export all variables
 source .env
 source k8s.env
 set +a # stop automatically exporting
 
-# Function to print usage
-usage() {
-    echo "Usage: $0 [--start|--shutdown|--pause|--resume|--hibernate|--stop] [--timeout TIMEOUT] POOL_ID"
-    exit 1
-}
+required_vars=(
+  "VM_USERNAME"
+  "PROXMOX_USERNAME"
+  "PROXMOX_HOST"
+  "NON_PASSWORD_PROTECTED_SSH_KEY"
+  "CLUSTER_NAME"
+  "ACTION"
+  "POOL_ID"
+  "TIMEOUT"
+)
 
-# Parse command line arguments
-while [[ "$#" -gt 0 ]]; do
-    case $1 in
-        --start) ACTION="start"; ;;
-        --shutdown) ACTION="shutdown"; ;;
-        --stop) ACTION="stop"; ;;
-        --pause) ACTION="pause"; ;;
-        --resume) ACTION="resume"; ;;
-        --hibernate) ACTION="hibernate"; ;;
-        --timeout) TIMEOUT="$2"; shift ;; # Capture the timeout value
-        *)
-            if [[ -z "$POOL_ID" ]]; then
-                POOL_ID="$1"
-            else
-                # If POOL_ID is already set and there's another argument, show usage
-                usage
-            fi
-            ;;
-    esac
-    shift
-done
-
-# Ensure pool name is uppercase
-POOL_ID=$(echo "$POOL_ID" | tr '[:lower:]' '[:upper:]')
-
-echo -e "${GREEN}Action: $ACTION${ENDCOLOR}"
-echo -e "${GREEN}Pool ID: $POOL_ID${ENDCOLOR}"
-echo -e "${GREEN}Timeout: $TIMEOUT${ENDCOLOR}"
-
-# Check if pool ID was provided
-if [[ -z "$POOL_ID" ]]; then
-    echo -e "${RED}Error: Pool ID is required.${ENDCOLOR}"
-    usage
-fi
-
-# Check if an action was specified
-if [[ -z "$ACTION" ]]; then
-    echo -e "${RED}Error: Action is required.${ENDCOLOR}"
-    usage
-fi
-
-# Check if an action was specified
-if [[ -z "$TIMEOUT" ]]; then
-    echo -e "${RED}Error: Timeout flag provided, but not correctly set.${ENDCOLOR}"
-    usage
-fi
+check_required_vars "${required_vars[@]}"
+print_env_vars "${required_vars[@]}"
 
 # Command to connect to the Proxmox host
-SSH_CMD="ssh ${PROXMOX_USERNAME}@${PROXMOX_HOST}"
+SSH_CMD="ssh -i ~/.ssh/$NON_PASSWORD_PROTECTED_SSH_KEY ${PROXMOX_USERNAME}@${PROXMOX_HOST}"
 
 # Maximum number of retries
 MAX_RETRIES=3
@@ -124,12 +96,12 @@ perform_action_with_retry() {
 }
 
 # Get the list of nodes and VM IDs in the pool
-VM_NODES=$(${SSH_CMD} pvesh get /pools/$POOL_ID --output-format json | jq -r '.members[] | select(.type == "qemu") | "\(.node) \(.vmid)"')
+VM_NODES=$(${SSH_CMD} pvesh get "/pools/$POOL_ID" --output-format json | jq -r '.members[] | select(.type == "qemu") | "\(.node) \(.vmid)"')
 
 # Loop through each node and VM ID and execute the specified action with retry logic
 while read -r NODE VMID; do
     echo -e "${GREEN}Attempting $ACTION on VM ID: $VMID on node: $NODE${ENDCOLOR}"
-    perform_action_with_retry $NODE $VMID $ACTION &
+    perform_action_with_retry "$NODE" "$VMID" $ACTION &
 done <<< "$VM_NODES"
 
 wait
