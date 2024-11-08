@@ -44,7 +44,19 @@ See a demo of how it works step by step [on my blog](https://cyber-engine.com/bl
 * Prepares, updates, reboots, and joins new nodes to an existing cluster with the `--add-nodes` flag, allowing you to grow your cluster as needed.
 
 # Usage
-Before using this project, see the [section on configuring your secrets files](#configuring-secrets-files).
+Before running any scripts, the secrets and environment variables files need to be updated with your configuration.
+
+### Add Proxmox Cluster User
+This project requires access to the proxmox cluster.
+On a proxmox server, run the commands in the shell to create a datacenter user.
+```shell
+pveum useradd terraform@pve -comment "Terraform User"
+pveum roleadd TerraformRole -privs "Pool.Audit, Pool.Allocate, VM.Allocate, VM.Config.Disk, Mapping.Use"
+pveum aclmod / -user terraform@pve -role TerraformRole
+```
+
+### Configure Secrets
+See the [section on configuring your secrets files](#configuring-secrets-files).
 
 ### Create a cloud-init ready virtual machine template for Tofu to use
 ```bash
