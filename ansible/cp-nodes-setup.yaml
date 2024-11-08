@@ -21,7 +21,7 @@
 
     - name: Fail if kubeadm init has already been run
       fail:
-        msg: "kubeadm init has already been run. If you have an existing cluster, you may have forgotten the `--add-nodes` flag, which runs a different playbook. If you want a fresh cluster, you must first reset these hosts using `./uninstall_k8s.sh`"
+        msg: "kubeadm init has already been run. If you have an existing cluster, you may have forgotten to remove the `--init` flag, which runs a different playbook. If you want a fresh cluster, you must first reset these hosts using `clustercreator.sh|ccr uninstall-k8s`"
       when: kube_config_exists.stat.exists
 
     # update and upgrade first api server node and reboot if necessary - but only if kubeadm init has not been run
