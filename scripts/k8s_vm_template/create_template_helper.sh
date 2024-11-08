@@ -68,13 +68,10 @@ qm create "$TEMPLATE_VM_ID" \
   --cpu cputype=x86-64-v2-AES \
   --numa 1
 
-echo -e "${GREEN}Importing the disk...${ENDCOLOR}"
-qm importdisk "$TEMPLATE_VM_ID" "$PROXMOX_ISO_PATH"/"$IMAGE_NAME" "$PROXMOX_DATASTORE"
-
 echo -e "${GREEN}Setting the VM options...${ENDCOLOR}"
 qm set "$TEMPLATE_VM_ID" \
   --scsihw virtio-scsi-pci \
-  --virtio0 "${PROXMOX_DATASTORE}:vm-${TEMPLATE_VM_ID}-disk-0,iothread=1" \
+  --virtio0 "${PROXMOX_DATASTORE}:0,iothread=1,import-from=$PROXMOX_ISO_PATH/$IMAGE_NAME" \
   --ide2 "${PROXMOX_DATASTORE}:cloudinit" \
   --boot c \
   --bootdisk virtio0 \
