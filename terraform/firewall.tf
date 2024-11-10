@@ -395,7 +395,7 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "ping" {
 
 # allow etcd
 resource "proxmox_virtual_environment_cluster_firewall_security_group" "etcd" {
-  count = local.cluster_config.networking.use_pve_firewall ? 1 : 0
+  count = local.cluster_config.networking.use_pve_firewall && try(local.cluster_config.node_classes.etcd, null) != null ? 1 : 0
 
   name    = "k8s-${local.cluster_config.cluster_name}-etcd"
   comment = "Etcd for ${local.cluster_config.cluster_name} cluster"
@@ -644,10 +644,14 @@ resource "proxmox_virtual_environment_firewall_rules" "main" {
     iface          = "net0"
   }
 
-  rule {
-    security_group = proxmox_virtual_environment_cluster_firewall_security_group.etcd[0].name
-    comment        = proxmox_virtual_environment_cluster_firewall_security_group.etcd[0].name
-    iface          = "net0"
+  dynamic "rule" {
+    for_each = local.cluster_config.networking.use_pve_firewall && try(local.cluster_config.node_classes.etcd, null) != null ? [1] : []
+
+    content {
+      security_group = proxmox_virtual_environment_cluster_firewall_security_group.etcd[0].name
+      comment        = proxmox_virtual_environment_cluster_firewall_security_group.etcd[0].name
+      iface          = "net0"
+    }
   }
 
   rule {

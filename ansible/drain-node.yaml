@@ -1,5 +1,5 @@
 ---
-- name: Manage node draining and conditional untainting of control plane
+- name: Manage node draining and conditional untainting of apiserver
   hosts: apiserver
   gather_facts: no
   vars:

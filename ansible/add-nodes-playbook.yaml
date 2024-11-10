@@ -3,12 +3,13 @@
 - import_playbook: trust-hosts.yaml
 - import_playbook: ping-nodes.yaml
 - import_playbook: prepare-nodes.yaml # sets locale, aliases, adds some scripts, adds to /etc/hosts file.
-- import_playbook: kubevip-setup.yaml # places kube-vip on the control plane nodes - needed in case you add control plane nodes
+- import_playbook: kubevip-setup.yaml # places kube-vip on the apiserver nodes - needed in case you add apiserver nodes
 - import_playbook: get-join-commands.yaml # gets new join commands for new nodes
 - import_playbook: join-apiserver-nodes.yaml # logic is in place to only join new nodes
+- import_playbook: move-kubeconfig-remote.yaml # ensures all nodes have the kubeconfig file in their home dir. Ran here for new apiservers
 - import_playbook: join-worker-nodes.yaml # logic is in place to only join new nodes
-- import_playbook: move-kubeconfig-remote.yaml # ensures all nodes have the kubeconfig file in their home dir.
+- import_playbook: move-kubeconfig-remote.yaml # ensures all nodes have the kubeconfig file in their home dir. Ran here for new workers
 - import_playbook: wait-until-all-nodes-ready.yaml # waits until all nodes are ready so new nodes are completely joined
-- import_playbook: conditionally-taint-control-plane.yaml # untaints the control plane nodes if there are no worker nodes
+- import_playbook: conditionally-taint-control-plane.yaml # untaints the apiserver nodes if there are no worker nodes
 - import_playbook: label-and-taint-nodes.yaml # add labels and taints as needed
 - import_playbook: ending-output.yaml

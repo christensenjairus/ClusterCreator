@@ -165,7 +165,7 @@ if [ "$COMMAND" != "init" ]; then
         REPO_PATH=$(cat "$REPO_PATH_FILE")
         export REPO_PATH
     else
-        echo "Repository path not set. Run '$0 init' to initialize."
+        echo "Repository path not set. Run 'clustercreator.sh init' to initialize."
         exit 1
     fi
 

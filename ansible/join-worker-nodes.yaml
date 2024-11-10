@@ -6,8 +6,8 @@
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
     control_plane_host: null
   tasks:
-    # finding a control plane node is necessary because we can't use apiserver[0] because it could be a new node.
-    - name: Find a control-plane node to query for the list of nodes
+    # finding a apiserver node is necessary because we can't use apiserver[0] because it could be a new node.
+    - name: Find a apiserver node to query for the list of nodes
       ansible.builtin.shell:
         cmd: >
           kubectl get node "{{ item }}" -o jsonpath='{.metadata.labels.node-role\.kubernetes\.io\/control-plane}' ||
@@ -19,7 +19,7 @@
       loop: "{{ groups['apiserver'] }}"
       when: control_plane_host is none
 
-    - name: Set control plane host
+    - name: Set apiserver host
       set_fact:
         control_plane_host: "{{ item.item }}"
       loop: "{{ node_status.results }}"
@@ -29,14 +29,14 @@
         - item.stderr == ""
         - control_plane_host is none
 
-    - name: Show selected control plane host
+    - name: Show selected apiserver host
       debug:
-        msg: "Selected control plane host: {{ control_plane_host }}"
+        msg: "Selected apiserver host: {{ control_plane_host }}"
       when: control_plane_host is not none
 
-    - name: Ensure a control plane host has been set
+    - name: Ensure a apiserver host has been set
       fail:
-        msg: "Failed to identify a control plane host. None of the nodes met the criteria."
+        msg: "Failed to identify a apiserver host. None of the nodes met the criteria."
       when: control_plane_host is none
 
     - name: Get list of nodes from the Kubernetes cluster
