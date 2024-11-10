@@ -4,6 +4,7 @@
 export GREEN='\033[32m'
 export RED='\033[0;31m'
 export YELLOW='\033[0;33m'
+export BLUE='\033[1;34m'
 export ENDCOLOR='\033[0m'
 CONFIG_DIR="$HOME/.config/clustercreator"
 REPO_PATH_FILE="$CONFIG_DIR/repo_path"
@@ -15,7 +16,11 @@ check_required_vars() {
   local missing_vars=0
   for var in "$@"; do
     if [ -z "${!var}" ]; then
-      echo -e "${RED}Error: Environment variable $var is not set. Use --help to ensure you're using the command correctly.${ENDCOLOR}" >&2
+      if [[ $0 =~ clustercreator.sh|ccr ]]; then
+        echo -e "${RED}Error: Environment variable $var is not set. Please set it in your environment configuration.${ENDCOLOR}" >&2
+      else
+        echo -e "${RED}Error: Environment variable $var is not set. Use --help to ensure you're using the command correctly.${ENDCOLOR}" >&2
+      fi
       missing_vars=1
     fi
   done
@@ -29,7 +34,7 @@ export -f check_required_vars
 check_required_commands() {
   for cmd in "$@"; do
       if ! command -v "$cmd" &> /dev/null; then
-          echo "Error: '$cmd' is required but not installed. Please install it before proceeding."
+          echo -e "${RED}Error: '$cmd' is required but not installed. Please install it before proceeding.${ENDCOLOR}"
           exit 1
       fi
   done
@@ -69,11 +74,65 @@ cleanup_files() {
   for item in "$@"; do
     if [ -e "$item" ]; then
       rm -rf "$item"  # Remove file or directory
-      echo "Removed $item"
+      echo -e "${BLUE}Removed $item${ENDCOLOR}"
     fi
   done
 }
 export -f cleanup_files
+
+run_playbooks() {
+  local ansible_opts="-i tmp/${CLUSTER_NAME}/ansible-hosts.txt -u ${VM_USERNAME} --private-key ${HOME}/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}"
+
+  # Default extra vars
+  local default_extra_vars="\
+    -e cluster_name=${CLUSTER_NAME} \
+    -e ssh_key_file=${HOME}/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY} \
+    -e ssh_hosts_file=${HOME}/.ssh/known_hosts \
+    -e kubernetes_long_version=${KUBERNETES_LONG_VERSION} \
+    -e kubernetes_medium_version=${KUBERNETES_MEDIUM_VERSION} \
+    -e kubernetes_short_version=${KUBERNETES_SHORT_VERSION} \
+    -e helm_version=${HELM_VERSION} \
+    -e containerd_version=${CONTAINERD_VERSION} \
+    -e cni_plugins_version=${CNI_PLUGINS_VERSION} \
+    -e etcd_version=${ETCD_VERSION} \
+    -e cilium_cli_version=${CILIUM_CLI_VERSION} \
+    -e hubble_cli_version=${HUBBLE_CLI_VERSION} \
+    -e vitess_download_filename=${VITESS_DOWNLOAD_FILENAME} \
+    -e vitess_version=${VITESS_VERSION} \
+    -e cilium_version=${CILIUM_VERSION} \
+    -e local_path_provisioner_version=${LOCAL_PATH_PROVISIONER_VERSION} \
+    -e metrics_server_version=${METRICS_SERVER_VERSION}
+  "
+
+  # Separate playbooks from extra_vars
+  local extra_vars=""
+  local playbooks=()
+
+  # Loop through arguments
+  for arg in "$@"; do
+    if [[ $arg == -* ]]; then
+      extra_vars="$extra_vars $arg"  # Collect additional variables
+    else
+      playbooks+=("$arg")  # Collect playbooks separately
+    fi
+  done
+
+  ansible-galaxy collection install kubernetes.core
+
+  cd "$REPO_PATH/ansible" || exit 1
+
+  for playbook in "${playbooks[@]}"; do
+    echo -e "${BLUE}Running playbook: $playbook${ENDCOLOR}"
+    # Run ansible-playbook with options, extra vars, and playbook path
+    ansible-playbook $ansible_opts $default_extra_vars $extra_vars "$playbook"
+    if [ $? -ne 0 ]; then
+      echo -e "${RED}Error: Playbook $playbook failed. Exiting.${ENDCOLOR}"
+      echo -e "${BLUE}If you're having trouble diagnosing the issue, please submit an issue on GitHub!${ENDCOLOR}"
+      exit 1
+    fi
+  done
+}
+export -f run_playbooks
 
 init() {
     if [[ $1 == "-h" || $1 == "--help" ]]; then
@@ -92,15 +151,15 @@ init() {
       echo -e "${RED}You should only run this using the original clustercreator.sh script${ENDCOLOR}"
       exit 1
     fi
-    echo "Setting repository path to $REPO_PATH"
+    echo -e "${BLUE}Setting repository path to $REPO_PATH${ENDCOLOR}"
     echo "$REPO_PATH" > "$REPO_PATH_FILE"
 
-    echo "Linking clustercreator.sh to ${INSTALL_PATH}"
+    echo -e "${BLUE}Linking clustercreator.sh to ${INSTALL_PATH}${ENDCOLOR}"
     chmod +x "${REPO_PATH}/clustercreator.sh"
     sudo ln -s "${REPO_PATH}/clustercreator.sh" "${INSTALL_PATH}"
-    echo "Installation complete. You can now use 'ccr' as a command."
+    echo -e "${BLUE}Installation complete. You can now use 'ccr' as a command.${ENDCOLOR}"
 
-    echo "Initializing tofu..."
+    echo -e "${BLUE}Initializing tofu...${ENDCOLOR}"
     ( cd "$REPO_PATH/terraform" && tofu init -upgrade )
 }
 
@@ -125,21 +184,24 @@ ctx() {
 }
 
 display_usage() {
-    echo "Usage: $0 <command> [options]"
+    echo "Usage: clustercreator.sh|ccr <command> [options]"
+    echo ""
     echo "Commands:"
-    echo "  init                Creates 'ccr' command, tells it where to look for scripts, and initializes tofu"
-    echo "  ctx                 Sets the current cluster context"
-    echo "  template            Creates a VM template for Kubernetes"
-    echo "  tofu                Executes tofu commands directly"
-    echo "  bootstrap           Bootstraps Kubernetes to create a cluster"
-    echo "  add-nodes           Adds un-joined nodes to the cluster"
-    echo "  drain-node          Drains a node of workloads"
-    echo "  delete-node         Immediately deletes the node from the Kubernetes cluster"
-    echo "  upgrade-node        Upgrades a node to use the Kubernetes version specified in the environment settings"
-    echo "  reset-node          Resets Kubernetes configurations for one host"
-    echo "  reset-all-nodes     Resets Kubernetes configurations for all hosts"
-    echo "  power               Controls power for VMs"
-    echo "  command             Runs a bash command on an Ansible host group"
+    echo "  init              Creates 'ccr' command, tells it where to look for scripts, and initializes tofu"
+    echo "  ctx               Sets the current cluster context"
+    echo "  template          Creates a VM template for Kubernetes"
+    echo "  tofu              Executes tofu commands directly"
+    echo "  bootstrap         Bootstraps Kubernetes to create a cluster"
+    echo "  add-nodes         Adds un-joined nodes to the cluster"
+    echo "  drain-node        Drains a node of workloads"
+    echo "  delete-node       Immediately deletes the node from the Kubernetes cluster"
+    echo "  upgrade-node      Upgrades a node to use the Kubernetes version specified in the environment settings"
+    echo "  reset-node        Resets Kubernetes configurations for one host"
+    echo "  reset-all-nodes   Resets Kubernetes configurations for all hosts"
+    echo "  upgrade-addons    Upgrades the essential apps to the versions specified in the environment settings"
+    echo "  upgrade-k8s       Upgrades the control-plane api to the version specified in the environment settings"
+    echo "  power             Controls power for VMs"
+    echo "  command           Runs a bash command on an Ansible host group"
     echo ""
     echo "Use the -h/--help flag following a command for more help."
 }
@@ -165,7 +227,7 @@ if [ "$COMMAND" != "init" ]; then
         REPO_PATH=$(cat "$REPO_PATH_FILE")
         export REPO_PATH
     else
-        echo "Repository path not set. Run 'clustercreator.sh init' to initialize."
+        echo -e "${RED}Repository path not set. Run 'clustercreator.sh init' to initialize.${ENDCOLOR}"
         exit 1
     fi
 
@@ -186,7 +248,58 @@ fi
 # Display help if no command is provided
 if [[ -z "$COMMAND" || "$COMMAND" == "--help" || "$COMMAND" == "-h" || "$COMMAND" == "help" ]]; then
   display_usage
+  exit 0
 fi
+
+required_vars=(
+  "VM_USERNAME"
+  "VM_PASSWORD"
+  "PROXMOX_USERNAME"
+  "PROXMOX_HOST"
+  "PROXMOX_ISO_PATH"
+  "PROXMOX_DATASTORE"
+  "IMAGE_NAME"
+  "IMAGE_LINK"
+  "TIMEZONE"
+  "TEMPLATE_VM_ID"
+  "TEMPLATE_VM_NAME"
+  "TEMPLATE_DISK_SIZE"
+  "TEMPLATE_VM_GATEWAY"
+  "TEMPLATE_VM_IP"
+  "TEMPLATE_VM_SEARCH_DOMAIN"
+  "TEMPLATE_VM_CPU"
+  "TEMPLATE_VM_MEM"
+  "TWO_DNS_SERVERS"
+  "CONTAINERD_VERSION"
+  "CNI_PLUGINS_VERSION"
+  "CILIUM_CLI_VERSION"
+  "HUBBLE_CLI_VERSION"
+  "HELM_VERSION"
+  "ETCD_VERSION"
+  "KUBERNETES_SHORT_VERSION"
+  "KUBERNETES_MEDIUM_VERSION"
+  "KUBERNETES_LONG_VERSION"
+  "CILIUM_VERSION"
+  "LOCAL_PATH_PROVISIONER_VERSION"
+  "METRICS_SERVER_VERSION"
+  "CLUSTER_NAME"
+)
+# Don't print out variables if -h or --help is passed
+# shellcheck disable=SC2199
+if [[ ! " ${@} " =~ " -h " && ! " ${@} " =~ " --help " ]]; then
+  check_required_vars "${required_vars[@]}"
+  print_env_vars "${required_vars[@]}"
+fi
+
+export ANSIBLE_OPTS="-i tmp/${CLUSTER_NAME}/ansible-hosts.txt -u ${VM_USERNAME} --private-key ${HOME}/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}"
+export EXTRA_ANSIBLE_VARS="\
+  -e ssh_key_file=${HOME}/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY} \
+  -e ssh_hosts_file=${HOME}/.ssh/known_hosts \
+  -e kubernetes_version=${KUBERNETES_MEDIUM_VERSION} \
+  -e cilium_version=${CILIUM_VERSION} \
+  -e local_path_provisioner_version=${LOCAL_PATH_PROVISIONER_VERSION} \
+  -e metrics_server_version=${METRICS_SERVER_VERSION} \
+"
 
 # Dispatch to the appropriate script based on the command
 case "$COMMAND" in
@@ -220,6 +333,12 @@ case "$COMMAND" in
     reset-all-nodes)
         ( "$REPO_PATH/scripts/reset_all_nodes.sh" "$@" )
         ;;
+    upgrade-addons)
+        ( "$REPO_PATH/scripts/upgrade_addons.sh" "$@" )
+        ;;
+    upgrade-k8s)
+        ( "$REPO_PATH/scripts/upgrade_k8s.sh" "$@" )
+        ;;
     power)
         ( "$REPO_PATH/scripts/powerctl_pool.sh" "$@")
         ;;
@@ -230,7 +349,7 @@ case "$COMMAND" in
         ( cd "$REPO_PATH/terraform" && tofu "$@" )
         ;;
     *)
-        echo -e "Unknown command: $COMMAND \n"
+        echo -e "${RED}Unknown command: $COMMAND${ENDCOLOR}"
         display_usage
         exit 1
         ;;

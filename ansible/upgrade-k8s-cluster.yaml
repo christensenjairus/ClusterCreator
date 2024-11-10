@@ -1,0 +1,161 @@
+---
+# Mirrors sections of apt-packages.sh that consume a version number
+- name: Upgrade Kubernetes Cluster using Apiserver-0
+  hosts: apiserver[0]
+  become: true
+  any_errors_fatal: true
+
+  tasks:
+    - name: Create directory for apt keyrings
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Install GPG if not installed
+      ansible.builtin.apt:
+        name: gpg
+        state: present
+        update_cache: true
+
+    - name: Remove old Kubernetes apt key and sources list
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+        - /etc/apt/sources.list.d/kubernetes.list
+
+    - name: Add Kubernetes apt repository key
+      ansible.builtin.shell: |
+        curl -fsSL "https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_short_version }}/deb/Release.key" |
+        gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+      args:
+        creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+    - name: Add Kubernetes apt repository
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_short_version }}/deb/ /"
+        state: present
+        filename: "kubernetes"
+
+    - name: Unhold kubelet, kubeadm, kubectl, helm, and containerd packages (Ubuntu)
+      ansible.builtin.command: "sudo apt-mark unhold {{ item }}"
+      loop:
+        - kubelet
+        - kubeadm
+        - kubectl
+        - helm
+        - containerd
+      register: unhold_result
+      until: unhold_result is succeeded
+      when: ansible_facts['os_family'] == 'Debian' and ansible_facts['distribution'] == 'Ubuntu'
+
+    - name: Unhold kubelet, kubeadm, kubectl, helm, and containerd packages (Debian)
+      ansible.builtin.command: "sudo apt-mark unhold {{ item }}"
+      loop:
+        - kubelet
+        - kubeadm
+        - kubectl
+        - helm
+        - containerd.io
+      register: unhold_result
+      until: unhold_result is succeeded
+      when: ansible_facts['os_family'] == 'Debian' and ansible_facts['distribution'] == 'Debian'
+
+    - name: Update package list
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: Install specific versions of kubelet, kubeadm, kubectl, helm, and containerd on Ubuntu
+      ansible.builtin.apt:
+        name:
+          - "kubelet={{ kubernetes_long_version }}"
+          - "kubeadm={{ kubernetes_long_version }}"
+          - "kubectl={{ kubernetes_long_version }}"
+          - "helm={{ helm_version }}"
+          - "containerd={{ containerd_version }}"
+        state: present
+      when: ansible_facts['os_family'] == 'Debian' and ansible_facts['distribution'] == 'Ubuntu'
+
+    - name: Install specific versions of kubelet, kubeadm, kubectl, helm, and containerd.io on Debian
+      ansible.builtin.apt:
+        name:
+          - "kubelet={{ kubernetes_long_version }}"
+          - "kubeadm={{ kubernetes_long_version }}"
+          - "kubectl={{ kubernetes_long_version }}"
+          - "helm={{ helm_version }}"
+          - "containerd.io={{ containerd_version }}"
+        state: present
+      when: ansible_facts['os_family'] == 'Debian' and ansible_facts['distribution'] == 'Debian'
+
+    - name: Hold kubelet, kubeadm, kubectl, helm, and containerd packages (Ubuntu)
+      ansible.builtin.command: "sudo apt-mark hold {{ item }}"
+      loop:
+        - kubelet
+        - kubeadm
+        - kubectl
+        - helm
+        - containerd
+      register: hold_result
+      until: hold_result is succeeded
+      when: ansible_facts['os_family'] == 'Debian' and ansible_facts['distribution'] == 'Ubuntu'
+
+    - name: Hold kubelet, kubeadm, kubectl, helm, and containerd packages (Debian)
+      ansible.builtin.command: "sudo apt-mark hold {{ item }}"
+      loop:
+        - kubelet
+        - kubeadm
+        - kubectl
+        - helm
+        - containerd.io
+      register: hold_result
+      until: hold_result is succeeded
+      when: ansible_facts['os_family'] == 'Debian' and ansible_facts['distribution'] == 'Debian'
+
+    - name: Kubeadm Upgrade Plan
+      ansible.builtin.shell:
+        cmd: >
+          kubeadm upgrade plan v{{ kubernetes_medium_version }}
+      ignore_errors: true
+      delegate_to: "{{ inventory_hostname }}"
+      register: plan_output
+
+    - name: Show plan output
+      ansible.builtin.debug:
+        msg: "{{ plan_output.stdout.splitlines() }}"
+
+    - name: Confirm to continue
+      ansible.builtin.pause:
+        prompt: "Do you want to continue upgrading? (yes/no)"
+      register: user_confirmation
+
+    - name: Fail if user did not confirm
+      ansible.builtin.fail:
+        msg: "User chose not to continue."
+      when: "user_confirmation.user_input | lower != 'yes'"
+
+    - name: Kubeadm Upgrade Apply
+      ansible.builtin.shell:
+        cmd: >
+          # K8s documentation recommends this step
+          killall -s SIGTERM kube-apiserver # trigger a graceful kube-apiserver shutdown
+          sleep 20 # wait a little bit to permit completing in-flight requests
+          
+          kubeadm upgrade apply v{{ kubernetes_medium_version }} -y
+      ignore_errors: true
+      delegate_to: "{{ inventory_hostname }}"
+      register: upgrade_output
+
+    - name: Show upgrade output
+      ansible.builtin.debug:
+        msg: "{{ upgrade_output.stdout.splitlines() }}"
+
+    - name: Reload systemd daemon
+      ansible.builtin.systemd:
+        daemon_reload: yes
+
+    - name: Restart kubelet service
+      ansible.builtin.systemd:
+        name: kubelet
+        state: restarted

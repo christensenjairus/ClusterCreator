@@ -30,9 +30,6 @@ done
 
 # Required Variables
 required_vars=(
-  "VM_USERNAME"
-  "NON_PASSWORD_PROTECTED_SSH_KEY"
-  "CLUSTER_NAME"
   "TARGETED_NODE"
   "TIMEOUT_SECONDS"
 )
@@ -47,20 +44,16 @@ cleanup_files=(
 set -e
 trap 'echo "An error occurred. Cleaning up..."; cleanup_files "${cleanup_files[@]}"' ERR
 
-cd "$REPO_PATH/ansible"
-
 echo -e "${GREEN}Draining node $TARGETED_NODE on cluster: $CLUSTER_NAME.${ENDCOLOR}"
 
 # --------------------------- Script Start ---------------------------
 
-ansible-galaxy collection install kubernetes.core
-
-ansible-playbook -u "$VM_USERNAME" generate-hosts-txt.yaml -e "cluster_name=${CLUSTER_NAME}"
-
-ansible-playbook drain-node.yaml -u "$VM_USERNAME" -i "tmp/${CLUSTER_NAME}/ansible-hosts.txt" \
-   --private-key "$HOME/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}" \
-   -e "node_name=$TARGETED_NODE" \
-   -e "timeout_seconds=$TIMEOUT_SECONDS"
+playbooks=(
+  "generate-hosts-txt.yaml"
+  "trust-hosts.yaml"
+  "drain-node.yaml"
+)
+run_playbooks "-e node_name=$TARGETED_NODE -e timeout_seconds=$TIMEOUT_SECONDS" "${playbooks[@]}"
 
 # ---------------------------- Script End ----------------------------
 

@@ -28,11 +28,6 @@ POOL_ID=$(echo "$CLUSTER_NAME" | tr '[:lower:]' '[:upper:]')
 
 # Required Variables
 required_vars=(
-  "VM_USERNAME"
-  "PROXMOX_USERNAME"
-  "PROXMOX_HOST"
-  "NON_PASSWORD_PROTECTED_SSH_KEY"
-  "CLUSTER_NAME"
   "ACTION"
   "POOL_ID"
   "TIMEOUT"

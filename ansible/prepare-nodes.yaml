@@ -25,7 +25,6 @@
 
 - name: Prepare nodes
   hosts: all
-  any_errors_fatal: true
   become: true  # This ensures all tasks are run with elevated privileges
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"

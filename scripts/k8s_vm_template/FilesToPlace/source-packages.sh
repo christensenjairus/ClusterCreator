@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Install packages from source
+# MIRRORS ansible/reinstall-source-packages.yaml
 
 set -a # automatically export all variables
 source /etc/k8s.env
@@ -34,11 +35,6 @@ curl -s -L --remote-name-all "https://github.com/cilium/hubble/releases/download
 sha256sum --check hubble-linux-$ARCH.tar.gz.sha256sum
 tar xzvfC hubble-linux-$ARCH.tar.gz /usr/local/bin
 rm hubble-linux-$ARCH*
-
-### install clusterctl
-curl -s -L https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.6.3/clusterctl-linux-amd64 -o clusterctl
-install -o root -g root -m 0755 clusterctl /usr/local/bin/clusterctl
-rm -f ./clusterctl
 
 ### install flux
 curl -s https://fluxcd.io/install.sh | bash 2>&1 | grep -v "printf" # silence the log that checks for a downloader and fails

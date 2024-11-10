@@ -1,7 +1,0 @@
-- name: Ping all nodes
-  hosts: all
-  gather_facts: no
-  any_errors_fatal: true
-  tasks:
-    - name: Ping all nodes to check connectivity
-      ansible.builtin.ping:

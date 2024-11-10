@@ -29,7 +29,8 @@
           | map(&metadata.name, @)
 
     - name: Check for control-plane NoSchedule taint on nodes
-      ansible.builtin.command: kubectl get node {{ item }} -o jsonpath='{.spec.taints[*].key}' | grep -q 'node-role.kubernetes.io/control-plane'
+      ansible.builtin.command: >
+        kubectl get node {{ item }} -o jsonpath='{.spec.taints[?(@.key=="node-role.kubernetes.io/control-plane")].key}'
       register: taint_check
       loop: "{{ nodes_needing_taint }}"
       ignore_errors: true
@@ -39,7 +40,7 @@
       loop: "{{ nodes_needing_taint }}"
       when:
         - worker_node_count | int < 1
-        - item in taint_check.results | selectattr('rc', '==', 0) | map(attribute='item') | list
+        - item in taint_check.results | selectattr('stdout', 'search', 'node-role.kubernetes.io/control-plane') | map(attribute='item') | list
       ignore_errors: yes
 
     - name: Set fact for nodes needing control-plane NoSchedule taint when workers are present

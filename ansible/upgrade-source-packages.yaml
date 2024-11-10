@@ -1,0 +1,134 @@
+---
+# Playbook to install various tools and components
+# Mirrors sections of source-packages.sh that consume a version number
+- name: Reinstall various tools and components
+  hosts: all
+  become: true
+  gather_facts: false
+  vars:
+    arch: "amd64"
+
+  tasks:
+    # Reinstall and configure CNI plugins
+    - name: Ensure /opt/cni/bin directory exists
+      ansible.builtin.file:
+        path: /opt/cni/bin
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+    - name: Clean up existing CNI plugins in /opt/cni/bin
+      ansible.builtin.file:
+        path: /opt/cni/bin
+        state: absent
+      ignore_errors: true
+    - name: Re-create /opt/cni/bin directory
+      ansible.builtin.file:
+        path: /opt/cni/bin
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+    - name: Download CNI plugins
+      ansible.builtin.get_url:
+        url: "https://github.com/containernetworking/plugins/releases/download/v{{ cni_plugins_version }}/cni-plugins-linux-{{ arch }}-v{{ cni_plugins_version }}.tgz"
+        dest: "/tmp/cni-plugins-linux-{{ arch }}-v{{ cni_plugins_version }}.tgz"
+    - name: Extract CNI plugins
+      ansible.builtin.unarchive:
+        src: "/tmp/cni-plugins-linux-{{ arch }}-v{{ cni_plugins_version }}.tgz"
+        dest: "/opt/cni/bin"
+        remote_src: yes
+        owner: root
+        group: root
+        mode: '0755'
+    - name: Clean up CNI plugin archive
+      ansible.builtin.file:
+        path: "/tmp/cni-plugins-linux-{{ arch }}-v{{ cni_plugins_version }}.tgz"
+        state: absent
+
+    # Reinstall etcdctl and etcdutl binaries
+    - name: Download etcd binaries
+      ansible.builtin.get_url:
+        url: "https://github.com/etcd-io/etcd/releases/download/v{{ etcd_version }}/etcd-v{{ etcd_version }}-linux-{{ arch }}.tar.gz"
+        dest: "/tmp/etcd-v{{ etcd_version }}-linux-{{ arch }}.tar.gz"
+    - name: Create temporary directory for etcd files
+      ansible.builtin.file:
+        path: "/tmp/etcd"
+        state: directory
+    - name: Extract etcd binaries
+      ansible.builtin.unarchive:
+        src: "/tmp/etcd-v{{ etcd_version }}-linux-{{ arch }}.tar.gz"
+        dest: "/tmp/etcd"
+        remote_src: yes
+        extra_opts: "--strip-components=1"
+    - name: Move etcdctl to /usr/local/bin
+      ansible.builtin.command:
+        cmd: mv /tmp/etcd/etcdctl /usr/local/bin/
+      become: true
+    - name: Move etcdutl to /usr/local/bin
+      ansible.builtin.command:
+        cmd: mv /tmp/etcd/etcdutl /usr/local/bin/
+      become: true
+    - name: Ensure ownership and permissions for etcd binaries
+      ansible.builtin.file:
+        path: "/usr/local/bin/{{ item }}"
+        owner: root
+        group: root
+        mode: '0755'
+      loop:
+        - etcdctl
+        - etcdutl
+    - name: Clean up temporary etcd directory and archive
+      ansible.builtin.file:
+        path: "/tmp/etcd"
+        state: absent
+    - name: Remove etcd archive
+      ansible.builtin.file:
+        path: "/tmp/etcd-v{{ etcd_version }}-linux-{{ arch }}.tar.gz"
+        state: absent
+
+    # Reinstall Cilium CLI
+    - name: Reinstall Cilium CLI
+      ansible.builtin.shell: |
+        curl -s -L --remote-name-all "https://github.com/cilium/cilium-cli/releases/download/v{{ cilium_cli_version }}/cilium-linux-{{ arch }}.tar.gz{,.sha256sum}"
+        sha256sum --check cilium-linux-{{ arch }}.tar.gz.sha256sum
+        tar -xzf cilium-linux-{{ arch }}.tar.gz -C /usr/local/bin
+        rm -f cilium-linux-{{ arch }}.tar.gz*
+
+    # Reinstall Hubble CLI
+    - name: Reinstall Hubble CLI
+      ansible.builtin.shell: |
+        curl -s -L --remote-name-all "https://github.com/cilium/hubble/releases/download/v{{ hubble_cli_version }}/hubble-linux-{{ arch }}.tar.gz{,.sha256sum}"
+        sha256sum --check hubble-linux-{{ arch }}.tar.gz.sha256sum
+        tar -xzf hubble-linux-{{ arch }}.tar.gz -C /usr/local/bin
+        rm -f hubble-linux-{{ arch }}.tar.gz*
+
+    # Reinstall Vitess components if specified
+    - name: Reinstall vtctldclient and vtexplain if Vitess specified
+      when:
+        - vitess_download_filename | length > 0
+        - vitess_version | length > 0
+      block:
+        - name: Download Vitess tarball
+          ansible.builtin.get_url:
+            url: "https://github.com/vitessio/vitess/releases/download/v{{ vitess_version }}/{{ vitess_download_filename }}"
+            dest: "/tmp/{{ vitess_download_filename }}"
+        - name: Extract vtctldclient and vtexplain binaries
+          ansible.builtin.unarchive:
+            src: "/tmp/{{ vitess_download_filename }}"
+            dest: "/usr/local/bin"
+            remote_src: yes
+            extra_opts: "--strip-components=2 --wildcards '{{ vitess_download_filename | regex_replace('.tar.gz$', '') }}/bin/vtctldclient' '{{ vitess_download_filename | regex_replace('.tar.gz$', '') }}/bin/vtexplain'"
+        - name: Extract Vitess port-forwarding script
+          ansible.builtin.unarchive:
+            src: "/tmp/{{ vitess_download_filename }}"
+            dest: "{{ cluster_config.ssh.ssh_home }}"
+            remote_src: yes
+            extra_opts: "--strip-components=3 --wildcards '{{ vitess_download_filename | regex_replace('.tar.gz$', '') }}/examples/operator/pf.sh'"
+        - name: Rename port-forwarding script
+          ansible.builtin.command:
+            cmd: "mv {{ cluster_config.ssh.ssh_home }}/pf.sh {{ cluster_config.ssh.ssh_home }}/vitess-port-forward.sh"
+        - name: Clean up Vitess tarball
+          ansible.builtin.file:
+            path: "/tmp/{{ vitess_download_filename }}"
+            state: absent

@@ -1,7 +1,7 @@
 ---
-apiVersion: kubeadm.k8s.io/v1beta3
+apiVersion: kubeadm.k8s.io/v1beta4
 kind: ClusterConfiguration
-kubernetesVersion: v{{ kubernetes_version }}
+kubernetesVersion: v{{ kubernetes_medium_version }}
 clusterName: {{ cluster_config.cluster_name }}
 controlPlaneEndpoint: "{{ cluster_config.networking.kube_vip.vip_hostname }}:6443"
 apiServer:
@@ -22,8 +22,12 @@ networking:
 
 controllerManager:
   extraArgs:
-    node-cidr-mask-size-ipv4: "24"
-    {% if cluster_config.networking.ipv6.enabled and cluster_config.networking.ipv6.dual_stack %}node-cidr-mask-size-ipv6: "96" # each node will be assigned a /96 from within the IPv6 podSubnet.{% endif %}
+    - name: node-cidr-mask-size-ipv4
+      value: "24"
+{% if cluster_config.networking.ipv6.enabled and cluster_config.networking.ipv6.dual_stack %}
+    - name: node-cidr-mask-size-ipv6
+      value: "96"
+{% endif %}
 
 {% if groups['etcd'] | default([]) | length > 0 %}
 etcd:

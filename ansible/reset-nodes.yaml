@@ -40,6 +40,7 @@
         - /etc/cni/net.d/.kubernetes-cni-keep
         - /opt/local-path-provisioner
         - /var/lib/rook
+        - /root/.bootstrap
 
     - name: Find external storage disks to Zap
       # Zap all vd.* disks except for vda, which is the OS disk. All virtio disks start with vd.
