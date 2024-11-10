@@ -1,15 +1,15 @@
 - name: Conditionally taint control plane nodes depending on if worker nodes will be added
-  hosts: kube_api_servers
+  hosts: apiserver
   gather_facts: false
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
   tags:
     - conditionally_taint_control_plane_nodes
   tasks:
-    - name: Map IP addresses to hostnames for kube_api_servers
+    - name: Map IP addresses to hostnames for apiservers
       set_fact:
         kube_api_server_names: "{{ kube_api_server_names | default([]) + [item] }}"
-      loop: "{{ groups['kube_api_servers'] }}"
+      loop: "{{ groups['apiserver'] }}"
 
     - name: Set the count of worker nodes
       set_fact:

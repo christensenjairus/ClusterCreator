@@ -1,5 +1,5 @@
 ---
-- name: Reset Kubernetes Cluster
+- name: Reset Node(s)
   hosts: all
   become: true
   vars:

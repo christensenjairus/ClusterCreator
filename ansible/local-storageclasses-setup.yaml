@@ -1,6 +1,6 @@
 ---
 - name: Deploy Local StorageClasses
-  hosts: kube_api_servers[0]
+  hosts: apiserver[0]
   gather_facts: false
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
@@ -39,7 +39,7 @@
         label: "{{ item.metadata.name }}"
 
 - name: Set Default StorageClass
-  hosts: kube_api_servers[0]
+  hosts: apiserver[0]
   gather_facts: false
   vars:
     default_storage_class_name: "local-path"

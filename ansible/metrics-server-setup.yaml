@@ -1,6 +1,6 @@
 ---
 - name: Apply metrics-server manifest and patch deployment
-  hosts: kube_api_servers[0]
+  hosts: apiserver[0]
   gather_facts: no
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
@@ -8,7 +8,7 @@
 
     - name: Calculate the count of non-API/ETCD servers
       set_fact:
-        non_api_etcd_server_count: "{{ groups['all'] | length - (groups['kube_api_servers'] | default([]) | length + groups['kube_etcd_servers'] | default([]) | length) }}"
+        non_api_etcd_server_count: "{{ groups['all'] | length - (groups['apiserver'] | default([]) | length + groups['etcd'] | default([]) | length) }}"
 
     - name: Determine if needing HA based on non-API/ETCD server count
       set_fact:

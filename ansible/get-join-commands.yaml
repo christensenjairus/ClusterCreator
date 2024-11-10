@@ -1,6 +1,6 @@
 ---
 - name: Generate join commands for new nodes
-  hosts: kube_api_servers
+  hosts: apiserver
   gather_facts: false
   any_errors_fatal: true
   vars:
@@ -8,7 +8,7 @@
     control_plane_host: null
 
   tasks:
-    # finding a working control plane node is necessary because we can't use kube_api_servers[0] because it could be a new node.
+    # finding a working control plane node is necessary because we can't use apiserver[0] because it could be a new node.
     - name: Find a ready control-plane node for generating new join commands
       ansible.builtin.shell:
         cmd: >
@@ -18,7 +18,7 @@
       changed_when: false
       no_log: true
       failed_when: false
-      loop: "{{ groups['kube_api_servers'] }}"
+      loop: "{{ groups['apiserver'] }}"
       when: control_plane_host is none
 
     - name: Set control plane host

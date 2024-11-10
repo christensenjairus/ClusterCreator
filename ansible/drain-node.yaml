@@ -1,6 +1,6 @@
 ---
 - name: Manage node draining and conditional untainting of control plane
-  hosts: kube_api_servers
+  hosts: apiserver
   gather_facts: no
   vars:
     etcd_namespace: "kube-system"
@@ -76,7 +76,7 @@
       failed_when: "'false' in etcd_health.stdout"
       when:
         - is_an_apiserver
-        - groups['kube_etcd_servers'] | length < 1
+        - groups['etcd'] | length < 1
       ignore_errors: true
 
     - name: Get etcd member list (if a stacked etcd server)
@@ -89,7 +89,7 @@
       delegate_to: "{{ hostvars[active_api_server_name]['ansible_host'] }}"
       when:
         - is_an_apiserver
-        - groups['kube_etcd_servers'] | length < 1
+        - groups['etcd'] | length < 1
       run_once: true
 
     - name: Remove specific etcd node (if a stacked etcd server)
@@ -100,12 +100,13 @@
       run_once: true
       when:
         - is_an_apiserver
-        - groups['kube_etcd_servers'] | length < 1
+        - groups['etcd'] | length < 1
         - etcd_id_to_delete.stdout != ""
 
     - name: Untaint all API server nodes if last worker is being removed
-      command: kubectl taint nodes {{ hostvars[item].hostname }} node-role.kubernetes.io/control-plane:NoSchedule-
-      loop: "{{ groups['kube_api_servers'] }}"
+      command: kubectl taint nodes {{ item }} node-role.kubernetes.io/control-plane:NoSchedule-
+      loop: "{{ groups['apiserver'] }}"
+      delegate_to: "{{ hostvars[active_api_server_name].ansible_host }}"
       when: is_last_worker
       ignore_errors: true
       run_once: true
@@ -134,11 +135,4 @@
         xargs -r -I {} kubectl delete volumeattachment {}
       register: volumeattachments
       delegate_to: "{{ hostvars[active_api_server_name].ansible_host }}"
-      run_once: true
-
-    - name: Delete the node from the cluster (if requested)
-      command: kubectl delete node {{ node_name }}
-      delegate_to: "{{ hostvars[active_api_server_name].ansible_host }}"
-      when:
-        - delete_node | bool
       run_once: true
