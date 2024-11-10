@@ -15,16 +15,6 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
-# Required Variables
-required_vars=(
-  "VM_USERNAME"
-  "NON_PASSWORD_PROTECTED_SSH_KEY"
-  "KUBERNETES_MEDIUM_VERSION"
-  "CLUSTER_NAME"
-)
-check_required_vars "${required_vars[@]}"
-print_env_vars "${required_vars[@]}"
-
 # Cleanup
 cleanup_files=(
   "tmp/${CLUSTER_NAME}/worker_join_command.sh"
@@ -33,25 +23,24 @@ cleanup_files=(
 set -e
 trap 'echo "An error occurred. Cleaning up..."; cleanup_files "${cleanup_files[@]}"' ERR
 
-cd "$REPO_PATH/ansible"
-
 echo -e "${GREEN}Resetting Kubernetes from all nodes from cluster: $CLUSTER_NAME.${ENDCOLOR}"
 
 # --------------------------- Script Start ---------------------------
 
 # Prompt for confirmation
 echo -e "${YELLOW}Warning: This will destroy your current cluster.${ENDCOLOR}"
-read -p "Are you sure you want to proceed? (y/N): " confirm
+read -r -p "Are you sure you want to proceed? (y/N): " confirm
 if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
   echo "Operation canceled."
   exit 1
 fi
 
-ansible-playbook -u "$VM_USERNAME" generate-hosts-txt.yaml -e "cluster_name=${CLUSTER_NAME}"
-
-ansible-playbook -i "tmp/${CLUSTER_NAME}/ansible-hosts.txt" -u "$VM_USERNAME" reset-playbook.yaml \
-  --private-key "$HOME/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}" \
-  -e "cluster_name=${CLUSTER_NAME}"
+playbooks=(
+  "generate-hosts-txt.yaml"
+  "trust-hosts.yaml"
+  "reset-nodes.yaml"
+)
+run_playbooks "${playbooks[@]}"
 
 # ---------------------------- Script End ----------------------------
 

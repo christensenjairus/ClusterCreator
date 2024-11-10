@@ -20,12 +20,12 @@ variable "clusters" {
     })                                                                         
     networking                       : object({                                
       use_pve_firewall               : optional(bool, false)                   # Optional. Whether or not to create and enable firewall rules in proxmox to harden your cluster
+      use_unifi                      : optional(bool, false)                   # Optional. Whether or not to create a vlan in Unifi.
       management_ranges_ipv4         : optional(string, "")                    # Optional. Proxmox list of the IPs, ranges, or cidrs that you want to be able to reach the K8s api and ssh into the hosts. Only used if use_pve_firewall is true. Use a dash for ranges and comma separation
       management_ranges_ipv6         : optional(string, "")                    # Optional. Proxmox list of the IPs, ranges, or cidrs that you want to be able to reach the K8s api and ssh into the hosts. Only used if use_pve_firewall is true. Use a dash for ranges and comma separation
       bridge                         : optional(string, "vmbr0")               # Optional. Name of the proxmox bridge to use for VM's network interface
       dns_search_domain              : optional(string, "lan")                 # Optional. Search domain for DNS resolution
       assign_vlan                    : optional(bool, false)                   # Optional. Whether or not to assign a vlan to the network interfaces of the VMs.
-      create_vlan                    : optional(bool, false)                   # Optional. Whether or not to create a vlan in Unifi.
       vlan_id                        : optional(number, 100)                   # Optional. Vlan id to use for the cluster.
       ipv4                           : object({                                
         subnet_prefix                : string                                  # Required. First three octets of the host IPv4 network's subnet (assuming its a /24)
@@ -49,18 +49,9 @@ variable "clusters" {
         vip                          : string                                  # Required. IP address of the highly available kubernetes control plane.
         vip_hostname                 : string                                  # Required. Hostname to use when querying the api server's vip load balancer (kube-vip)
         use_ipv6                     : optional(bool, false)                   # Optional. Whether or not to use an IPv6 vip. You must also set the VIP to an IPv6 address. This can be true without enabling dual_stack.
-      })                                                                       
-      cilium                         : object({                                
-        cilium_version               : optional(string, "1.16.2")              # Optional. Release version for cilium
-      })                                                                       
-    })                                                                         
-    local_path_provisioner           : object({                                
-      local_path_provisioner_version : optional(string, "0.0.30")              # Optional. Version for Rancher's local path provisioner
-    })                                                                         
-    metrics_server                   : object({                                
-      metrics_server_version         : optional(string, "0.7.2")               # Optional. Release version for metrics-server
-    })                                                                         
-    node_classes                     : map(object({                            
+      })
+    })
+    node_classes                     : map(object({
       count       : number                                                     # Required. Number of VMs to create for this node class.
       pve_nodes   : optional(list(string),["Citadel","Acropolis","Parthenon"]) # Optional. Nodes that this class is allowed to run on. They will be cycled through and will repeat if count > length(pve_nodes).
       machine     : optional(string, "q35")                                    # Optional. Default to "q35". Use i400fx for partial gpu pass-through.
@@ -97,11 +88,11 @@ variable "clusters" {
         ssh_home               = "/home/line6"
       }
       networking = {
+        use_unifi              = true
         management_ranges_ipv4 = "10.0.0.1-10.0.0.3,10.0.60.2,10.0.50.5,10.0.50.6"
         management_ranges_ipv6 = ""
         vlan_id                = 100
         assign_vlan            = true
-        create_vlan            = true
         ipv4 = {
           subnet_prefix        = "10.0.1"
         }
@@ -110,10 +101,7 @@ variable "clusters" {
           vip                  = "10.0.1.100"
           vip_hostname         = "alpha-api-server"
         }
-        cilium = {}
       }
-      local_path_provisioner = {}
-      metrics_server = {}
       node_classes = {
         apiserver = {
           count      = 1
@@ -139,11 +127,12 @@ variable "clusters" {
         ssh_home               = "/home/line6"
       }
       networking = {
+        use_pve_firewall       = false # currently broken
+        use_unifi              = true
         management_ranges_ipv4 = "10.0.0.1-10.0.0.3,10.0.60.2,10.0.50.5,10.0.50.6"
         management_ranges_ipv6 = ""
         vlan_id                = 200
         assign_vlan            = true
-        create_vlan            = true
         ipv4 = {
           subnet_prefix        = "10.0.2"
         }
@@ -152,15 +141,12 @@ variable "clusters" {
           vip                  = "10.0.2.100"
           vip_hostname         = "beta-api-server"
         }
-        cilium = {}
       }
-      local_path_provisioner = {}
-      metrics_server = {}
       node_classes = {
         apiserver = {
-          count      = 1
-          cores      = 4
-          memory     = 4096
+          count      = 3
+          cores      = 2
+          memory     = 2048
           disks      = [
             { datastore = "local-btrfs", size = 20 }
           ]
@@ -169,9 +155,16 @@ variable "clusters" {
             "nodeclass=apiserver"
           ]
         }
+        etcd = {
+          count     = 3
+          disks     = [
+            { datastore = "local-btrfs", size = 20 }
+          ]
+          start_ip = 120
+        }
         general = {
-          count      = 2
-          cores      = 8
+          count      = 3
+          cores      = 4
           memory     = 4096
           disks      = [
             { datastore = "local-btrfs", size = 20 }
@@ -193,11 +186,11 @@ variable "clusters" {
         ssh_home               = "/home/line6"
       }
       networking = {
+        use_unifi              = true
         management_ranges_ipv4 = "10.0.0.1-10.0.0.3,10.0.60.2,10.0.50.5,10.0.50.6"
         management_ranges_ipv6 = ""
         vlan_id                = 300
         assign_vlan            = true
-        create_vlan            = true
         ipv4 = {
           subnet_prefix        = "10.0.3"
         }
@@ -206,10 +199,7 @@ variable "clusters" {
           vip                  = "10.0.3.100"
           vip_hostname         = "gamma-api-server"
         }
-        cilium = {}
       }
-      local_path_provisioner = {}
-      metrics_server = {}
       node_classes = {
         apiserver = {
           count     = 3

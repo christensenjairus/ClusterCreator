@@ -28,10 +28,6 @@ done
 
 # Required Variables
 required_vars=(
-  "VM_USERNAME"
-  "NON_PASSWORD_PROTECTED_SSH_KEY"
-  "KUBERNETES_MEDIUM_VERSION"
-  "CLUSTER_NAME"
   "TARGETED_NODE"
 )
 check_required_vars "${required_vars[@]}"
@@ -45,18 +41,15 @@ cleanup_files=(
 set -e
 trap 'echo "An error occurred. Cleaning up..."; cleanup_files "${cleanup_files[@]}"' ERR
 
-cd "$REPO_PATH/ansible"
-
 echo -e "${GREEN}Resetting Kubernetes on ${TARGETED_NODE} from cluster: $CLUSTER_NAME.${ENDCOLOR}"
 
 # --------------------------- Script Start ---------------------------
 
-ansible-playbook -u "$VM_USERNAME" generate-hosts-txt.yaml -e "cluster_name=${CLUSTER_NAME}"
-
-ansible-playbook -i "tmp/${CLUSTER_NAME}/ansible-hosts.txt" -u "$VM_USERNAME" reset-playbook.yaml \
-  --private-key "$HOME/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}" \
-  -e "cluster_name=${CLUSTER_NAME}" \
-  --limit="${TARGETED_NODE}"
+playbooks=(
+  "trust-hosts.yaml"
+  "reset-nodes.yaml"
+)
+run_playbooks "--limit=${TARGETED_NODE}" "${playbooks[@]}"
 
 # ---------------------------- Script End ----------------------------
 

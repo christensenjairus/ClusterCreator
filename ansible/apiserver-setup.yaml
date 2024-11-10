@@ -1,4 +1,19 @@
 ---
+- name: Check for existing bootstrap marker file on all apiserver nodes
+  hosts: apiserver
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Check if bootstrap marker file exists
+      ansible.builtin.stat:
+        path: /root/.bootstrap
+      register: bootstrap_marker_check
+
+    - name: Fail if bootstrap marker file exists on any node
+      ansible.builtin.fail:
+        msg: "This cluster has already been bootstrapped. If this is incorrect, remove /root/.bootstrap from {{ inventory_hostname }} and retry."
+      when: bootstrap_marker_check.stat.exists
+
 - name: Generate and deploy kubeadm config file
   hosts: apiserver[0]
   gather_facts: false
@@ -93,16 +108,16 @@
           sed -i 's#path: /etc/kubernetes/admin.conf#path: /etc/kubernetes/super-admin.conf#' /etc/kubernetes/manifests/kube-vip.yaml
       become: true
       when: not kube_config_exists.stat.exists and 
-        ((kubernetes_version.split('.')[0] | int == 1 and kubernetes_version.split('.')[1] | int >= 29) or
-        (kubernetes_version.split('.')[0] | int > 1))
+        ((kubernetes_medium_version.split('.')[0] | int == 1 and kubernetes_medium_version.split('.')[1] | int >= 29) or
+        (kubernetes_medium_version.split('.')[0] | int > 1))
       tags:
         - kubeadm_init
     - name: Pause for 30s to give kube-vip pod time to restart (only on 1.29+)
       ansible.builtin.pause:
         seconds: 30
       when: not kube_config_exists.stat.exists and
-        ((kubernetes_version.split('.')[0] | int == 1 and kubernetes_version.split('.')[1] | int >= 29) or
-        (kubernetes_version.split('.')[0] | int > 1))
+        ((kubernetes_medium_version.split('.')[0] | int == 1 and kubernetes_medium_version.split('.')[1] | int >= 29) or
+        (kubernetes_medium_version.split('.')[0] | int > 1))
       tags:
         - kubeadm_init
 
@@ -165,15 +180,27 @@
           sed -i 's#path: /etc/kubernetes/super-admin.conf#path: /etc/kubernetes/admin.conf#' /etc/kubernetes/manifests/kube-vip.yaml
       become: true
       when: not kube_config_exists.stat.exists and 
-        ((kubernetes_version.split('.')[0] | int == 1 and kubernetes_version.split('.')[1] | int >= 29) or
-        (kubernetes_version.split('.')[0] | int > 1))
+        ((kubernetes_medium_version.split('.')[0] | int == 1 and kubernetes_medium_version.split('.')[1] | int >= 29) or
+        (kubernetes_medium_version.split('.')[0] | int > 1))
       tags:
         - kubeadm_init
     - name: Pause for 30s to give kube-vip pod time to restart (only on 1.29+)
       ansible.builtin.pause:
         seconds: 30
       when: not kube_config_exists.stat.exists and
-        ((kubernetes_version.split('.')[0] | int == 1 and kubernetes_version.split('.')[1] | int >= 29) or
-        (kubernetes_version.split('.')[0] | int > 1))
+        ((kubernetes_medium_version.split('.')[0] | int == 1 and kubernetes_medium_version.split('.')[1] | int >= 29) or
+        (kubernetes_medium_version.split('.')[0] | int > 1))
+      tags:
+        - kubeadm_init
+
+- name: Create a bootstrap file on all apiserver nodes
+  hosts: apiserver
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Create a bootstrap marker file
+      ansible.builtin.file:
+        path: /root/.bootstrap
+        state: touch
       tags:
         - kubeadm_init

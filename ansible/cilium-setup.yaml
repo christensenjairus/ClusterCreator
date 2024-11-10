@@ -42,7 +42,7 @@
           helm upgrade --install cilium cilium/cilium
           --namespace kube-system
           --values /tmp/cilium.yaml
-          --version v{{ cluster_config.networking.cilium.cilium_version }}
+          --version v{{ cilium_version }}
       args:
         executable: /bin/bash
 

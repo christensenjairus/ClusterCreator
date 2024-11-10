@@ -1,3 +1,0 @@
-- import_playbook: trust-hosts.yaml
-- import_playbook: ping-nodes.yaml
-- import_playbook: reset-nodes.yaml

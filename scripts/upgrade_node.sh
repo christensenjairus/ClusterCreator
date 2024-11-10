@@ -3,7 +3,8 @@
 usage() {
   echo "Usage: ccr upgrade-node <hostname>"
   echo ""
-  echo "Upgrades the kubernetes packages to the version specified in your environment settings. It is recommended to drain the node before updating it to minimize interruptions to your workloads."
+  echo "Upgrades the kubernetes & etcd packages to the version specified in your environment settings."
+  echo "It is recommended to drain the node before updating it to minimize interruptions to your workloads."
 }
 
 TARGETED_NODE=""
@@ -28,34 +29,22 @@ done
 
 # Required Variables
 required_vars=(
-  "VM_USERNAME"
-  "NON_PASSWORD_PROTECTED_SSH_KEY"
-  "KUBERNETES_LONG_VERSION"
-  "KUBERNETES_MEDIUM_VERSION"
-  "KUBERNETES_SHORT_VERSION"
-  "HELM_VERSION"
-  "CLUSTER_NAME"
   "TARGETED_NODE"
 )
 check_required_vars "${required_vars[@]}"
 print_env_vars "${required_vars[@]}"
 
-cd "$REPO_PATH/ansible" || exit
-
-echo -e "${GREEN}Updating node $TARGETED_NODE from cluster: $CLUSTER_NAME.${ENDCOLOR}"
+echo -e "${GREEN}Upgrading node $TARGETED_NODE from cluster: $CLUSTER_NAME.${ENDCOLOR}"
 
 # --------------------------- Script Start ---------------------------
 
-ansible-playbook -u "$VM_USERNAME" generate-hosts-txt.yaml -e "cluster_name=${CLUSTER_NAME}"
-
-ansible-playbook upgrade-node.yaml -u "$VM_USERNAME" -i "tmp/${CLUSTER_NAME}/ansible-hosts.txt" \
-   --private-key "$HOME/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}" \
-   -e "node_name=$TARGETED_NODE" \
-   -e "KUBERNETES_LONG_VERSION=$KUBERNETES_LONG_VERSION" \
-   -e "KUBERNETES_MEDIUM_VERSION=$KUBERNETES_MEDIUM_VERSION" \
-   -e "KUBERNETES_SHORT_VERSION=$KUBERNETES_SHORT_VERSION" \
-   -e "HELM_VERSION=$HELM_VERSION" \
-   --limit="${TARGETED_NODE}"
+playbooks=(
+  "trust-hosts.yaml"
+  "upgrade-source-packages.yaml"
+  "upgrade-k8s-packages.yaml"
+  "upgrade-apt.yaml"
+)
+run_playbooks "--limit=${TARGETED_NODE}" "${playbooks[@]}"
 
 # ---------------------------- Script End ----------------------------
 

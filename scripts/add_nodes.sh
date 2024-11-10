@@ -15,16 +15,6 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
-# Required Variables
-required_vars=(
-  "VM_USERNAME"
-  "NON_PASSWORD_PROTECTED_SSH_KEY"
-  "KUBERNETES_MEDIUM_VERSION"
-  "CLUSTER_NAME"
-)
-check_required_vars "${required_vars[@]}"
-print_env_vars "${required_vars[@]}"
-
 # Cleanup
 cleanup_files=(
   "tmp/${CLUSTER_NAME}/worker_join_command.sh"
@@ -33,21 +23,24 @@ cleanup_files=(
 set -e
 trap 'echo "An error occurred. Cleaning up..."; cleanup_files "${cleanup_files[@]}"' ERR
 
-cd "$REPO_PATH/ansible"
-
 echo -e "${GREEN}Adding nodes to cluster: $CLUSTER_NAME.${ENDCOLOR}"
 
 # --------------------------- Script Start ---------------------------
 
-ansible-galaxy collection install kubernetes.core
-
-ansible-playbook -u "$VM_USERNAME" generate-hosts-txt.yaml -e "cluster_name=${CLUSTER_NAME}"
-
-ansible-playbook -i "tmp/${CLUSTER_NAME}/ansible-hosts.txt" -u "$VM_USERNAME" add-nodes-playbook.yaml \
-  --private-key "$HOME/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}" \
-  -e "ssh_key_file=$HOME/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}" \
-  -e "ssh_hosts_file=$HOME/.ssh/known_hosts" \
-  -e "kubernetes_version=${KUBERNETES_MEDIUM_VERSION}"
+playbooks=(
+  "generate-hosts-txt.yaml"
+  "trust-hosts.yaml"
+  "prepare-nodes.yaml"
+  "kubevip-setup.yaml"
+  "get-join-commands.yaml"
+  "join-apiserver-nodes.yaml"
+  "join-worker-nodes.yaml"
+  "move-kubeconfig-remote.yaml"
+  "conditionally-taint-control-plane.yaml"
+  "label-and-taint-nodes.yaml"
+  "ending-output.yaml"
+)
+run_playbooks "${playbooks[@]}"
 
 # ---------------------------- Script End ----------------------------
 

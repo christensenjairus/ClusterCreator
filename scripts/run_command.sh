@@ -31,9 +31,6 @@ done
 
 # Required Variables
 required_vars=(
-  "VM_USERNAME"
-  "NON_PASSWORD_PROTECTED_SSH_KEY"
-  "CLUSTER_NAME"
   "GROUP_NAME"
   "COMMAND"
   "PLAYBOOK_FILE"
@@ -48,13 +45,9 @@ cleanup_files=(
 set -e
 trap 'echo "An error occurred. Cleaning up..."; cleanup_files "${cleanup_files[@]}"' ERR
 
-cd "$REPO_PATH/ansible"
-
 echo -e "${GREEN}Running '$COMMAND' on group '$GROUP_NAME' from cluster: $CLUSTER_NAME.${ENDCOLOR}"
 
 # --------------------------- Script Start ---------------------------
-
-ansible-playbook -u "$VM_USERNAME" generate-hosts-txt.yaml -e "cluster_name=${CLUSTER_NAME}"
 
 # Create a temporary Ansible playbook
 cat << EOF > "$PLAYBOOK_FILE"
@@ -72,8 +65,11 @@ cat << EOF > "$PLAYBOOK_FILE"
       when: cmd_output.stdout_lines | length > 0
 EOF
 
-ansible-playbook "$PLAYBOOK_FILE" -u "$VM_USERNAME" -i "tmp/${CLUSTER_NAME}/ansible-hosts.txt" \
-  --private-key "$HOME/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}"
+playbooks=(
+  "generate-hosts-txt.yaml"
+  "$PLAYBOOK_FILE"
+)
+run_playbooks "${playbooks[@]}"
 
 # ---------------------------- Script End ----------------------------
 

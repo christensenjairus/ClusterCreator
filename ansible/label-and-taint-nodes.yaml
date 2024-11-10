@@ -34,6 +34,7 @@
         - labels
       loop_control:
         label: "{{ item.0.hostname }}:{{ item.1 }}"
+      when: item.0.hostname not in groups['etcd']  # Skip if hostname is in etcd group
       ignore_errors: yes  # Handles cases where nodes aren't yet joined
       environment:
         KUBECONFIG: "{{ lookup('env', 'HOME') }}/.kube/{{ cluster_config.kubeconfig_file_name }}"
@@ -46,7 +47,9 @@
         - taints
       loop_control:
         label: "{{ item.0.hostname }}:{{ item.1 }}"
-      when: item.1 | length > 0  # Skip if taint is an empty string
+      when:
+        - item.1 | length > 0  # Skip if taint is an empty string
+        - item.0.hostname not in groups['etcd']  # Skip if hostname is in etcd group
       ignore_errors: yes  # Handles cases where nodes aren't yet joined
       environment:
         KUBECONFIG: "{{ lookup('env', 'HOME') }}/.kube/{{ cluster_config.kubeconfig_file_name }}"

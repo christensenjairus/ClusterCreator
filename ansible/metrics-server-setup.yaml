@@ -17,13 +17,13 @@
     - name: Apply standard metrics-server manifest
       kubernetes.core.k8s:
         state: present
-        src: "https://github.com/kubernetes-sigs/metrics-server/releases/download/v{{ cluster_config.metrics_server.metrics_server_version }}/components.yaml"
+        src: "https://github.com/kubernetes-sigs/metrics-server/releases/download/v{{ metrics_server_version }}/components.yaml"
       when: metrics_server_replica_count == "1"
 
     - name: Apply HA metrics-server manifest
       kubernetes.core.k8s:
         state: present
-        src: "https://github.com/kubernetes-sigs/metrics-server/releases/download/v{{ cluster_config.metrics_server.metrics_server_version }}/high-availability-1.21+.yaml"
+        src: "https://github.com/kubernetes-sigs/metrics-server/releases/download/v{{ metrics_server_version }}/high-availability-1.21+.yaml"
       when: metrics_server_replica_count == "2"
 
     - name: Scale down metrics-server deployment to zero replicas

@@ -449,20 +449,37 @@
   tags:
     - etcd_performance_tuning
   tasks:
+
     - name: Set ionice for etcd process
-      shell: "ionice -c2 -n0 -p $(pgrep etcd)"
-    - name: Disable tc so it can be applied cleanly
-      shell: "tc qdisc del dev eth0 root || true"
-    - name: Add traffic control root qdisc for eth0
-      shell: "tc qdisc add dev eth0 root handle 1: prio bands 3"
+      ansible.builtin.shell: "ionice -c2 -n0 -p $(pgrep etcd) || true"
+
+    - name: Ensure ionice settings persist on reboot for etcd
+      cron:
+        name: "Set ionice for etcd process"
+        user: root
+        special_time: "reboot"
+        # needs to sleep until the etcd process is running so that pgrep works
+        job: sleep 60 && ionice -c2 -n0 -p $(pgrep etcd)
+
+    - name: Disable existing traffic control settings on eth0
+      ansible.builtin.shell: "tc qdisc del dev eth0 root || true"
+    - name: Add root qdisc for traffic control on eth0
+      ansible.builtin.shell: "tc qdisc add dev eth0 root handle 1: prio bands 3"
     - name: Add traffic control filter for etcd port 2380 (source)
-      shell: "tc filter add dev eth0 parent 1: protocol ip prio 1 u32 match ip sport 2380 0xffff flowid 1:1"
+      ansible.builtin.shell: "tc filter add dev eth0 parent 1: protocol ip prio 1 u32 match ip sport 2380 0xffff flowid 1:1"
     - name: Add traffic control filter for etcd port 2380 (destination)
-      shell: "tc filter add dev eth0 parent 1: protocol ip prio 1 u32 match ip dport 2380 0xffff flowid 1:1"
+      ansible.builtin.shell: "tc filter add dev eth0 parent 1: protocol ip prio 1 u32 match ip dport 2380 0xffff flowid 1:1"
     - name: Add traffic control filter for etcd port 2379 (source)
-      shell: "tc filter add dev eth0 parent 1: protocol ip prio 2 u32 match ip sport 2379 0xffff flowid 1:1"
+      ansible.builtin.shell: "tc filter add dev eth0 parent 1: protocol ip prio 2 u32 match ip sport 2379 0xffff flowid 1:1"
     - name: Add traffic control filter for etcd port 2379 (destination)
-      shell: "tc filter add dev eth0 parent 1: protocol ip prio 2 u32 match ip dport 2379 0xffff flowid 1:1"
+      ansible.builtin.shell: "tc filter add dev eth0 parent 1: protocol ip prio 2 u32 match ip dport 2379 0xffff flowid 1:1"
+
+    - name: Ensure tc settings persist on reboot for etcd
+      cron:
+        name: "Apply tc settings for etcd on eth0"
+        user: root
+        special_time: "reboot"
+        job: "tc qdisc del dev eth0 root && tc qdisc add dev eth0 root handle 1: prio bands 3 && tc filter add dev eth0 parent 1: protocol ip prio 1 u32 match ip sport 2380 0xffff flowid 1:1 && tc filter add dev eth0 parent 1: protocol ip prio 1 u32 match ip dport 2380 0xffff flowid 1:1 && tc filter add dev eth0 parent 1: protocol ip prio 2 u32 match ip sport 2379 0xffff flowid 1:1 && tc filter add dev eth0 parent 1: protocol ip prio 2 u32 match ip dport 2379 0xffff flowid 1:1"
 
 - name: Create an alias for 'etcd-health'
   hosts: etcd
