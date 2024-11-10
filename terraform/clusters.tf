@@ -7,554 +7,260 @@ variable "cluster_name" {
 variable "clusters" {
   description = "Configuration details for each cluster."
   type = map(object({
-    cluster_name                     : string # name to be used in kubeconfig, cluster mesh, network name, k8s_vm_template pool. Must match the cluster name key.
-    cluster_id                       : number # acts as the vm_id prefix. Also used for cluster mesh. This plus the vm start ip should always be over 100 because of how proxmox likes its vmids. But you can use 0 if the vm start id fits these requirements.
-    kubeconfig_file_name             : string # name of the local kubeconfig file to be created. Assumed this will be in $HOME/.kube/
-    start_on_proxmox_boot            : bool   # whether or not to start the cluster's vms on proxmox boot
-    max_pods_per_node                : number # max pods per node. This should be a function of the quantity of IPs in you pod_cidr and number of nodes.
-    ssh                              : object({
-      ssh_user                       : string # username for the remote server
-      ssh_home                       : string # path to your home directory on the remote server
-      ssh_key_type                   : string # type of key to scan and trust for remote hosts. the key of this type gets added to local ~/.ssh/known_hosts.
-    })
-    networking                       : object({
-      use_pve_firewall               : bool   # whether or not to create and enable firewall rules in proxmox to harden your cluster
-      management_ranges_ipv4         : string # proxmox list of the IPs, ranges, or cidrs that you want to be able to reach the K8s api and ssh into the hosts. Only used if use_pve_firewall is true. Use a dash for ranges and comma separation
-      management_ranges_ipv6         : string # proxmox list of the IPs, ranges, or cidrs that you want to be able to reach the K8s api and ssh into the hosts. Only used if use_pve_firewall is true. Use a dash for ranges and comma separation
-      bridge                         : string # name of the proxmox bridge to use for VM's network interface
-      dns_search_domain              : string # search domain for DNS resolution
-      assign_vlan                    : bool   # whether or not to assign a vlan to the network interfaces of the VMs.
-      create_vlan                    : bool   # whether or not to create an IPv4 vlan in Unifi.
-      vlan_name                      : string # name of the IPv4 vlan for the cluster. Must always be set, even if create_vlan is false.
-      vlan_id                        : number # vlan id for the cluster. Must always be set, even if create_vlan is false.
-      ipv4                           : object({
-        subnet_prefix                : string # first three octets of the IPv4 network's subnet (assuming its a /24)
-        pod_cidr                     : string # cidr range for pod networking internal to cluster. Shouldn't overlap with ipv4 lan network. These must differ cluster to cluster if using clustermesh.
-        svc_cidr                     : string # cidr range for service networking internal to cluster. Shouldn't overlap with ipv4 lan network.
-        dns1                         : string # primary dns server for vm hosts
-        dns2                         : string # secondary dns server for vm hosts
-      })
-      ipv6                           : object({
-        enabled                      : bool   # whether or not to enable IPv6 networking for the VMs and network in the cluster. Does not enable dual stack services, but does allow ipv6 between hosts and the internet. Disabled sets the ipv6_vlan_mode to "none".
-        dual_stack                   : bool   # whether or not to enable dual stack networking for the cluster. EXPECT COMPLICATIONS IF CHANGED AFTER INITIAL SETUP.
-        subnet_prefix                : string # first four hex sections of the IPv6 network's subnet (assuming its a /64). Used for a static network configuration.
-        pod_cidr                     : string # cidr range for pod networking internal to cluster. Should be a subsection of the ipv6 lan network. These must differ cluster to cluster if using clustermesh.
-        svc_cidr                     : string # cidr range for service networking internal to cluster. Should be a subsection of the ipv6 lan network.
-        dns1                         : string # primary dns server for vm hosts
-        dns2                         : string # secondary dns server for vm hosts
-      })
-      kube_vip                       : object({
-        kube_vip_version             : string # kube-vip version to use. needs to be their ghcr.io docker image version
-        vip_interface                : string # interface that faces the local lan. Usually eth0 for this project.
-        vip                          : string # should be IPv4 and not be in one if your load balancer ip cidr ranges
-        vip_hostname                 : string # hostname to use when querying the api server's vip load balancer (kube-vip)
-        use_ipv6                     : bool   # whether or not to use an IPv6 vip. You must also set the VIP to an IPv6 address. This can be true without enabling dual_stack.
-      })
-      cilium                         : object({
-        cilium_version               : string # release version for cilium
-      })
-    })
-    local_path_provisioner           : object({
-      local_path_provisioner_version : string # version for Rancher's local path provisioner
-    })
-    metrics_server                   : object({
-      metrics_server_version         : string # release version for metrics-server
-    })
-    node_classes    : object({
-      apiserver     : object({      # required type, must be >= 1.
-        count       : number        # usually 3 for HA, should be an odd number. Can be 1. Should not pass 10 without editing start IPs
-        pve_nodes   : list(string)  # nodes that these VMs should run on. They will be cycled through and will repeat if count > length(pve_nodes). You may input the same node name more than once.
-        machine     : string        # q35 or i400fx
-        cpu_type    : string        # type of CPU to emulate. Normally you'd want x86-64-v2-AES, but you'll need to use 'host' for PCI passthrough.
-        cores       : number        # raise when needed, should grow as cluster grows
-        sockets     : number        # on my system, the max is 2
-        memory      : number        # raise when needed, should grow as cluster grows
-        disks       : list(object({ # First disk will be used for OS. Other disks are added for other needs. Must have at least one disk here even if count is 0.
-          index     : number        # index of the disk. 0 is the first disk. 1 is the second disk. etc.
-          size      : number        # size of disk in GB.
-          datastore : string        # name of the proxmox datastore to use for this disk
-          backup    : bool          # boolean to determine if this disk will be backed up when Proxmox performs a vm backup.
-          cache_mode: string        # none (pve default), writethrough, writeback, none, directsync, or unsafe. See https://pve.proxmox.com/wiki/Performance_Tweaks#Small_Overview
-          aio_mode  : string        # io_uring (pve default), native, and threads. native can only be used with raw block devices. threads is legacy.
-        }))
-        start_ip    : number        # last octet of the ip address for the first apiserver node
-        labels      : map(string)   # labels to apply to the nodes
-        taints      : map(string)   # taints to apply to the nodes
-        devices     : list(object({ # PCI or USB Mappings to pass into the VM.
-          index     : number        # index of the device. 0 is the first device. 1 is the second device. etc. Max of 15 pci devices
-          mapping   : string        # datacenter-level pci or usb resource mapping name. You must make the mapping beforehand. https://pve.proxmox.com/wiki/QEMU/KVM_Virtual_Machines#resource_mapping
-          type      : string        # pci or usb
-          mdev      : string        # mediated device ID (optional, leave blank to not use)
-          rombar    : bool          # include the rombar with the pci device
-        }))
-      })
-      etcd          : object({      # required type, but can be 0.
-        count       : number        # use 0 for a stacked etcd architecture. Usually 3 if you want an external etcd. Should be an odd number. Should not pass 10 without editing start IPs
-        pve_nodes   : list(string)  # nodes that these VMs should run on. They will be cycled through and will repeat if count > length(pve_nodes). You may input the same node name more than once.
-        machine     : string        # q35 or i400fx
-        cpu_type    : string        # type of CPU to emulate. Normally you'd want x86-64-v2-AES, but you'll need to use 'host' for PCI passthrough.
-        cores       : number        # raise when needed, should grow as cluster grows
-        sockets     : number        # on my system, the max is 2
-        memory      : number        # raise when needed, should grow as cluster grows
-        disks       : list(object({ # First disk will be used for OS. Other disks are added for other needs. Must have at least one disk here even if count is 0.
-          index     : number        # index of the disk. 0 is the first disk. 1 is the second disk. etc.
-          size      : number        # size of disk in GB.
-          datastore : string        # name of the proxmox datastore to use for this disk
-          backup    : bool          # boolean to determine if this disk will be backed up when Proxmox performs a vm backup.
-          cache_mode: string        # none (pve default), writethrough, writeback, none, directsync, or unsafe. See https://pve.proxmox.com/wiki/Performance_Tweaks#Small_Overview
-          aio_mode  : string        # io_uring (pve default), native, and threads. native can only be used with raw block devices. threads is legacy.
-        }))
-        start_ip    : number        # last octet of the ip address for the first etcd node
-        # no node labels or taints because etcd nodes are external to the cluster itself
-        devices     : list(object({ # PCI Mappings to pass into the VM. You must migrate VMs to different nodes if count > 1. If not, only one VM will get the device.
-          index     : number        # index of the device. 0 is the first device. 1 is the second device. etc. Max of 15 pci devices
-          mapping   : string        # datacenter-level pci or usb resource mapping name. You must make the mapping beforehand. https://pve.proxmox.com/wiki/QEMU/KVM_Virtual_Machines#resource_mapping
-          type      : string        # pci or usb
-          mdev      : string        # mediated device ID (optional, leave blank to not use)
-          rombar    : bool          # include the rombar with the pci device
-        }))
-      })
-      general       : object({      # custom worker type, can be 0
-        count       : number        # Should not pass 50 without editing load balancer ip cidr and nginx ingress controller ip
-        pve_nodes   : list(string)  # nodes that these VMs should run on. They will be cycled through and will repeat if count > length(pve_nodes). You may input the same node name more than once.
-        machine     : string        # q35 or i400fx
-        cpu_type    : string        # type of CPU to emulate. Normally you'd want x86-64-v2-AES, but you'll need to use 'host' for PCI passthrough.
-        cores       : number
-        sockets     : number        # on my system, the max is 2
-        memory      : number
-        disks       : list(object({ # First disk will be used for OS. Other disks are added for other needs. Must have at least one disk here even if count is 0.
-          index     : number        # index of the disk. 0 is the first disk. 1 is the second disk. etc.
-          size      : number        # size of disk in GB.
-          datastore : string        # name of the proxmox datastore to use for this disk
-          backup    : bool          # boolean to determine if this disk will be backed up when Proxmox performs a vm backup.
-          cache_mode: string        # none (pve default), writethrough, writeback, none, directsync, or unsafe. See https://pve.proxmox.com/wiki/Performance_Tweaks#Small_Overview
-          aio_mode  : string        # io_uring (pve default), native, and threads. native can only be used with raw block devices. threads is legacy.
-        }))
-        start_ip    : number        # last octet of the ip address for the first general node.
-        labels      : map(string)   # labels to apply to the nodes
-        taints      : map(string)   # taints to apply to the nodes
-        devices     : list(object({ # PCI Mappings to pass into the VM. You must migrate VMs to different nodes if count > 1. If not, only one VM will get the device.
-          index     : number        # index of the device. 0 is the first device. 1 is the second device. etc. Max of 15 pci devices
-          mapping   : string        # datacenter-level pci or usb resource mapping name. You must make the mapping beforehand. https://pve.proxmox.com/wiki/QEMU/KVM_Virtual_Machines#resource_mapping
-          type      : string        # pci or usb
-          mdev      : string        # mediated device ID (optional, leave blank to not use)
-          rombar    : bool          # include the rombar with the pci device
-        }))
-      })
-      gpu      : object({      # custom worker type, can be 0
-        count       : number        # Should not pass 10 without editing start IPs
-        pve_nodes   : list(string)  # nodes that these VMs should run on. They will be cycled through and will repeat if count > length(pve_nodes). You may input the same node name more than once.
-        machine     : string        # q35 or i400fx
-        cpu_type    : string        # type of CPU to emulate. Normally you'd want x86-64-v2-AES, but you'll need to use 'host' for PCI passthrough.
-        cores       : number
-        sockets     : number        # on my system, the max is 2
-        memory      : number
-        disks       : list(object({ # First disk will be used for OS. Other disks are added for other needs. Must have at least one disk here even if count is 0.
-          index     : number        # index of the disk. 0 is the first disk. 1 is the second disk. etc.
-          size      : number        # size of disk in GB.
-          datastore : string        # name of the proxmox datastore to use for this disk
-          backup    : bool          # boolean to determine if this disk will be backed up when Proxmox performs a vm backup.
-          cache_mode: string        # none (pve default), writethrough, writeback, none, directsync, or unsafe. See https://pve.proxmox.com/wiki/Performance_Tweaks#Small_Overview
-          aio_mode  : string        # io_uring (pve default), native, and threads. native can only be used with raw block devices. threads is legacy.
-        }))
-        start_ip    : number        # last octet of the ip address for the first gpu node
-        labels      : map(string)   # labels to apply to the nodes
-        taints      : map(string)   # taints to apply to the nodes
-        devices     : list(object({ # PCI Mappings to pass into the VM. You must migrate VMs to different nodes if count > 1. If not, only one VM will get the device.
-          index     : number        # index of the device. 0 is the first device. 1 is the second device. etc. Max of 15 pci devices
-          mapping   : string        # datacenter-level pci or usb resource mapping name. You must make the mapping beforehand. https://pve.proxmox.com/wiki/QEMU/KVM_Virtual_Machines#resource_mapping
-          type      : string        # pci or usb
-          mdev      : string        # mediated device ID (optional, leave blank to not use)
-          rombar    : bool          # include the rombar with the pci device
-        }))
-      })
-      # Add more worker node classes here
-    })
+    cluster_name                     : string                                  # Required. Name is used in kubeconfig, cluster mesh, network name, k8s_vm_template pool. Must match the cluster name key.
+    cluster_id                       : number                                  # Required. Acts as the vm_id prefix. Also used for cluster mesh. This plus the vm start ip should always be over 100 because of how proxmox likes its vmids. But you can use 0 if the vm start id fits these requirements.
+    kubeconfig_file_name             : string                                  # Required. Name of the local kubeconfig file to be created. Assumed this will be in $HOME/.kube/
+    start_on_proxmox_boot            : optional(bool, true)                    # Optional. Whether or not to start the cluster's vms on proxmox boot
+    max_pods_per_node                : optional(number, 512)                   # Optional. Max pods per node. This should be a function of the quantity of IPs in you pod_cidr and number of nodes.
+    ssh                              : object({                                
+      ssh_user                       : string                                  # Required. username for the remote server
+      ssh_home                       : string                                  # Required. path to your home directory on the remote server
+      ssh_key_type                   : optional(string, "ssh-ed25519")         # Optional. Type of key to scan and trust for remote hosts. The key of this type gets added to local ~/.ssh/known_hosts.
+    })                                                                         
+    networking                       : object({                                
+      use_pve_firewall               : optional(bool, false)                   # Optional. Whether or not to create and enable firewall rules in proxmox to harden your cluster
+      management_ranges_ipv4         : optional(string, "")                    # Optional. Proxmox list of the IPs, ranges, or cidrs that you want to be able to reach the K8s api and ssh into the hosts. Only used if use_pve_firewall is true. Use a dash for ranges and comma separation
+      management_ranges_ipv6         : optional(string, "")                    # Optional. Proxmox list of the IPs, ranges, or cidrs that you want to be able to reach the K8s api and ssh into the hosts. Only used if use_pve_firewall is true. Use a dash for ranges and comma separation
+      bridge                         : optional(string, "vmbr0")               # Optional. Name of the proxmox bridge to use for VM's network interface
+      dns_search_domain              : optional(string, "lan")                 # Optional. Search domain for DNS resolution
+      assign_vlan                    : optional(bool, false)                   # Optional. Whether or not to assign a vlan to the network interfaces of the VMs.
+      create_vlan                    : optional(bool, false)                   # Optional. Whether or not to create a vlan in Unifi.
+      vlan_name                      : optional(string, "")                    # Optional. Name of the vlan for the cluster.
+      vlan_id                        : optional(number, 100)                   # Optional. Vlan id for the cluster.
+      ipv4                           : object({                                
+        subnet_prefix                : string                                  # Required. First three octets of the host IPv4 network's subnet (assuming its a /24)
+        pod_cidr                     : optional(string,"10.42.0.0/16")         # Optional. Cidr range for pod networking internal to cluster. Shouldn't overlap with ipv4 lan network. These must differ cluster to cluster if using clustermesh.
+        svc_cidr                     : optional(string,"10.43.0.0/16")         # Optional. Cidr range for service networking internal to cluster. Shouldn't overlap with ipv4 lan network.
+        dns1                         : optional(string, "1.1.1.1")             # Optional. Primary dns server for vm hosts
+        dns2                         : optional(string, "1.0.0.1")             # Optional. Secondary dns server for vm hosts
+      })                                                                       
+      ipv6                           : object({                                
+        enabled                      : optional(bool, false)                   # Optional. Whether or not to enable IPv6 networking for the VMs and network in the cluster.
+        dual_stack                   : optional(bool, false)                   # Optional. Whether or not to enable dual stack networking for the cluster. EXPECT COMPLICATIONS IF CHANGED AFTER INITIAL SETUP.
+        subnet_prefix                : optional(string,"[replace-me]:100")     # Optional. First four hex sections of the host IPv6 network's subnet (assuming its a /64). Used for a static network configuration.
+        pod_cidr                     : optional(string,"2001:cafe:42::/56")    # Optional. Cidr range for pod networking internal to cluster. Should be a subsection of the ipv6 lan network. These must differ cluster to cluster if using clustermesh.
+        svc_cidr                     : optional(string,"2001:cafe:43::/112")   # Optional. Cidr range for service networking internal to cluster. Should be a subsection of the ipv6 lan network.
+        dns1                         : optional(string,"2607:fa18::1")         # Optional. Primary dns server for vm hosts
+        dns2                         : optional(string,"2607:fa18::2")         # Optional. Secondary dns server for vm hosts
+      })                                                                       
+      kube_vip                       : object({                                
+        kube_vip_version             : optional(string, "0.8.4")               # Optional. Kube-vip version to use. Needs to be their ghcr.io docker image version
+        vip_interface                : optional(string, "eth0")                # Optional. Interface that faces the local lan. Usually eth0 for this project.
+        vip                          : string                                  # Required. IP address of the highly available kubernetes control plane.
+        vip_hostname                 : string                                  # Required. Hostname to use when querying the api server's vip load balancer (kube-vip)
+        use_ipv6                     : optional(bool, false)                   # Optional. Whether or not to use an IPv6 vip. You must also set the VIP to an IPv6 address. This can be true without enabling dual_stack.
+      })                                                                       
+      cilium                         : object({                                
+        cilium_version               : optional(string, "1.16.2")              # Optional. Release version for cilium
+      })                                                                       
+    })                                                                         
+    local_path_provisioner           : object({                                
+      local_path_provisioner_version : optional(string, "0.0.30")              # Optional. Version for Rancher's local path provisioner
+    })                                                                         
+    metrics_server                   : object({                                
+      metrics_server_version         : optional(string, "0.7.2")               # Optional. Release version for metrics-server
+    })                                                                         
+    node_classes                     : map(object({                            
+      count       : number                                                     # Required. Number of VMs to create for this node class.
+      pve_nodes   : optional(list(string),["Citadel","Acropolis","Parthenon"]) # Optional. Nodes that this class is allowed to run on. They will be cycled through and will repeat if count > length(pve_nodes).
+      machine     : optional(string, "q35")                                    # Optional. Default to "q35". Use i400fx for partial gpu pass-through.
+      cpu_type    : optional(string, "x86-64-v2-AES")                          # Optional. Default CPU type. Use 'host' for full gpu pass-through.
+      cores       : optional(number, 2)                                        # Optional. Number of cores to use.
+      sockets     : optional(number, 1)                                        # Optional. Number of sockets to use or emulate.
+      memory      : optional(number, 2048)                                     # Optional. Non-ballooning memory in MB.
+      disks       : list(object({                                              # Required. First disk will be used for OS. Others can be added for longhorn, ceph, etc.
+        size      : number                                                     # Required. Size of the disk in GB.
+        datastore : string                                                     # Required. The Proxmox datastore to use for this disk.
+        backup    : optional(bool, true)                                       # Optional. Backup this disk when Proxmox performs a vm backup or snapshot.
+        cache_mode: optional(string, "none")                                   # Optional. See https://pve.proxmox.com/wiki/Performance_Tweaks#Small_Overview
+        aio_mode  : optional(string, "io_uring")                               # Optional. io_uring, native, or threads. Native can only be used with raw block devices. Threads is legacy.
+      }))                                                                      
+      start_ip    : number                                                     # Required. Last octet of the ip address for the first node of the class.
+      labels      : optional(list(string), [])                                 # Optional. Kubernetes-level labels to control workload scheduling.
+      taints      : optional(list(string), [])                                 # Optional. Kubernetes-level taints to control workload scheduling.
+      devices     : optional(list(object({                                     # Optional. USB or PCI(e) devices to pass-through.
+        mapping   : optional(string, "")                                       # Optional. PVE datacenter-level pci or usb resource mapping name.
+        type      : optional(string, "pci")                                    # Optional. pci or usb.
+        mdev      : optional(string, "")                                       # Optional. The mediated device ID. Helpful for partial pci(e) pass-through.
+        rombar    : optional(bool, true)                                       # Optional. Whether to include the rombar with the pci(e) device.
+      })), [])
+    }))
   }))
   default = { # create your clusters here using the above object
     "alpha" = {
-      cluster_name                     = "alpha"
-      cluster_id                       = 1
-      kubeconfig_file_name             = "alpha.yml"
-      start_on_proxmox_boot            = false
-      max_pods_per_node                = 512
+      cluster_name             = "alpha"
+      cluster_id               = 1
+      kubeconfig_file_name     = "alpha.yml"
+      start_on_proxmox_boot    = false
       ssh = {
-        ssh_user                       = "line6"
-        ssh_home                       = "/home/line6"
-        ssh_key_type                   = "ssh-ed25519"
+        ssh_user               = "line6"
+        ssh_home               = "/home/line6"
       }
-      networking                       = {
-        management_ranges_ipv4         = "10.0.0.1-10.0.0.3,10.0.60.2,10.0.50.5,10.0.50.6"
-        management_ranges_ipv6         = ""
-        use_pve_firewall               = false
-        bridge                         = "vmbr0"
-        dns_search_domain              = "lan"
-        vlan_name                      = "ALPHA"
-        vlan_id                        = 100
-        assign_vlan                    = true
-        create_vlan                    = true
-        ipv4                           = {
-          subnet_prefix                = "10.0.1"
-          pod_cidr                     = "10.8.0.0/16"
-          svc_cidr                     = "10.9.0.0/16"
-          dns1                         = "10.0.1.3"
-          dns2                         = "10.0.1.4"
+      networking = {
+        management_ranges_ipv4 = "10.0.0.1-10.0.0.3,10.0.60.2,10.0.50.5,10.0.50.6"
+        management_ranges_ipv6 = ""
+        vlan_name              = "ALPHA"
+        vlan_id                = 100
+        assign_vlan            = true
+        create_vlan            = true
+        ipv4 = {
+          subnet_prefix        = "10.0.1"
         }
-        ipv6                           = {
-          enabled                      = false
-          dual_stack                   = false
-          subnet_prefix                = "[replace-me]:100"
-          pod_cidr                     = "[replace-me]:100:244::/80"
-          svc_cidr                     = "[replace-me]:100:96::/112"
-          dns1                         = "2607:fa18::1" # cloudflare ipv6 dns
-          dns2                         = "2607:fa18::2"
-        }
+        ipv6 = {}
         kube_vip = {
-          kube_vip_version             = "0.8.4"
-          vip                          = "10.0.1.100"
-          vip_hostname                 = "alpha-api-server"
-          vip_interface                = "eth0"
-          use_ipv6                     = false
+          vip                  = "10.0.1.100"
+          vip_hostname         = "alpha-api-server"
         }
-        cilium = {
-          cilium_version               = "1.16.2"
-        }
+        cilium = {}
       }
-      local_path_provisioner = {
-        local_path_provisioner_version = "0.0.30"
-      }
-      metrics_server = {
-        metrics_server_version         = "0.7.2"
-      }
+      local_path_provisioner = {}
+      metrics_server = {}
       node_classes = {
         apiserver = {
           count      = 1
-          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
-          machine    = "q35"
-          cpu_type   = "x86-64-v2-AES"
           cores      = 16
-          sockets    = 1
           memory     = 16384
           disks      = [
-            { index = 0, datastore = "nvmes", size = 100, backup = true, cache_mode = "none", aio_mode = "io_uring" }
+            { datastore = "local-btrfs", size = 100 }
           ]
           start_ip   = 110
-          labels = {
-            "nodeclass" = "apiserver"
-          }
-          taints  = {}
-          devices = []
-        }
-        etcd = {
-          count      = 0
-          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
-          machine    = "q35"
-          cpu_type   = "x86-64-v2-AES"
-          cores      = 2
-          sockets    = 1
-          memory     = 2048
-          disks      = [
-            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
-          ]
-          start_ip   = 120
-          devices    = []
-        }
-        general = {
-          count      = 0
-          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
-          machine    = "q35"
-          cpu_type   = "x86-64-v2-AES"
-          cores      = 8
-          sockets    = 1
-          memory     = 4096
-          disks      = [
-            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
-          ]
-          start_ip   = 130
-          labels = {
-            "nodeclass" = "general"
-          }
-          taints  = {}
-          devices = []
-        }
-        gpu = {
-          count      = 0
-          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
-          machine    = "q35"
-          cpu_type   = "host"
-          cores      = 2
-          sockets    = 1
-          memory     = 2048
-          disks      = [
-            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
-          ]
-          start_ip   = 190
-          labels = {
-            "nodeclass" = "gpu"
-          }
-          taints  = {
-            "gpu" = "true:NoSchedule"
-          }
-          devices = [
-            { index = 0, mapping = "my-partial-gpu-passthrough", type = "pci", mdev = "i915-GVTg_V5_4", rombar = true }
+          labels = [
+            "nodeclass=apiserver"
           ]
         }
       }
     }
     "beta" = {
-      cluster_name                     = "beta"
-      cluster_id                       = 2
-      kubeconfig_file_name             = "beta.yml"
-      start_on_proxmox_boot            = false
-      max_pods_per_node                = 512
+      cluster_name             = "beta"
+      cluster_id               = 2
+      kubeconfig_file_name     = "beta.yml"
+      start_on_proxmox_boot    = false
       ssh = {
-        ssh_user                       = "line6"
-        ssh_home                       = "/home/line6"
-        ssh_key_type                   = "ssh-ed25519"
+        ssh_user               = "line6"
+        ssh_home               = "/home/line6"
       }
-      networking                       = {
-        management_ranges_ipv4         = "10.0.0.1-10.0.0.3,10.0.60.2,10.0.50.5,10.0.50.6"
-        management_ranges_ipv6         = ""
-        use_pve_firewall               = false
-        bridge                         = "vmbr0"
-        dns_search_domain              = "lan"
-        assign_vlan                    = true
-        create_vlan                    = true
-        vlan_name                      = "BETA"
-        vlan_id                        = 200
-        ipv4                           = {
-          subnet_prefix                = "10.0.2"
-          pod_cidr                     = "10.12.0.0/16"
-          svc_cidr                     = "10.13.0.0/16"
-          dns1                         = "10.0.2.3"
-          dns2                         = "10.0.2.4"
+      networking = {
+        management_ranges_ipv4 = "10.0.0.1-10.0.0.3,10.0.60.2,10.0.50.5,10.0.50.6"
+        management_ranges_ipv6 = ""
+        vlan_name              = "BETA"
+        vlan_id                = 200
+        assign_vlan            = true
+        create_vlan            = true
+        ipv4 = {
+          subnet_prefix        = "10.0.2"
         }
-        ipv6                           = {
-          enabled                      = false
-          dual_stack                   = false
-          subnet_prefix                = "[replace-me]:200"
-          pod_cidr                     = "[replace-me]:200:244::/80"
-          svc_cidr                     = "[replace-me]:200:96::/112"
-          dns1                         = "2607:fa18::1" # cloudflare ipv6 dns
-          dns2                         = "2607:fa18::2"
-        }
+        ipv6 = {}
         kube_vip = {
-          kube_vip_version             = "0.8.4"
-          vip                          = "10.0.2.100"
-          vip_hostname                 = "beta-api-server"
-          vip_interface                = "eth0"
-          use_ipv6                     = false
+          vip                  = "10.0.2.100"
+          vip_hostname         = "beta-api-server"
         }
-        cilium = {
-          cilium_version                 = "1.16.2"
-        }
+        cilium = {}
       }
-      local_path_provisioner = {
-        local_path_provisioner_version = "0.0.30"
-      }
-      metrics_server = {
-        metrics_server_version         = "0.7.2"
-      }
+      local_path_provisioner = {}
+      metrics_server = {}
       node_classes = {
         apiserver = {
           count      = 1
-          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
-          machine    = "q35"
-          cpu_type   = "x86-64-v2-AES"
           cores      = 4
-          sockets    = 1
           memory     = 4096
           disks      = [
-            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
+            { datastore = "local-btrfs", size = 20 }
           ]
           start_ip   = 110
-          labels = {
-            "nodeclass" = "apiserver"
-          }
-          taints  = {}
-          devices = []
-        }
-        etcd = {
-          count      = 0
-          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
-          machine    = "q35"
-          cpu_type   = "x86-64-v2-AES"
-          cores      = 2
-          sockets    = 1
-          memory     = 2048
-          disks      = [
-            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
+          labels = [
+            "nodeclass=apiserver"
           ]
-          start_ip   = 120
-          devices    = []
         }
         general = {
           count      = 2
-          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
-          machine    = "q35"
-          cpu_type   = "x86-64-v2-AES"
           cores      = 8
-          sockets    = 1
           memory     = 4096
           disks      = [
-            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
+            { datastore = "local-btrfs", size = 20 }
           ]
           start_ip   = 130
-          labels = {
-            "nodeclass" = "general"
-          }
-          taints  = {}
-          devices = []
-        }
-        gpu = {
-          count      = 0
-          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
-          machine    = "q35"
-          cpu_type   = "host"
-          cores      = 2
-          sockets    = 1
-          memory     = 2048
-          disks      = [
-            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
-          ]
-          start_ip   = 190
-          labels = {
-            "nodeclass" = "gpu"
-          }
-          taints  = {
-            "gpu" = "true:NoSchedule"
-          }
-          devices = [
-            { index = 0, mapping = "my-full-gpu-passthrough", type = "pci", mdev = "", rombar = true }
+          labels = [
+            "nodeclass=general"
           ]
         }
       }
     }
     "gamma" = {
-      cluster_name                     = "gamma"
-      cluster_id                       = 3
-      kubeconfig_file_name             = "gamma.yml"
-      start_on_proxmox_boot            = false
-      max_pods_per_node                = 512
-      ssh                              = {
-        ssh_user                       = "line6"
-        ssh_home                       = "/home/line6"
-        ssh_key_type                   = "ssh-ed25519"
+      cluster_name             = "gamma"
+      cluster_id               = 3
+      kubeconfig_file_name     = "gamma.yml"
+      start_on_proxmox_boot    = false
+      ssh = {
+        ssh_user               = "line6"
+        ssh_home               = "/home/line6"
       }
-      networking                       = {
-        management_ranges_ipv4         = "10.0.0.1-10.0.0.3,10.0.60.2,10.0.50.5,10.0.50.6"
-        management_ranges_ipv6         = ""
-        use_pve_firewall               = false
-        bridge                         = "vmbr0"
-        dns_search_domain              = "lan"
-        assign_vlan                    = true
-        create_vlan                    = true
-        vlan_name                      = "GAMMA"
-        vlan_id                        = 600
-        ipv4                           = {
-          subnet_prefix                = "10.0.3"
-          pod_cidr                     = "10.16.0.0/16"
-          svc_cidr                     = "10.17.0.0/16"
-          dns1                         = "10.0.3.3"
-          dns2                         = "10.0.3.4"
+      networking = {
+        management_ranges_ipv4 = "10.0.0.1-10.0.0.3,10.0.60.2,10.0.50.5,10.0.50.6"
+        management_ranges_ipv6 = ""
+        vlan_name              = "GAMMA"
+        vlan_id                = 300
+        assign_vlan            = true
+        create_vlan            = true
+        ipv4 = {
+          subnet_prefix        = "10.0.3"
         }
-        ipv6                           = {
-          enabled                      = false
-          dual_stack                   = false
-          subnet_prefix                = "[replace-me]:300"
-          pod_cidr                     = "[replace-me]:300:244::/80"
-          svc_cidr                     = "[replace-me]:300:96::/112"
-          dns1                         = "2607:fa18::1" # cloudflare ipv6 dns
-          dns2                         = "2607:fa18::2"
-        }
+        ipv6 = {}
         kube_vip = {
-          kube_vip_version             = "0.8.4"
-          vip                          = "10.0.3.100"
-          vip_hostname                 = "gamma-api-server"
-          vip_interface                = "eth0"
-          use_ipv6                     = false
+          vip                  = "10.0.3.100"
+          vip_hostname         = "gamma-api-server"
         }
-        cilium = {
-          cilium_version               = "1.16.2"
-        }
+        cilium = {}
       }
-      local_path_provisioner = {
-        local_path_provisioner_version = "0.0.30"
-      }
-      metrics_server = {
-        metrics_server_version         = "0.7.2"
-      }
+      local_path_provisioner = {}
+      metrics_server = {}
       node_classes = {
         apiserver = {
           count     = 3
-          pve_nodes = [ "Citadel", "Acropolis", "Parthenon" ]
-          machine   = "q35"
-          cpu_type  = "x86-64-v2-AES"
           cores     = 4
-          sockets   = 1
           memory    = 4096
           disks     = [
-            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
+            { datastore = "local-btrfs", size = 20 }
           ]
           start_ip = 110
-          labels   = {
-            "nodeclass" = "apiserver"
-          }
-          taints  = {}
-          devices = []
+          labels   = [
+            "nodeclass=apiserver"
+          ]
         }
         etcd = {
           count     = 3
-          pve_nodes = [ "Citadel", "Acropolis", "Parthenon" ]
-          machine   = "q35"
-          cpu_type  = "x86-64-v2-AES"
-          cores     = 2
-          sockets   = 1
-          memory    = 2048
           disks     = [
-            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
+            { datastore = "local-btrfs", size = 20 }
           ]
           start_ip = 120
-          devices  = []
         }
         general = {
           count     = 5
-          pve_nodes = [ "Citadel", "Acropolis", "Parthenon" ]
-          machine   = "q35"
-          cpu_type  = "x86-64-v2-AES"
           cores     = 8
-          sockets   = 1
           memory    = 4096
           disks     = [
-            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
+            { datastore = "local-btrfs", size = 20 }
           ]
           start_ip = 130
-          labels   = {
-            "nodeclass" = "general"
-          }
-          taints  = {}
-          devices = []
+          labels   = [
+            "nodeclass=general"
+          ]
         }
         gpu = {
           count      = 2
-          pve_nodes  = [ "Citadel", "Acropolis", "Parthenon" ]
-          machine    = "q35"
+          pve_nodes  = [ "Acropolis", "Parthenon" ]
           cpu_type   = "host"
-          cores      = 2
-          sockets    = 1
-          memory     = 2048
           disks      = [
-            { index = 0, datastore = "nvmes", size = 20, backup = true, cache_mode = "none", aio_mode = "io_uring" }
+            { datastore = "local-btrfs", size = 20 }
           ]
           start_ip   = 190
-          labels = {
-            "nodeclass" = "gpu"
-          }
-          taints  = {
-            "gpu" = "true:NoSchedule"
-          }
+          labels = [
+            "nodeclass=gpu"
+          ]
+          taints  = [
+            "gpu=true:NoSchedule"
+          ]
           devices = [
-            { index = 0, mapping = "my-full-gpu-passthrough", type = "pci", mdev = "", rombar = true }
+            { mapping = "my-full-gpu-passthrough" }
           ]
         }
       }

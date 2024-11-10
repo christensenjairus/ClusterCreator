@@ -3,6 +3,7 @@
 # Variables
 export GREEN='\033[32m'
 export RED='\033[0;31m'
+export YELLOW='\033[0;33m'
 export ENDCOLOR='\033[0m'
 CONFIG_DIR="$HOME/.config/clustercreator"
 REPO_PATH_FILE="$CONFIG_DIR/repo_path"
@@ -14,7 +15,7 @@ check_required_vars() {
   local missing_vars=0
   for var in "$@"; do
     if [ -z "${!var}" ]; then
-      echo -e "${RED}Error: Environment variable $var is not set.${ENDCOLOR}" >&2
+      echo -e "${RED}Error: Environment variable $var is not set. Use --help to ensure you're using the command correctly.${ENDCOLOR}" >&2
       missing_vars=1
     fi
   done
@@ -63,12 +64,23 @@ print_env_vars() {
 }
 export -f print_env_vars
 
+cleanup_files() {
+  # Iterate over all arguments passed to the function
+  for item in "$@"; do
+    if [ -e "$item" ]; then
+      rm -rf "$item"  # Remove file or directory
+      echo "Removed $item"
+    fi
+  done
+}
+export -f cleanup_files
+
 init() {
     if [[ $1 == "-h" || $1 == "--help" ]]; then
         echo "Usage: clustercreator.sh init"
         echo ""
         echo "This will:"
-        echo " * Copy the repo's clustercreator.sh script to /usr/local/bin/ccr."
+        echo " * Link the repo's clustercreator.sh script to /usr/local/bin/ccr."
         echo " * Save this repository's location in ~/.config/clustercreator so the 'ccr' command knows where to look for scripts."
         echo " * Initialize tofu"
         exit 1
@@ -83,9 +95,9 @@ init() {
     echo "Setting repository path to $REPO_PATH"
     echo "$REPO_PATH" > "$REPO_PATH_FILE"
 
-    echo "Installing clustercreator.sh to ${INSTALL_PATH}"
-    sudo cp "${REPO_PATH}/clustercreator.sh" "${INSTALL_PATH}"
-    sudo chmod +x "${INSTALL_PATH}"
+    echo "Linking clustercreator.sh to ${INSTALL_PATH}"
+    chmod +x "${REPO_PATH}/clustercreator.sh"
+    sudo ln -s "${REPO_PATH}/clustercreator.sh" "${INSTALL_PATH}"
     echo "Installation complete. You can now use 'ccr' as a command."
 
     echo "Initializing tofu..."
@@ -115,15 +127,19 @@ ctx() {
 display_usage() {
     echo "Usage: $0 <command> [options]"
     echo "Commands:"
-    echo "  init                Install 'ccr', tell it where to look for scripts, and initialize tofu"
-    echo "  ctx                 Set the current cluster context"
-    echo "  template            Create a VM template for Kubernetes"
+    echo "  init                Creates 'ccr' command, tells it where to look for scripts, and initializes tofu"
+    echo "  ctx                 Sets the current cluster context"
+    echo "  template            Creates a VM template for Kubernetes"
     echo "  tofu                Executes tofu commands directly"
-    echo "  install-k8s         Install Kubernetes on the cluster"
-    echo "  uninstall-k8s       Uninstall Kubernetes from the cluster"
-    echo "  remove-node         Removes a node from the Kubernetes cluster"
-    echo "  power               Control power for VMs"
-    echo "  command             Run a bash command on an Ansible host group"
+    echo "  bootstrap           Bootstraps Kubernetes to create a cluster"
+    echo "  add-nodes           Adds un-joined nodes to the cluster"
+    echo "  drain-node          Drains a node of workloads"
+    echo "  delete-node         Immediately deletes the node from the Kubernetes cluster"
+    echo "  upgrade-node        Upgrades a node to use the Kubernetes version specified in the environment settings"
+    echo "  reset-node          Resets Kubernetes configurations for one host"
+    echo "  reset-all-nodes     Resets Kubernetes configurations for all hosts"
+    echo "  power               Controls power for VMs"
+    echo "  command             Runs a bash command on an Ansible host group"
     echo ""
     echo "Use the -h/--help flag following a command for more help."
 }
@@ -132,6 +148,7 @@ display_usage() {
 
 required_commands=(
   "ansible-playbook"
+  "ansible-galaxy"
   "ansible"
   "kubectl"
   "kubectx"
@@ -143,6 +160,7 @@ mkdir -p "$CONFIG_DIR" # Ensure the configuration directory exists
 COMMAND="$1"
 shift
 if [ "$COMMAND" != "init" ]; then
+    # Load REPO_PATH
     if [ -f "$REPO_PATH_FILE" ]; then
         REPO_PATH=$(cat "$REPO_PATH_FILE")
         export REPO_PATH
@@ -150,6 +168,13 @@ if [ "$COMMAND" != "init" ]; then
         echo "Repository path not set. Run '$0 init' to initialize."
         exit 1
     fi
+
+    # Load all other environment variables
+    check_required_vars "REPO_PATH"
+    set -a # automatically export all variables
+    source "$REPO_PATH/scripts/.env"
+    source "$REPO_PATH/scripts/k8s.env"
+    set +a # stop automatically exporting
 fi
 
 # Load the current cluster context if it exists and export it
@@ -165,9 +190,6 @@ fi
 
 # Dispatch to the appropriate script based on the command
 case "$COMMAND" in
-    shortcut)
-        shortcut "$@"
-        ;;
     init)
         init "$@"
         ;;
@@ -177,20 +199,32 @@ case "$COMMAND" in
     template)
         ( "$REPO_PATH/scripts/create_template.sh" "$@" )
         ;;
-    install-k8s)
-        ( "$REPO_PATH/scripts/install_k8s.sh" "$@" )
+    bootstrap)
+        ( "$REPO_PATH/scripts/bootstrap.sh" "$@" )
         ;;
-    uninstall-k8s)
-        ( "$REPO_PATH/scripts/uninstall_k8s.sh" "$@" )
+    add-nodes)
+        ( "$REPO_PATH/scripts/add_nodes.sh" "$@" )
         ;;
-    remove-node)
-        ( "$REPO_PATH/scripts/remove_node.sh" "$@" )
+    drain-node)
+        ( "$REPO_PATH/scripts/drain_node.sh" "$@" )
+        ;;
+    delete-node)
+        ( "$REPO_PATH/scripts/delete_node.sh" "$@" )
+        ;;
+    upgrade-node)
+        ( "$REPO_PATH/scripts/upgrade_node.sh" "$@" )
+        ;;
+    reset-node)
+        ( "$REPO_PATH/scripts/reset_node.sh" "$@" )
+        ;;
+    reset-all-nodes)
+        ( "$REPO_PATH/scripts/reset_all_nodes.sh" "$@" )
         ;;
     power)
         ( "$REPO_PATH/scripts/powerctl_pool.sh" "$@")
         ;;
     command)
-        ( "$REPO_PATH/scripts/run_command_on_host_group.sh" "$@" )
+        ( "$REPO_PATH/scripts/run_command.sh" "$@" )
         ;;
     tofu)
         ( cd "$REPO_PATH/terraform" && tofu "$@" )

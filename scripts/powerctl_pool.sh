@@ -1,7 +1,7 @@
 #!/bin/bash
 
 usage() {
-    echo "Usage: clustercreator.sh|ccr power [start|shutdown|pause|resume|hibernate|stop] [--timeout <seconds>]"
+    echo "Usage: ccr power [start|shutdown|pause|resume|hibernate|stop] [--timeout <seconds>]"
 }
 
 ACTION=""
@@ -23,18 +23,10 @@ while [[ "$#" -gt 0 ]]; do
     esac
     shift
 done
-
 # Ensure pool name is uppercase
 POOL_ID=$(echo "$CLUSTER_NAME" | tr '[:lower:]' '[:upper:]')
 
-check_required_vars "REPO_PATH"
-cd "$REPO_PATH/scripts" || exit
-
-set -a # automatically export all variables
-source .env
-source k8s.env
-set +a # stop automatically exporting
-
+# Required Variables
 required_vars=(
   "VM_USERNAME"
   "PROXMOX_USERNAME"
@@ -45,9 +37,12 @@ required_vars=(
   "POOL_ID"
   "TIMEOUT"
 )
-
 check_required_vars "${required_vars[@]}"
 print_env_vars "${required_vars[@]}"
+
+echo -e "${GREEN}Changing power state on cluster: $CLUSTER_NAME.${ENDCOLOR}"
+
+# --------------------------- Script Start ---------------------------
 
 # Command to connect to the Proxmox host
 SSH_CMD="ssh -i ~/.ssh/$NON_PASSWORD_PROTECTED_SSH_KEY ${PROXMOX_USERNAME}@${PROXMOX_HOST}"
@@ -105,3 +100,7 @@ while read -r NODE VMID; do
 done <<< "$VM_NODES"
 
 wait
+
+# ---------------------------- Script End ----------------------------
+
+echo -e "${GREEN}DONE${ENDCOLOR}"

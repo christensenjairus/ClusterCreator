@@ -1,28 +1,23 @@
 ---
 - name: Join other control plane nodes to the cluster
-  hosts: kube_api_servers
+  hosts: apiserver
   any_errors_fatal: true
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
     control_plane_host: null
   tasks:
-    # finding a control plane node is necessary because we can't use kube_api_servers[0] because it could be a new node.
+    # finding a control plane node is necessary because we can't use apiserver[0] because it could be a new node.
     - name: Find a control-plane node to query for the list of nodes
       ansible.builtin.shell:
         cmd: >
-          kubectl get node "{{ item }}" -o jsonpath='{.metadata.labels.node-role\.kubernetes\.io\/control-plane}'
+          kubectl get node "{{ item }}" -o jsonpath='{.metadata.labels.node-role\.kubernetes\.io\/control-plane}' ||
+          echo "Can't connect to Kubernetes API. Has the cluster been bootstrapped?"
       register: node_status
       delegate_to: "{{ item }}"
       changed_when: false
-      no_log: true
-      failed_when: false
-      loop: "{{ groups['kube_api_servers'] }}"
+      failed_when: "\"Can't connect to Kubernetes\" in node_status.stdout"
+      loop: "{{ groups['apiserver'] }}"
       when: control_plane_host is none
-
-#    - name: debug - show node status
-#      ansible.builtin.debug:
-#        msg: "{{ node_status }}"
-#      run_once: true
 
     - name: Set control plane host
       set_fact:

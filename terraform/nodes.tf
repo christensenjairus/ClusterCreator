@@ -35,7 +35,7 @@ resource "proxmox_virtual_environment_vm" "node" {
   dynamic "disk" {
     for_each = each.value.disks
     content {
-      interface     = "virtio${disk.value.index}"
+      interface     = "virtio${index(each.value.disks, disk.value)}"
       size          = disk.value.size
       datastore_id  = disk.value.datastore
       file_format   = "raw"
@@ -49,9 +49,9 @@ resource "proxmox_virtual_environment_vm" "node" {
     }
   }
   dynamic "hostpci" {
-    for_each = { for device in each.value.devices : device.index => device if device.type == "pci" }
+    for_each = { for idx, device in each.value.devices : idx => device if device.type == "pci" }
     content {
-      device  = "hostpci${hostpci.value.index}"
+      device  = "hostpci${hostpci.value.count.index}"
       mapping = hostpci.value.mapping
       pcie    = true
       mdev    = try(hostpci.value.mdev, null) != "" ? hostpci.value.mdev : null
@@ -59,7 +59,7 @@ resource "proxmox_virtual_environment_vm" "node" {
     }
   }
   dynamic "usb" {
-    for_each = { for device in each.value.devices : device.index => device if device.type == "usb" }
+    for_each = { for idx, device in each.value.devices : idx => device if device.type == "usb" }
     content {
       mapping = usb.value.mapping
       usb3    = true

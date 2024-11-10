@@ -1,9 +1,9 @@
 #!/bin/bash
 
 usage() {
-  echo "Usage: clustercreator.sh|ccr template"
+  echo "Usage: ccr template"
   echo ""
-  echo "This copies vm template creation files over to your proxmox node and runs them. This downloads a vm image, edits it, allows it to turn on, then installs various packages into it before turning it off and templating it."
+  echo "Copies vm template creation files over to your proxmox node and runs them. This downloads a vm image, edits it, allows it to turn on, then installs various packages into it before turning it off and templating it."
 }
 
 # Parse command-line arguments
@@ -15,13 +15,7 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
-check_required_vars "REPO_PATH"
 cd "$REPO_PATH/scripts"
-
-set -a # automatically export all variables
-source .env
-source k8s.env
-set +a # stop automatically exporting
 
 required_vars=(
   "VM_USERNAME"

@@ -1,6 +1,6 @@
 ---
 - name: Ensure all Kubernetes nodes are ready
-  hosts: kube_api_servers[0]
+  hosts: apiserver[0]
   gather_facts: no
   tasks:
     - name: Wait for all nodes to be ready

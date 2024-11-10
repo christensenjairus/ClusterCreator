@@ -1,6 +1,6 @@
 ---
-- name: External Etcdctl healthcheck
-  hosts: kube_etcd_servers[0]
+- name: Decoupled Etcdctl healthcheck
+  hosts: etcd[0]
   any_errors_fatal: true
   gather_facts: false
   become: true
@@ -14,7 +14,7 @@
           --key /etc/kubernetes/pki/etcd/peer.key \
           --cacert /etc/kubernetes/pki/etcd/ca.crt \
           --endpoints https://{{ host }}:2379 endpoint health
-      loop: "{{ groups['kube_etcd_servers'] }}"
+      loop: "{{ groups['etcd'] }}"
       loop_control:
         loop_var: host
       register: etcd_health_check
@@ -25,7 +25,7 @@
       when: etcd_health_check is defined
 
 - name: Show connected k8s nodes
-  hosts: kube_api_servers[0]
+  hosts: apiserver[0]
   gather_facts: false
   tasks:
     - name: Get connected k8s nodes

@@ -3,7 +3,7 @@ variable "proxmox_host" {
 }
 variable "proxmox_node" {
     default = "Citadel"
-    description = "The name of the node that contains the template vm"
+    description = "The name of the node that will contain the template vm"
 }
 variable "template_vm_id" {
     description = "The vm template id to clone for vm creation"

@@ -1,5 +1,5 @@
 - name: Install Cilium on Kubernetes Cluster
-  hosts: kube_api_servers[0]
+  hosts: apiserver[0]
   tags:
     - cilium_basic_install
   vars:
@@ -7,7 +7,7 @@
   tasks:
     - name: Calculate the count of non-API/ETCD servers
       set_fact:
-        non_api_etcd_server_count: "{{ groups['all'] | length - (groups['kube_api_servers'] | default([]) | length + groups['kube_etcd_servers'] | default([]) | length) }}"
+        non_api_etcd_server_count: "{{ groups['all'] | length - (groups['apiserver'] | default([]) | length + groups['etcd'] | default([]) | length) }}"
 
     - name: Determine if needing replicated longhorn volumes based on non-API/ETCD server count
       set_fact:

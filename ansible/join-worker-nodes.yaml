@@ -6,17 +6,17 @@
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
     control_plane_host: null
   tasks:
-    # finding a control plane node is necessary because we can't use kube_api_servers[0] because it could be a new node.
+    # finding a control plane node is necessary because we can't use apiserver[0] because it could be a new node.
     - name: Find a control-plane node to query for the list of nodes
       ansible.builtin.shell:
         cmd: >
-          kubectl get node "{{ item }}" -o jsonpath='{.metadata.labels.node-role\.kubernetes\.io\/control-plane}'
+          kubectl get node "{{ item }}" -o jsonpath='{.metadata.labels.node-role\.kubernetes\.io\/control-plane}' ||
+          echo "Can't connect to Kubernetes API. Has the cluster been bootstrapped?"
       register: node_status
       delegate_to: "{{ item }}"
       changed_when: false
-      no_log: true
-      failed_when: false
-      loop: "{{ groups['kube_api_servers'] }}"
+      failed_when: "\"Can't connect to Kubernetes\" in node_status.stdout"
+      loop: "{{ groups['apiserver'] }}"
       when: control_plane_host is none
 
     - name: Set control plane host
@@ -53,20 +53,20 @@
     - name: Check if current host's hostname is in the Kubernetes node list
       set_fact:
         is_in_cluster: "{{ inventory_hostname in k8s_node_names }}"
-      when: "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
+      when: "'apiserver' not in group_names and 'etcd' not in group_names"
 
     - name: Check host status if in cluster
       ansible.builtin.debug:
         msg: "Host {{ inventory_hostname }} is already in the cluster"
       when:
-        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
+        - "'apiserver' not in group_names and 'etcd' not in group_names"
         - is_in_cluster
 
     - name: Check host status if not in cluster
       ansible.builtin.debug:
         msg: "Host {{ inventory_hostname }} is not in the cluster and will join"
       when:
-        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
+        - "'apiserver' not in group_names and 'etcd' not in group_names"
         - not is_in_cluster
 
     - name: Update apt cache on worker nodes to be added to cluster
@@ -79,7 +79,7 @@
       retries: 30
       delay: 10
       when:
-        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
+        - "'apiserver' not in group_names and 'etcd' not in group_names"
         - not is_in_cluster
     - name: Upgrade all packages to the latest version on worker nodes to be added to cluster
       become: true
@@ -91,7 +91,7 @@
       retries: 30
       delay: 10
       when:
-        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
+        - "'apiserver' not in group_names and 'etcd' not in group_names"
         - not is_in_cluster
     - name: Remove unused packages and dependencies on worker nodes to be added to cluster
       become: true
@@ -103,7 +103,7 @@
       retries: 30
       delay: 10
       when:
-        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
+        - "'apiserver' not in group_names and 'etcd' not in group_names"
         - not is_in_cluster
     - name: Clean up apt cache on worker nodes to be added to cluster
       become: true
@@ -114,7 +114,7 @@
       retries: 30
       delay: 10
       when:
-        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
+        - "'apiserver' not in group_names and 'etcd' not in group_names"
         - not is_in_cluster
     - name: Check if reboot is required on worker nodes to be added to cluster
       become: true
@@ -122,7 +122,7 @@
         path: /var/run/reboot-required
       register: reboot_required
       when:
-        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
+        - "'apiserver' not in group_names and 'etcd' not in group_names"
         - not is_in_cluster
     - name: Reboot the worker nodes to be added to cluster (if necessary)
       become: true
@@ -134,7 +134,7 @@
         post_reboot_delay: 30
         test_command: uptime
       when:
-        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
+        - "'apiserver' not in group_names and 'etcd' not in group_names"
         - not is_in_cluster
         - reboot_required.stat.exists
 
@@ -143,7 +143,7 @@
         delay: 5
         timeout: 300
       when:
-        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
+        - "'apiserver' not in group_names and 'etcd' not in group_names"
         - not is_in_cluster
         - reboot_required.stat.exists
 
@@ -151,7 +151,7 @@
       set_fact:
         join_command_local: "{{ lookup('file', 'tmp/{{ cluster_name }}/worker_join_command.sh') }}"
       when:
-        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
+        - "'apiserver' not in group_names and 'etcd' not in group_names"
         - not is_in_cluster
       tags:
         - kubeadm_join_wrkrs
@@ -161,7 +161,7 @@
       command: "{{ join_command_local }}"
       become: true
       when:
-        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
+        - "'apiserver' not in group_names and 'etcd' not in group_names"
         - not is_in_cluster
       tags:
         - kubeadm_join_wrkrs
