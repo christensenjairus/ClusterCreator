@@ -34,9 +34,9 @@
 
 ## Introduction
 
-**ClusterCreator** automates the creation and maintenance of fully functional Kubernetes (K8S) clusters of any size on Proxmox. Leveraging Terraform/OpenTofu and Ansible, it facilitates complex setups, including decoupled etcd clusters, diverse worker node configurations, and integration with Unifi networks and VLANs.
+**ClusterCreator** automates the creation and maintenance of fully functional Kubernetes (K8S) clusters of any size on Proxmox. Leveraging Terraform/OpenTofu and Ansible, it facilitates complex setups, including decoupled etcd clusters, diverse worker node configurations, and optional integration with Unifi networks and VLANs.
 
-Having a virtualized K8S cluster allows you to simulate cloud environments, scale resources, customize node specifications, manage backups and snapshots, and maintain cluster state efficiently.
+Having a virtualized K8S cluster allows you to not only simulate a cloud environment but also scale and customize your cluster to your needs—adding or removing nodes and disks, managing backups and snapshots of the virtual machine disks, customizing node class types, and controlling state.
 
 [Watch a step-by-step demo on my blog](https://cyber-engine.com/blog/2024/06/25/k8s-on-proxmox-using-clustercreator/).
 
