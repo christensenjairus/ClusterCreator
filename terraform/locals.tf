@@ -19,7 +19,6 @@ locals {
           bridge             = cluster.networking.bridge
           create_vlan        = cluster.networking.create_vlan
           vlan_id            = cluster.networking.assign_vlan ? cluster.networking.vlan_id: null
-          vlan_name          = cluster.networking.create_vlan ? cluster.networking.vlan_name: null
           ipv4               : {
             vm_ip            = "${cluster.networking.ipv4.subnet_prefix}.${specs.start_ip + i}"
             gateway          = "${cluster.networking.ipv4.subnet_prefix}.1"
