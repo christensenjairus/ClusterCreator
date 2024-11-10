@@ -1,4 +1,4 @@
-- name: Conditionally taint control plane nodes depending on if worker nodes will be added
+- name: Conditionally taint apiserver nodes depending on if worker nodes will be added
   hosts: apiserver
   gather_facts: false
   vars:
@@ -13,7 +13,7 @@
 
     - name: Set the count of worker nodes
       set_fact:
-        worker_node_count: "{{ groups | dict2items | selectattr('key', 'search', '^(kube_storage_servers|kube_database_servers|kube_general_servers)$') | map(attribute='value') | map('length') | sum }}"
+        worker_node_count: "{{ groups | dict2items | rejectattr('key', 'search', '^(apiserver|etcd)') | map(attribute='value') | map('length') | sum }}"
 
     - name: Fetch current nodes and taint information
       ansible.builtin.command: kubectl get nodes -o json
@@ -28,12 +28,18 @@
           | [? contains(`{{ kube_api_server_names | to_json }}`, metadata.name)]
           | map(&metadata.name, @)
 
+    - name: Check for control-plane NoSchedule taint on nodes
+      ansible.builtin.command: kubectl get node {{ item }} -o jsonpath='{.spec.taints[*].key}' | grep -q 'node-role.kubernetes.io/control-plane'
+      register: taint_check
+      loop: "{{ nodes_needing_taint }}"
+      ignore_errors: true
+
     - name: Untaint nodes with control-plane NoSchedule taint when no workers present
       ansible.builtin.command: kubectl taint nodes {{ item }} node-role.kubernetes.io/control-plane:NoSchedule-
       loop: "{{ nodes_needing_taint }}"
       when:
         - worker_node_count | int < 1
-        - nodes_needing_taint | default([]) | length > 0
+        - item in taint_check.results | selectattr('rc', '==', 0) | map(attribute='item') | list
       ignore_errors: yes
 
     - name: Set fact for nodes needing control-plane NoSchedule taint when workers are present
@@ -46,7 +52,7 @@
           | map(&metadata.name, @)
 
     - name: Taint nodes with control-plane NoSchedule taint when workers present
-      ansible.builtin.command: kubectl taint nodes {{ item }} node-role.kubernetes.io/control-plane:NoSchedule
+      ansible.builtin.command: kubectl taint nodes {{ item }} node-role.kubernetes.io/control-plane:NoSchedule --overwrite
       loop: "{{ nodes_needing_taint | default([]) }}"
       when:
         - worker_node_count | int > 0

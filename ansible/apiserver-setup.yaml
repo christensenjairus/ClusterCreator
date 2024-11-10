@@ -131,7 +131,7 @@
       tags:
         - kubeadm_init
       when: not kube_config_exists.stat.exists
-    - name: Extract control plane join command and remove backslashes & extra spaces
+    - name: Extract apiserver join command and remove backslashes & extra spaces
       set_fact:
         control_plane_join_command: "{{ kubeadm_init_output_single_line | regex_search('kubeadm join .*? --token .*? --control-plane --certificate-key [a-fA-F0-9]+') | regex_replace('\\\\\\s+', ' ') }}"
       tags:
@@ -143,7 +143,7 @@
       tags:
         - kubeadm_init
       when: not kube_config_exists.stat.exists
-    - name: Save control plane join command to file
+    - name: Save apiserver join command to file
       local_action: copy content="{{ control_plane_join_command }}" dest="tmp/{{ cluster_name }}/control_plane_join_command.sh"
       run_once: true
       tags:

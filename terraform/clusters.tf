@@ -4,6 +4,7 @@ variable "cluster_name" {
   default     = "beta"
 }
 
+#noinspection TFIncorrectVariableType
 variable "clusters" {
   description = "Configuration details for each cluster."
   type = map(object({
