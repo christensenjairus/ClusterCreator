@@ -127,7 +127,6 @@ variable "clusters" {
         ssh_home               = "/home/line6"
       }
       networking = {
-        use_pve_firewall       = false # currently broken
         use_unifi              = true
         management_ranges_ipv4 = "10.0.0.1-10.0.0.3,10.0.60.2,10.0.50.5,10.0.50.6"
         management_ranges_ipv6 = ""
@@ -144,9 +143,9 @@ variable "clusters" {
       }
       node_classes = {
         apiserver = {
-          count      = 3
-          cores      = 2
-          memory     = 2048
+          count      = 1
+          cores      = 4
+          memory     = 4096
           disks      = [
             { datastore = "local-btrfs", size = 20 }
           ]
@@ -155,16 +154,9 @@ variable "clusters" {
             "nodeclass=apiserver"
           ]
         }
-        etcd = {
-          count     = 3
-          disks     = [
-            { datastore = "local-btrfs", size = 20 }
-          ]
-          start_ip = 120
-        }
         general = {
-          count      = 3
-          cores      = 4
+          count      = 2
+          cores      = 8
           memory     = 4096
           disks      = [
             { datastore = "local-btrfs", size = 20 }
