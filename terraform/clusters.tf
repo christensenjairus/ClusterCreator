@@ -26,8 +26,7 @@ variable "clusters" {
       dns_search_domain              : optional(string, "lan")                 # Optional. Search domain for DNS resolution
       assign_vlan                    : optional(bool, false)                   # Optional. Whether or not to assign a vlan to the network interfaces of the VMs.
       create_vlan                    : optional(bool, false)                   # Optional. Whether or not to create a vlan in Unifi.
-      vlan_name                      : optional(string, "")                    # Optional. Name of the vlan for the cluster.
-      vlan_id                        : optional(number, 100)                   # Optional. Vlan id for the cluster.
+      vlan_id                        : optional(number, 100)                   # Optional. Vlan id to use for the cluster.
       ipv4                           : object({                                
         subnet_prefix                : string                                  # Required. First three octets of the host IPv4 network's subnet (assuming its a /24)
         pod_cidr                     : optional(string,"10.42.0.0/16")         # Optional. Cidr range for pod networking internal to cluster. Shouldn't overlap with ipv4 lan network. These must differ cluster to cluster if using clustermesh.
@@ -100,7 +99,6 @@ variable "clusters" {
       networking = {
         management_ranges_ipv4 = "10.0.0.1-10.0.0.3,10.0.60.2,10.0.50.5,10.0.50.6"
         management_ranges_ipv6 = ""
-        vlan_name              = "ALPHA"
         vlan_id                = 100
         assign_vlan            = true
         create_vlan            = true
@@ -143,7 +141,6 @@ variable "clusters" {
       networking = {
         management_ranges_ipv4 = "10.0.0.1-10.0.0.3,10.0.60.2,10.0.50.5,10.0.50.6"
         management_ranges_ipv6 = ""
-        vlan_name              = "BETA"
         vlan_id                = 200
         assign_vlan            = true
         create_vlan            = true
@@ -198,7 +195,6 @@ variable "clusters" {
       networking = {
         management_ranges_ipv4 = "10.0.0.1-10.0.0.3,10.0.60.2,10.0.50.5,10.0.50.6"
         management_ranges_ipv6 = ""
-        vlan_name              = "GAMMA"
         vlan_id                = 300
         assign_vlan            = true
         create_vlan            = true

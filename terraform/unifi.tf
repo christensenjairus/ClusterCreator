@@ -7,7 +7,7 @@ resource "unifi_network" "vlan" {
     if key == terraform.workspace && value.networking.create_vlan == true && value.networking.assign_vlan == true
   }
 
-  name      = each.value.networking.vlan_name
+  name      = upper(each.value.cluster_name)
   vlan_id   = each.value.networking.vlan_id
   purpose = "corporate" # Must be one of corporate, guest, wan, or vlan-only.
 
