@@ -11,9 +11,9 @@ apiServer:
   - "{{ hostvars[host].ansible_host }}"
 {% endfor %}
   - "{{ cluster_config.cluster_name }}"
-  - "{{ cluster_config.cluster_name }}.lan"
+  - "{{ cluster_config.cluster_name }}.{{ cluster_config.networking.dns_search_domain }}"
   - "{{ cluster_config.networking.kube_vip.vip_hostname }}"
-  - "{{ cluster_config.networking.kube_vip.vip_hostname }}.lan"
+  - "{{ cluster_config.networking.kube_vip.vip_hostname }}.{{ cluster_config.networking.dns_search_domain }}"
 networking:
   dnsDomain: cluster.local
   serviceSubnet: {{ cluster_config.networking.ipv4.svc_cidr }}{% if cluster_config.networking.ipv6.enabled and cluster_config.networking.ipv6.dual_stack %},{{ cluster_config.networking.ipv6.svc_cidr }}{% endif %}
