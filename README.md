@@ -399,28 +399,6 @@ Define custom worker classes in `clusters.tf` to meet specific workload requirem
 - **Backup Workers**:
   - **Configuration**: Reduced CPU and memory, expanded disks, taints for backup storage.
 
-**Example Entry in `clusters.tf`**:
-
-```hcl
-node_classes = {
-  gpu = {
-    cpu      = 2
-    memory   = "2GB"
-    disk     = "20GB"
-    devices  = ["gpu0"]
-    labels   = { "type" = "gpu" }
-    taints   = ["gpu=true:NoSchedule"]
-  },
-  storage = {
-    cpu      = 4
-    memory   = "8GB"
-    disk     = "200GB"
-    labels   = { "type" = "storage" }
-    taints   = ["storage=true:NoSchedule"]
-  }
-}
-```
-
 ---
 
 ## Troubleshooting
