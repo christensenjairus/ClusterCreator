@@ -180,7 +180,7 @@ ctx() {
     CLUSTER_NAME="$1"
     echo "$CLUSTER_NAME" > "$CLUSTER_FILE"
     ( cd "${REPO_PATH}/terraform" && ( tofu workspace select "$CLUSTER_NAME" 2>/dev/null || tofu workspace new "$CLUSTER_NAME" ))
-    kubectx "${CLUSTER_NAME}"
+    kubectx "$CLUSTER_NAME" 2>/dev/null || true # will be created upon bootstrapping if it doesn't already exist.
 }
 
 display_usage() {
@@ -198,7 +198,7 @@ display_usage() {
     echo "  upgrade-node      Upgrades a node to use the Kubernetes version specified in the environment settings"
     echo "  reset-node        Resets Kubernetes configurations for one host"
     echo "  reset-all-nodes   Resets Kubernetes configurations for all hosts"
-    echo "  upgrade-addons    Upgrades the essential apps to the versions specified in the environment settings"
+    echo "  upgrade-addons    Upgrades the addons to the versions specified in the environment settings"
     echo "  upgrade-k8s       Upgrades the control-plane api to the version specified in the environment settings"
     echo "  power             Controls power for VMs"
     echo "  command           Runs a bash command on an Ansible host group"
@@ -284,11 +284,13 @@ required_vars=(
   "METRICS_SERVER_VERSION"
   "CLUSTER_NAME"
 )
-# Don't print out variables if -h or --help is passed
+# Don't print out variables if -h or --help is passed or during init, ctx, and tofu
 # shellcheck disable=SC2199
 if [[ ! " ${@} " =~ " -h " && ! " ${@} " =~ " --help " ]]; then
-  check_required_vars "${required_vars[@]}"
-  print_env_vars "${required_vars[@]}"
+  if [[ "$COMMAND" != "init" && "$COMMAND" != "ctx" && "$COMMAND" != "tofu" ]]; then
+    check_required_vars "${required_vars[@]}"
+    print_env_vars "${required_vars[@]}"
+  fi
 fi
 
 export ANSIBLE_OPTS="-i tmp/${CLUSTER_NAME}/ansible-hosts.txt -u ${VM_USERNAME} --private-key ${HOME}/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}"

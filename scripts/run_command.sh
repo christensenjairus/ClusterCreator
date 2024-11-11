@@ -3,12 +3,12 @@
 usage() {
     echo "Usage: ccr command 'command_to_run' [-g|--group group_name]"
     echo ""
-    echo "Runs a command on the Ansible host group specified. The group name is the same as the node class name. The default group is 'all'."
+    echo "Runs a command with elevated permissions on the Ansible host group specified. The group name is the same as the node class name. The default group is 'all'."
 }
 
 GROUP_NAME="all"
 COMMAND=""
-PLAYBOOK_FILE=$(mktemp /tmp/ansible_playbook_run_command.yml)
+PLAYBOOK_FILE="/tmp/ansible_playbook_run_command.yml"
 
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
@@ -33,7 +33,6 @@ done
 required_vars=(
   "GROUP_NAME"
   "COMMAND"
-  "PLAYBOOK_FILE"
 )
 check_required_vars "${required_vars[@]}"
 print_env_vars "${required_vars[@]}"
@@ -49,12 +48,14 @@ echo -e "${GREEN}Running '$COMMAND' on group '$GROUP_NAME' from cluster: $CLUSTE
 
 # --------------------------- Script Start ---------------------------
 
+
 # Create a temporary Ansible playbook
 cat << EOF > "$PLAYBOOK_FILE"
 ---
 - name: Execute command on specified hosts
   hosts: $GROUP_NAME
   gather_facts: false
+  become: true
   tasks:
     - name: Execute the command
       command: $COMMAND

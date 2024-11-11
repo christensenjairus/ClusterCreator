@@ -1,7 +1,7 @@
 #!/bin/bash
 
 usage() {
-  echo "Usage: ccr upgrade-node <hostname>"
+  echo "Usage: ccr upgrade-node <hostname_or_nodeclass>"
   echo ""
   echo "Upgrades the kubernetes & etcd packages to the version specified in your environment settings."
   echo "It is recommended to drain the node before updating it to minimize interruptions to your workloads."

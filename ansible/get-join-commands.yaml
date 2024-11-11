@@ -31,6 +31,15 @@
         - control_plane_host is none
       run_once: true # only needs to succeed once. We only need one ready apiserver node for this.
 
+    - name: Check if control_plane_host was set
+      set_fact:
+        control_plane_found: "{{ control_plane_host is defined and control_plane_host is not none }}"
+
+    - name: Fail if no control_plane_host was found
+      fail:
+        msg: "No active apiserver found. Has the cluster been bootstrapped?"
+      when: control_plane_found == false
+
     - name: Show selected apiserver host
       debug:
         msg: "Selected apiserver host: {{ control_plane_host }}"
