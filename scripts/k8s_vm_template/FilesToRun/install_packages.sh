@@ -4,21 +4,6 @@ set -a # automatically export all variables
 source /etc/k8s.env
 set +a # stop automatically exporting
 
-# Add aliases
-BASHRC_PATH="/home/${VM_USERNAME}/.bashrc"
-touch "$BASHRC_PATH"
-
-add_alias() {
-    local alias_command=$1
-    if ! grep -Fxq "$alias_command" "$BASHRC_PATH"; then
-        echo "$alias_command" >> "$BASHRC_PATH"
-    fi
-}
-
-add_alias "alias k='kubectl'"
-add_alias "alias c='clear'"
-add_alias "alias h='history'"
-
 chmod +x /root/*.sh
 
 # These can run simultaneously because they don't depend on each other

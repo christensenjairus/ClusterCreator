@@ -9,9 +9,9 @@
         path: /root/.bootstrap
       register: bootstrap_marker_check
 
-    - name: Fail if bootstrap marker file exists on any node
-      ansible.builtin.fail:
-        msg: "This cluster has already been bootstrapped. If this is incorrect, remove /root/.bootstrap from {{ inventory_hostname }} and retry."
+    - name: Display warning and ask for confirmation
+      ansible.builtin.pause:
+        prompt: "This k8s cluster may have already been bootstrapped. Press Enter to continue anyway or Ctrl+C to abort."
       when: bootstrap_marker_check.stat.exists
 
 - name: Generate and deploy kubeadm config file

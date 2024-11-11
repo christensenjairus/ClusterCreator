@@ -6,10 +6,6 @@
   any_errors_fatal: true
 
   tasks:
-    - name: End playbook for etcd hosts
-      ansible.builtin.meta: end_host
-      when: "'etcd' in groups and 'etcd' in group_names"
-
     - name: Create directory for apt keyrings
       ansible.builtin.file:
         path: /etc/apt/keyrings
@@ -117,6 +113,29 @@
       until: hold_result is succeeded
       when: ansible_facts['os_family'] == 'Debian' and ansible_facts['distribution'] == 'Debian'
 
+    # Upgrade external ETCD
+    - name: Ensure /etc/kubernetes/manifests/etcd.yaml exists
+      ansible.builtin.stat:
+        path: /etc/kubernetes/manifests/etcd.yaml
+      register: etcd_manifest_check
+    - name: Check if etcd group exists and current node is in the etcd group
+      ansible.builtin.fail:
+        msg: "The etcd group does not exist or the current node is not part of the etcd group."
+      when: "'etcd' not in group_names"
+    - name: Update etcd image version in /etc/kubernetes/manifests/etcd.yaml
+      ansible.builtin.lineinfile:
+        path: /etc/kubernetes/manifests/etcd.yaml
+        regexp: '    image: registry.k8s.io/etcd:.*-0'
+        line: "    image: registry.k8s.io/etcd:{{ etcd_version }}-0"
+        backrefs: yes
+      when:
+        - etcd_manifest_check.stat.exists
+        - "'etcd' in group_names"
+
+    - name: End playbook for etcd hosts
+      ansible.builtin.meta: end_host
+      when: "'etcd' in groups and 'etcd' in group_names"
+
     - name: Upgrade Kubeadm
       ansible.builtin.shell:
         cmd: >
@@ -127,7 +146,13 @@
       ansible.builtin.systemd:
         daemon_reload: yes
 
+    - name: Restart containerd service
+      ansible.builtin.systemd:
+        name: containerd
+        state: restarted
+
     - name: Restart kubelet service
       ansible.builtin.systemd:
         name: kubelet
         state: restarted
+

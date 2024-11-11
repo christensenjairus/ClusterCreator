@@ -1,4 +1,19 @@
 ---
+- name: Check for existing bootstrap marker file on all etcd nodes
+  hosts: etcd
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Check if bootstrap marker file exists
+      ansible.builtin.stat:
+        path: /root/.bootstrap
+      register: bootstrap_marker_check
+
+    - name: Display warning and ask for confirmation
+      ansible.builtin.pause:
+        prompt: "This etcd cluster may have already been bootstrapped. Press Enter to continue anyway or Ctrl+C to abort."
+      when: bootstrap_marker_check.stat.exists
+
 - name: Setup etcd kubelet configs
   hosts: etcd
   any_errors_fatal: true
@@ -314,28 +329,28 @@
       tags:
         - etcd_init
 
-- name: Transfer PKI files to the apiserver and organize them
+- name: Transfer PKI files to apiserver-0 and organize them
   hosts: etcd[0]  # Assuming this playbook runs on etcd-0
   any_errors_fatal: true
   gather_facts: false
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
   tasks:
-    - name: Copy ca.crt to the apiserver node
+    - name: Copy ca.crt to apiserver-0
       ansible.builtin.shell:
         cmd: "scp -i /root/.ssh/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /etc/kubernetes/pki/etcd/ca.crt {{ cluster_config.ssh.ssh_user }}@{{ hostvars[groups['apiserver'][0]].ansible_host }}:{{ cluster_config.ssh.ssh_home }}/ca.crt"
       become: true
       when: groups['etcd'] | default([]) | length > 0
       tags:
         - kubeadm_config_copy
-    - name: Copy apiserver-etcd-client.crt to the apiserver node
+    - name: Copy apiserver-etcd-client.crt to apiserver-0
       ansible.builtin.shell:
         cmd: "scp -i /root/.ssh/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /etc/kubernetes/pki/apiserver-etcd-client.crt {{ cluster_config.ssh.ssh_user }}@{{ hostvars[groups['apiserver'][0]].ansible_host }}:{{ cluster_config.ssh.ssh_home }}/apiserver-etcd-client.crt"
       become: true
       when: groups['etcd'] | default([]) | length > 0
       tags:
         - kubeadm_config_copy
-    - name: Copy apiserver-etcd-client.key to the apiserver node
+    - name: Copy apiserver-etcd-client.key to apiserver-0
       ansible.builtin.shell:
         cmd: "scp -i /root/.ssh/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /etc/kubernetes/pki/apiserver-etcd-client.key {{ cluster_config.ssh.ssh_user }}@{{ hostvars[groups['apiserver'][0]].ansible_host }}:{{ cluster_config.ssh.ssh_home }}/apiserver-etcd-client.key"
       become: true
@@ -565,11 +580,14 @@
         msg: "{{ etcd_health_check.results | map(attribute='stdout') | list }}"
       when: etcd_health_check is defined
 
-
-
-
-
-
-
-
-
+- name: Create a bootstrap file on all etcd nodes
+  hosts: etcd
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Create a bootstrap marker file
+      ansible.builtin.file:
+        path: /root/.bootstrap
+        state: touch
+      tags:
+        - etcd_init

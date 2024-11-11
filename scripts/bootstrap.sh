@@ -55,9 +55,8 @@ playbooks=(
 )
 run_playbooks "${playbooks[@]}"
 
-echo ""
 echo -e "${GREEN}Remember to remove the annotation 'storageclass.kubernetes.io/is-default-class: \"true\"' from the local-path storageclass if you choose to use something else like Longhorn, Rook, OpenEBS, etc.${ENDCOLOR}"
-echo ""
+echo -e "${BLUE}Source your bash or zsh profile and run 'kubectx ${CLUSTER_NAME}' to access the cluster from your local machine."
 
 # ---------------------------- Script End ----------------------------
 
