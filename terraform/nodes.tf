@@ -15,10 +15,10 @@ resource "proxmox_virtual_environment_vm" "node" {
   # Dynamically set node_name based on cycling through the pve_nodes array
   node_name = each.value.pve_nodes[each.value.index % length(each.value.pve_nodes)]
   clone {
-    vm_id     = var.template_vm_id
+    vm_id     = local.template_vm_id
     full      = true
     retries   = 25     # Proxmox errors with timeout when creating multiple clones at once
-    node_name = var.proxmox_node
+    node_name = local.proxmox_node
   }
   machine = each.value.machine == "i440fx" ? "pc" : "q35"
   cpu {
@@ -78,9 +78,9 @@ resource "proxmox_virtual_environment_vm" "node" {
   initialization {
     interface = "ide2"
     user_account {
-      keys = [var.vm_ssh_key]
-      password = var.vm_password
-      username = var.vm_username
+      keys = [local.vm_ssh_key]
+      password = local.vm_password
+      username = local.vm_username
     }
     datastore_id = each.value.disks[0].datastore
     dynamic "ip_config" {
