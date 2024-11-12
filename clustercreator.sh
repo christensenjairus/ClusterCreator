@@ -17,7 +17,7 @@ check_required_vars() {
   for var in "$@"; do
     if [ -z "${!var}" ]; then
       if [[ $0 =~ clustercreator.sh|ccr ]]; then
-        echo -e "${RED}Error: Environment variable $var is not set. Please set it in your environment configuration.${ENDCOLOR}" >&2
+        echo -e "${RED}Error: Environment variable $var is not set. Please set it in your secrets and/or environment configuration.${ENDCOLOR}" >&2
       else
         echo -e "${RED}Error: Environment variable $var is not set. Use --help to ensure you're using the command correctly.${ENDCOLOR}" >&2
       fi
@@ -155,14 +155,14 @@ setup-ccr() {
 
     echo -e "${BLUE}Linking clustercreator.sh to ${INSTALL_PATH}${ENDCOLOR}"
     chmod +x "${REPO_PATH}/clustercreator.sh"
-    sudo unlink "${INSTALL_PATH}"
+    sudo unlink "${INSTALL_PATH}" 2>/dev/null || true
     sudo ln -s "${REPO_PATH}/clustercreator.sh" "${INSTALL_PATH}"
     echo -e "${BLUE}Installation complete. You can now use 'ccr' as a command.${ENDCOLOR}"
 }
 
 ctx() {
     if [[ -z "$1" ]]; then
-        cat "$CLUSTER_FILE"
+        cat "$CLUSTER_FILE" 2>/dev/null || echo "No context has been set yet. Set one with 'ccr ctx <cluster_name>'."
         exit 0
     elif [[ $1 == "-h" || $1 == "--help" ]]; then
         echo "Usage: $0 ctx [<cluster_name>]"
@@ -170,6 +170,7 @@ ctx() {
         echo "Adding <cluster_name> will switch the context. Omitting it will show you the current context."
         echo ""
         echo "This will:"
+        echo "  * Switch your Tofu workspace"
         echo "  * Switch your Kubernetes context using kubectx"
 
         exit 1
@@ -222,20 +223,20 @@ check_required_commands "${required_commands[@]}"
 mkdir -p "$CONFIG_DIR" # Ensure the configuration directory exists
 COMMAND="$1"
 shift
-if [ "$COMMAND" != "setup-ccr" ]; then
+if [[ "$COMMAND" != "" && "$COMMAND" != "setup-ccr" && "$COMMAND" != "-h" && "$COMMAND" != "--help" ]]; then
     # Load REPO_PATH
     if [ -f "$REPO_PATH_FILE" ]; then
         REPO_PATH=$(cat "$REPO_PATH_FILE")
         export REPO_PATH
     else
-        echo -e "${RED}Repository path not set. Run 'clustercreator.sh setup-ccr' to set this value.${ENDCOLOR}"
+        echo -e "${RED}Repository path not set. Run './clustercreator.sh setup-ccr' to set this value.${ENDCOLOR}"
         exit 1
     fi
 
     # Load all other environment variables
     check_required_vars "REPO_PATH"
     set -a # automatically export all variables
-    source "$REPO_PATH/scripts/.env"
+    source "$REPO_PATH/scripts/.env" 2>/dev/null || true
     source "$REPO_PATH/scripts/k8s.env"
     set +a # stop automatically exporting
 fi
@@ -297,7 +298,8 @@ if [[ "$COMMAND" == "template" || \
       "$COMMAND" == "upgrade-addons" || \
       "$COMMAND" == "upgrade-k8s" || \
       "$COMMAND" == "powerctl" || \
-      "$COMMAND" == "run-command" ]]; then
+      "$COMMAND" == "run-command" \
+    ]]; then
     check_required_vars "${required_vars[@]}"
     print_env_vars "${required_vars[@]}"
 fi
