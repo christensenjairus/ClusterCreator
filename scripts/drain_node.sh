@@ -42,7 +42,7 @@ cleanup_files=(
   "tmp/${CLUSTER_NAME}/control_plane_join_command.sh"
 )
 set -e
-trap 'echo "An error occurred. Cleaning up..."; cleanup_files "${cleanup_files[@]}"' ERR
+trap 'echo "An error occurred. Cleaning up..."; cleanup_files "${cleanup_files[@]}"' ERR INT
 
 echo -e "${GREEN}Draining node $TARGETED_NODE on cluster: $CLUSTER_NAME.${ENDCOLOR}"
 

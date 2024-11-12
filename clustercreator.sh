@@ -134,14 +134,13 @@ run_playbooks() {
 }
 export -f run_playbooks
 
-init() {
+setup-ccr() {
     if [[ $1 == "-h" || $1 == "--help" ]]; then
-        echo "Usage: clustercreator.sh init"
+        echo "Usage: clustercreator.sh setup-ccr"
         echo ""
         echo "This will:"
         echo " * Link the repo's clustercreator.sh script to /usr/local/bin/ccr."
         echo " * Save this repository's location in ~/.config/clustercreator so the 'ccr' command knows where to look for scripts."
-        echo " * Initialize tofu"
         exit 1
     fi
 
@@ -156,11 +155,9 @@ init() {
 
     echo -e "${BLUE}Linking clustercreator.sh to ${INSTALL_PATH}${ENDCOLOR}"
     chmod +x "${REPO_PATH}/clustercreator.sh"
+    sudo unlink "${INSTALL_PATH}"
     sudo ln -s "${REPO_PATH}/clustercreator.sh" "${INSTALL_PATH}"
     echo -e "${BLUE}Installation complete. You can now use 'ccr' as a command.${ENDCOLOR}"
-
-    echo -e "${BLUE}Initializing tofu...${ENDCOLOR}"
-    ( cd "$REPO_PATH/terraform" && tofu init -upgrade )
 }
 
 ctx() {
@@ -187,8 +184,9 @@ display_usage() {
     echo "Usage: clustercreator.sh|ccr <command> [options]"
     echo ""
     echo "Commands:"
-    echo "  init              Creates 'ccr' command, tells it where to look for scripts, and initializes tofu"
+    echo "  setup-ccr         Creates 'ccr' command and tells it where to look for scripts"
     echo "  ctx               Sets the current cluster context"
+    echo "  set-secrets       Sets secrets to be used by bash, ansible, and tofu"
     echo "  template          Creates a VM template for Kubernetes"
     echo "  tofu              Executes tofu commands directly"
     echo "  bootstrap         Bootstraps Kubernetes to create a cluster"
@@ -200,14 +198,16 @@ display_usage() {
     echo "  reset-all-nodes   Resets Kubernetes configurations for all hosts"
     echo "  upgrade-addons    Upgrades the addons to the versions specified in the environment settings"
     echo "  upgrade-k8s       Upgrades the control-plane api to the version specified in the environment settings"
-    echo "  power             Controls power for VMs"
-    echo "  command           Runs a bash command on an Ansible host group"
+    echo "  powerctl          Controls power for VMs"
+    echo "  run-command       Runs a bash command on a host or an Ansible host group"
+    echo "  toggle-providers  Toggles the S3 (Minio) and Unifi providers"
     echo ""
-    echo "Use the -h/--help flag following a command for more help."
+    echo "Use the -h/--help flag following a command for more descriptive help output."
 }
 
 # Start script logic
 
+# Should always be executed
 required_commands=(
   "ansible-playbook"
   "ansible-galaxy"
@@ -218,16 +218,17 @@ required_commands=(
 )
 check_required_commands "${required_commands[@]}"
 
+# Load REPO_PATH variable
 mkdir -p "$CONFIG_DIR" # Ensure the configuration directory exists
 COMMAND="$1"
 shift
-if [ "$COMMAND" != "init" ]; then
+if [ "$COMMAND" != "setup-ccr" ]; then
     # Load REPO_PATH
     if [ -f "$REPO_PATH_FILE" ]; then
         REPO_PATH=$(cat "$REPO_PATH_FILE")
         export REPO_PATH
     else
-        echo -e "${RED}Repository path not set. Run 'clustercreator.sh init' to initialize.${ENDCOLOR}"
+        echo -e "${RED}Repository path not set. Run 'clustercreator.sh setup-ccr' to set this value.${ENDCOLOR}"
         exit 1
     fi
 
@@ -239,7 +240,7 @@ if [ "$COMMAND" != "init" ]; then
     set +a # stop automatically exporting
 fi
 
-# Load the current cluster context if it exists and export it
+# Load CLUSTER_FILE variable
 if [ -f "$CLUSTER_FILE" ]; then
     CLUSTER_NAME=$(cat "$CLUSTER_FILE")
     export CLUSTER_NAME
@@ -284,15 +285,24 @@ required_vars=(
   "METRICS_SERVER_VERSION"
   "CLUSTER_NAME"
 )
-# Don't print out variables if -h or --help is passed or during init, ctx, and tofu
-# shellcheck disable=SC2199
-if [[ ! " ${@} " =~ " -h " && ! " ${@} " =~ " --help " ]]; then
-  if [[ "$COMMAND" != "init" && "$COMMAND" != "ctx" && "$COMMAND" != "tofu" ]]; then
+# Only run check_required_vars and print_env_vars for specified commands
+if [[ "$COMMAND" == "template" || \
+      "$COMMAND" == "bootstrap" || \
+      "$COMMAND" == "add-nodes" || \
+      "$COMMAND" == "drain-node" || \
+      "$COMMAND" == "delete-node" || \
+      "$COMMAND" == "upgrade-node" || \
+      "$COMMAND" == "reset-node" || \
+      "$COMMAND" == "reset-all-nodes" || \
+      "$COMMAND" == "upgrade-addons" || \
+      "$COMMAND" == "upgrade-k8s" || \
+      "$COMMAND" == "powerctl" || \
+      "$COMMAND" == "run-command" ]]; then
     check_required_vars "${required_vars[@]}"
     print_env_vars "${required_vars[@]}"
-  fi
 fi
 
+# Save ansible variables for simplicity in child scripts
 export ANSIBLE_OPTS="-i tmp/${CLUSTER_NAME}/ansible-hosts.txt -u ${VM_USERNAME} --private-key ${HOME}/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}"
 export EXTRA_ANSIBLE_VARS="\
   -e ssh_key_file=${HOME}/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY} \
@@ -305,14 +315,17 @@ export EXTRA_ANSIBLE_VARS="\
 
 # Dispatch to the appropriate script based on the command
 case "$COMMAND" in
-    init)
-        init "$@"
+    setup-ccr)
+        setup-ccr "$@"
         ;;
     ctx)
         ctx "$@"
         ;;
+    set-secrets)
+        ( "$REPO_PATH/scripts/set_secrets.sh" "$@" )
+        ;;
     template)
-        ( "$REPO_PATH/scripts/create_template.sh" "$@" )
+        ( "$REPO_PATH/scripts/template.sh" "$@" )
         ;;
     bootstrap)
         ( "$REPO_PATH/scripts/bootstrap.sh" "$@" )
@@ -341,11 +354,14 @@ case "$COMMAND" in
     upgrade-k8s)
         ( "$REPO_PATH/scripts/upgrade_k8s.sh" "$@" )
         ;;
-    power)
-        ( "$REPO_PATH/scripts/powerctl_pool.sh" "$@")
+    powerctl)
+        ( "$REPO_PATH/scripts/powerctl.sh" "$@")
         ;;
-    command)
+    run-command)
         ( "$REPO_PATH/scripts/run_command.sh" "$@" )
+        ;;
+    toggle-providers)
+        ( "$REPO_PATH/scripts/toggle_providers.sh" "$@" )
         ;;
     tofu)
         ( cd "$REPO_PATH/terraform" && tofu "$@" )

@@ -3,7 +3,16 @@
 usage() {
   echo "Usage: ccr bootstrap"
   echo ""
-  echo "Run a series of Ansible playbooks to bootstrap the your Kubernetes cluster"
+  echo "Runs a series of Ansible playbooks to bootstrap the your Kubernetes cluster"
+  echo ""
+  echo "The ansible playbooks handle:"
+  echo " * Optional decoupled etcd cluster setup."
+  echo " * Highly available control plane with Kube-VIP."
+  echo " * Cilium CNI (with optional dual-stack networking)."
+  echo " * Metrics server installation."
+  echo " * StorageClass configuration."
+  echo " * Node labeling and tainting."
+  echo " * Node preparation and joining."
 }
 
 # Parse command-line arguments
@@ -21,7 +30,7 @@ cleanup_files=(
   "tmp/${CLUSTER_NAME}/control_plane_join_command.sh"
 )
 set -e
-trap 'echo "An error occurred. Cleaning up..."; cleanup_files "${cleanup_files[@]}"' ERR
+trap 'echo "An error occurred. Cleaning up..."; cleanup_files "${cleanup_files[@]}"' ERR INT
 
 echo -e "${GREEN}Bootstrapping Kubernetes onto cluster: $CLUSTER_NAME.${ENDCOLOR}"
 

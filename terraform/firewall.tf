@@ -18,7 +18,7 @@ resource "proxmox_virtual_environment_firewall_options" "node" {
   depends_on = [ proxmox_virtual_environment_vm.node ]
   for_each = { for node in local.nodes : "${node.cluster_name}-${node.node_class}-${node.index}" => node }
 
-  node_name = var.proxmox_node
+  node_name = local.proxmox_node
   vm_id     = each.value.vm_id
 
   enabled       = local.cluster_config.networking.use_pve_firewall
@@ -623,7 +623,7 @@ resource "proxmox_virtual_environment_firewall_rules" "main" {
   ]
   for_each = { for node in local.nodes : "${node.cluster_name}-${node.node_class}-${node.index}" => node if local.cluster_config.networking.use_pve_firewall }
 
-  node_name = var.proxmox_node
+  node_name = local.proxmox_node
   vm_id     = each.value.vm_id
 
   rule {

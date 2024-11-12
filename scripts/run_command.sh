@@ -1,9 +1,9 @@
 #!/bin/bash
 
 usage() {
-    echo "Usage: ccr command 'command_to_run' [-g|--group group_name]"
+    echo "Usage: ccr command 'command_to_run' [<hostname_or_node_class>]"
     echo ""
-    echo "Runs a command with elevated permissions on the Ansible host group specified. The group name is the same as the node class name. The default group is 'all'."
+    echo "Runs a command with elevated permissions on the host or node class specified. The default node class is 'all'."
 }
 
 GROUP_NAME="all"
@@ -13,12 +13,13 @@ PLAYBOOK_FILE="/tmp/ansible_playbook_run_command.yml"
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
-        -g|--group) GROUP_NAME="$2"; shift ;;
         -h|--help) usage; exit 0 ;;
         *)
-          # treat the first positional argument as COMMAND
+          # Assign first argument as COMMAND if empty, second as GROUP_NAME if provided
           if [[ -z "$COMMAND" ]]; then
               COMMAND="$1"
+          elif [[ "$GROUP_NAME" == "all" ]]; then
+              GROUP_NAME="$1"
           else
               echo "Unknown parameter passed: $1"
               usage
@@ -29,7 +30,7 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
-# Required Variables
+# Required variables check
 required_vars=(
   "GROUP_NAME"
   "COMMAND"
@@ -42,12 +43,11 @@ cleanup_files=(
   "$PLAYBOOK_FILE"
 )
 set -e
-trap 'echo "An error occurred. Cleaning up..."; cleanup_files "${cleanup_files[@]}"' ERR
+trap 'echo "An error occurred. Cleaning up..."; cleanup_files "${cleanup_files[@]}"' ERR INT
 
 echo -e "${GREEN}Running '$COMMAND' on group '$GROUP_NAME' from cluster: $CLUSTER_NAME.${ENDCOLOR}"
 
 # --------------------------- Script Start ---------------------------
-
 
 # Create a temporary Ansible playbook
 cat << EOF > "$PLAYBOOK_FILE"
@@ -68,6 +68,7 @@ EOF
 
 playbooks=(
   "generate-hosts-txt.yaml"
+  "trust-hosts.yaml"
   "$PLAYBOOK_FILE"
 )
 run_playbooks "${playbooks[@]}"

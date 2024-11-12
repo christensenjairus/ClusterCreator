@@ -1,9 +1,9 @@
 #!/bin/bash
 
 usage() {
-  echo "Usage: ccr reset-node <hostname>"
+  echo "Usage: ccr reset-node <hostname_or_node_class>"
   echo ""
-  echo "Removes all Kubernetes files, services, and configurations from a node. It is recommended to drain and delete the node before resetting to minimize interruptions to your workloads."
+  echo "Removes all Kubernetes files, services, and configurations from a host or node class. It is recommended to drain and delete the node before resetting to minimize interruptions to your workloads."
 }
 
 TARGETED_NODE=""
@@ -39,7 +39,7 @@ cleanup_files=(
   "tmp/${CLUSTER_NAME}/control_plane_join_command.sh"
 )
 set -e
-trap 'echo "An error occurred. Cleaning up..."; cleanup_files "${cleanup_files[@]}"' ERR
+trap 'echo "An error occurred. Cleaning up..."; cleanup_files "${cleanup_files[@]}"' ERR INT
 
 echo -e "${GREEN}Resetting Kubernetes on ${TARGETED_NODE} from cluster: $CLUSTER_NAME.${ENDCOLOR}"
 

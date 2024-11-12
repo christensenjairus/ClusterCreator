@@ -21,7 +21,7 @@ cleanup_files=(
   "tmp/${CLUSTER_NAME}/control_plane_join_command.sh"
 )
 set -e
-trap 'echo "An error occurred. Cleaning up..."; cleanup_files "${cleanup_files[@]}"' ERR
+trap 'echo "An error occurred. Cleaning up..."; cleanup_files "${cleanup_files[@]}"' ERR INT
 
 echo -e "${GREEN}Resetting Kubernetes from all nodes from cluster: $CLUSTER_NAME.${ENDCOLOR}"
 
