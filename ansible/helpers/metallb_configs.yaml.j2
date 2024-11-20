@@ -6,13 +6,13 @@ metadata:
   namespace: metallb-system
 spec:
   addresses:
-{% if ipv4_lb_ranges %}
-{% for range in ipv4_lb_ranges.split(',') if range.strip() %}
+{% if ipv4_lb_cidrs %}
+{% for range in ipv4_lb_cidrs.split(',') if range.strip() %}
   - {{ range.strip() }}
 {% endfor %}
 {% endif %}
-{% if ipv6_lb_ranges %}
-{% for range in ipv6_lb_ranges.split(',') if range.strip() %}
+{% if ipv6_lb_cidrs %}
+{% for range in ipv6_lb_cidrs.split(',') if range.strip() %}
   - {{ range.strip() }}
 {% endfor %}
 {% endif %}

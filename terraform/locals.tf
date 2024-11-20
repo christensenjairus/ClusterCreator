@@ -24,7 +24,7 @@ locals {
             gateway          = "${cluster.networking.ipv4.subnet_prefix}.1"
             dns1             = cluster.networking.ipv4.dns1
             dns2             = cluster.networking.ipv4.dns2
-            lb_ranges        = cluster.networking.ipv4.lb_ranges
+            lb_cidrs         = cluster.networking.ipv4.lb_cidrs 
           }
           ipv6               : {
             enabled          = cluster.networking.ipv6.enabled
@@ -33,7 +33,7 @@ locals {
             gateway          = cluster.networking.ipv6.enabled ? "${cluster.networking.ipv6.subnet_prefix}::1" : null
             dns1             = cluster.networking.ipv6.enabled ? cluster.networking.ipv6.dns1: null
             dns2             = cluster.networking.ipv6.enabled ? cluster.networking.ipv6.dns2: null
-            lb_ranges        = cluster.networking.ipv6.enabled ? cluster.networking.ipv6.lb_ranges: null
+            lb_cidrs         = cluster.networking.ipv6.enabled ? cluster.networking.ipv6.lb_cidrs : null
           }
           dns_search_domain  = cluster.networking.dns_search_domain
         }

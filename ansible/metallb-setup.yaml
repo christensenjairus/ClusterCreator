@@ -13,8 +13,8 @@
         src: helpers/metallb_configs.yaml.j2
         dest: "/tmp/metallb_configs.yaml"
       vars:
-        ipv4_lb_ranges: "{{ cluster_config.networking.ipv4.lb_ranges }}"
-        ipv6_lb_ranges: "{{ cluster_config.networking.ipv6.lb_ranges }}"
+        ipv4_lb_cidrs: "{{ cluster_config.networking.ipv4.lb_cidrs }}"
+        ipv6_lb_cidrs: "{{ cluster_config.networking.ipv6.lb_cidrs }}"
       tags:
         - metallb_configs
 
