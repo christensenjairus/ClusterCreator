@@ -6,7 +6,7 @@ usage() {
     echo "Controls the states of the VMs, including power, snapshots, and backups."
     echo ""
     echo "Snapshots always include VM state, saving the memory state in addition to disk state."
-    echo "Backups are always full and are saved to the datastore from the PROXMOX_DATASTORE variable."
+    echo "Backups are always full."
 }
 
 ACTION=""
@@ -78,7 +78,7 @@ perform_action_with_retry() {
             SNAPSHOT_NAME="snapshot-$(date +%Y%m%d%H%M%S)"
             ${SSH_CMD} "qm snapshot $VMID --vmstate=1 $SNAPSHOT_NAME"
         elif [[ "$ACTION" == "backup" ]]; then
-            ${SSH_CMD} "vzdump $VMID --node $NODE --mode snapshot --compress zstd --storage $PROXMOX_DATASTORE"
+            ${SSH_CMD} "vzdump $VMID --node $NODE --mode snapshot --compress zstd --storage $PROXMOX_BACKUPS_DATASTORE"
         fi
 
         # Check if the command succeeded
