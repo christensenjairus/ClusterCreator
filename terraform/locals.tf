@@ -24,6 +24,7 @@ locals {
             gateway          = "${cluster.networking.ipv4.subnet_prefix}.1"
             dns1             = cluster.networking.ipv4.dns1
             dns2             = cluster.networking.ipv4.dns2
+            lb_ranges        = cluster.networking.ipv4.lb_ranges
           }
           ipv6               : {
             enabled          = cluster.networking.ipv6.enabled
@@ -32,6 +33,7 @@ locals {
             gateway          = cluster.networking.ipv6.enabled ? "${cluster.networking.ipv6.subnet_prefix}::1" : null
             dns1             = cluster.networking.ipv6.enabled ? cluster.networking.ipv6.dns1: null
             dns2             = cluster.networking.ipv6.enabled ? cluster.networking.ipv6.dns2: null
+            lb_ranges        = cluster.networking.ipv6.enabled ? cluster.networking.ipv6.lb_ranges: null
           }
           dns_search_domain  = cluster.networking.dns_search_domain
         }
@@ -41,8 +43,8 @@ locals {
 
   cluster_config = var.clusters[terraform.workspace]
 
-  management_ranges_ipv4_list = split(",", local.cluster_config.networking.management_ranges_ipv4)
-  management_ranges_ipv6_list = split(",", local.cluster_config.networking.management_ranges_ipv6)
+  management_cidrs_ipv4_list = split(",", local.cluster_config.networking.ipv4.management_cidrs)
+  management_cidrs_ipv6_list = split(",", local.cluster_config.networking.ipv6.management_cidrs)
 
   # Now filter all_nodes to only include those from the specified cluster
   nodes = [for node in local.all_nodes : node if node.cluster_name == terraform.workspace]

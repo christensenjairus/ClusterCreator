@@ -15,27 +15,29 @@ variable "clusters" {
     networking               : object({
       use_pve_firewall       : optional(bool, false)                                      # Optional. Whether or not to create and enable firewall rules in proxmox to harden your cluster
       use_unifi              : optional(bool, false)                                      # Optional. Whether or not to create a vlan in Unifi.
-      management_ranges_ipv4 : optional(string, "")                                       # Optional. Proxmox list of the IPs, ranges, or cidrs that you want to be able to reach the K8s api and ssh into the hosts. Only used if use_pve_firewall is true. Use a dash for ranges and comma separation
-      management_ranges_ipv6 : optional(string, "")                                       # Optional. Proxmox list of the IPs, ranges, or cidrs that you want to be able to reach the K8s api and ssh into the hosts. Only used if use_pve_firewall is true. Use a dash for ranges and comma separation
       bridge                 : optional(string, "vmbr0")                                  # Optional. Name of the proxmox bridge to use for VM's network interface
       dns_search_domain      : optional(string, "lan")                                    # Optional. Search domain for DNS resolution
       assign_vlan            : optional(bool, false)                                      # Optional. Whether or not to assign a vlan to the network interfaces of the VMs.
       vlan_id                : optional(number, 100)                                      # Optional. Vlan id to use for the cluster.
       ipv4                   : object({
         subnet_prefix        : string                                                     # Required. First three octets of the host IPv4 network's subnet (assuming its a /24)
-        pod_cidr             : optional(string,"10.42.0.0/16")                            # Optional. Cidr range for pod networking internal to cluster. Shouldn't overlap with ipv4 lan network. These must differ cluster to cluster if using clustermesh.
-        svc_cidr             : optional(string,"10.43.0.0/16")                            # Optional. Cidr range for service networking internal to cluster. Shouldn't overlap with ipv4 lan network.
+        pod_cidr             : optional(string, "10.42.0.0/16")                           # Optional. Cidr range for pod networking internal to cluster. Shouldn't overlap with ipv4 lan network. These must differ cluster to cluster if using clustermesh.
+        svc_cidr             : optional(string, "10.43.0.0/16")                           # Optional. Cidr range for service networking internal to cluster. Shouldn't overlap with ipv4 lan network.
         dns1                 : optional(string, "1.1.1.1")                                # Optional. Primary dns server for vm hosts
         dns2                 : optional(string, "1.0.0.1")                                # Optional. Secondary dns server for vm hosts
+        management_cidrs     : optional(string, "")                                       # Optional. Proxmox list of ipv4 IPs or cidrs that you want to be able to reach the K8s api and ssh into the hosts. Only used if use_pve_firewall is true.
+        lb_ranges            : optional(string, "")                                       # Optional. IPv4 ips, ranges, or cidrs to use for MetalLB.
       })
       ipv6                   : object({
         enabled              : optional(bool, false)                                      # Optional. Whether or not to enable IPv6 networking for the VMs and network in the cluster.
         dual_stack           : optional(bool, false)                                      # Optional. Whether or not to enable dual stack networking for the cluster. EXPECT COMPLICATIONS IF CHANGED AFTER INITIAL SETUP.
-        subnet_prefix        : optional(string,"[replace-me]:100")                        # Optional. First four hex sections of the host IPv6 network's subnet (assuming its a /64). Used for a static network configuration.
-        pod_cidr             : optional(string,"2001:cafe:42::/56")                       # Optional. Cidr range for pod networking internal to cluster. Should be a subsection of the ipv6 lan network. These must differ cluster to cluster if using clustermesh.
-        svc_cidr             : optional(string,"2001:cafe:43::/112")                      # Optional. Cidr range for service networking internal to cluster. Should be a subsection of the ipv6 lan network.
-        dns1                 : optional(string,"2607:fa18::1")                            # Optional. Primary dns server for vm hosts
-        dns2                 : optional(string,"2607:fa18::2")                            # Optional. Secondary dns server for vm hosts
+        subnet_prefix        : optional(string, "[replace-me]:100")                       # Optional. First four hex sections of the host IPv6 network's subnet (assuming its a /64). Used for a static network configuration.
+        pod_cidr             : optional(string, "2001:cafe:42::/56")                      # Optional. Cidr range for pod networking internal to cluster. Should be a subsection of the ipv6 lan network. These must differ cluster to cluster if using clustermesh.
+        svc_cidr             : optional(string, "2001:cafe:43::/112")                     # Optional. Cidr range for service networking internal to cluster. Should be a subsection of the ipv6 lan network.
+        dns1                 : optional(string, "2607:fa18::1")                           # Optional. Primary dns server for vm hosts
+        dns2                 : optional(string, "2607:fa18::2")                           # Optional. Secondary dns server for vm hosts
+        management_cidrs     : optional(string, "")                                       # Optional. Proxmox list of ipv6 IPs or cidrs that you want to be able to reach the K8s api and ssh into the hosts. Only used if use_pve_firewall is true.
+        lb_ranges            : optional(string, "")                                       # Optional. IPv6 ips, ranges, or cidrs to use for MetalLB.
       })
       kube_vip               : object({
         kube_vip_version     : optional(string, "0.8.4")                                  # Optional. Kube-vip version to use. Needs to be their ghcr.io docker image version
@@ -83,12 +85,12 @@ variable "clusters" {
       }
       networking = {
         use_unifi              = true
-        management_ranges_ipv4 = "10.0.0.1-10.0.0.3,10.0.60.2,10.0.50.5,10.0.50.6"
-        management_ranges_ipv6 = ""
         vlan_id                = 100
         assign_vlan            = true
         ipv4 = {
           subnet_prefix        = "10.0.1"
+          management_cidrs     = "10.0.0.1,10.0.0.2,10.0.0.3,10.0.60.2,10.0.50.5,10.0.50.6"
+          lb_ranges            = "10.0.1.200-10.0.1.254"
         }
         ipv6 = {}
         kube_vip = {
@@ -122,12 +124,12 @@ variable "clusters" {
       }
       networking = {
         use_unifi              = true
-        management_ranges_ipv4 = "10.0.0.1-10.0.0.3,10.0.60.2,10.0.50.5,10.0.50.6"
-        management_ranges_ipv6 = ""
         vlan_id                = 200
         assign_vlan            = true
         ipv4 = {
           subnet_prefix        = "10.0.2"
+          management_cidrs     = "10.0.0.1,10.0.0.2,10.0.0.3,10.0.60.2,10.0.50.5,10.0.50.6"
+          lb_ranges            = "10.0.1.200-10.0.1.254"
         }
         ipv6 = {}
         kube_vip = {
@@ -173,12 +175,12 @@ variable "clusters" {
       }
       networking = {
         use_unifi              = true
-        management_ranges_ipv4 = "10.0.0.1-10.0.0.3,10.0.60.2,10.0.50.5,10.0.50.6"
-        management_ranges_ipv6 = ""
         vlan_id                = 300
         assign_vlan            = true
         ipv4 = {
           subnet_prefix        = "10.0.3"
+          management_cidrs     = "10.0.0.1,10.0.0.2,10.0.0.3,10.0.60.2,10.0.50.5,10.0.50.6"
+          lb_ranges            = "10.0.1.200-10.0.1.254"
         }
         ipv6 = {}
         kube_vip = {
