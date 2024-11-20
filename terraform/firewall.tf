@@ -285,7 +285,7 @@ resource "proxmox_virtual_environment_firewall_ipset" "lbs_ipv4" {
   }
 }
 resource "proxmox_virtual_environment_firewall_ipset" "lbs_ipv6" {
-  count = local.cluster_config.networking.use_pve_firewall ? 1 : 0
+  count = local.cluster_config.networking.use_pve_firewall && local.cluster_config.networking.ipv6.enabled ? 1 : 0
 
   name    = "k8s-${local.cluster_config.cluster_name}-lbs-ipv6"
   comment = "Managed by Terraform"
@@ -541,15 +541,18 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "etcd" {
     proto   = "tcp"
     log     = "nolog"
   }
-  rule {
-    type    = "in"
-    action  = "ACCEPT"
-    comment = "Allow Apiservers to Etcd IPv6"
-    source  = "+${proxmox_virtual_environment_firewall_ipset.apiserver_nodes_ipv6[0].name}"
-    dest    = try(local.cluster_config.node_classes.etcd.count, 0) == 0 ? "+${proxmox_virtual_environment_firewall_ipset.apiserver_nodes_ipv6[0].name}" : "+${proxmox_virtual_environment_firewall_ipset.etcd_nodes_ipv6[0].name}"
-    dport   = "2379:2380"
-    proto   = "tcp"
-    log     = "nolog"
+  dynamic "rule" {
+    for_each = local.cluster_config.networking.ipv6.enabled ? [1] : []
+    content {
+      type    = "in"
+      action  = "ACCEPT"
+      comment = "Allow Apiservers to Etcd IPv6"
+      source  = "+${proxmox_virtual_environment_firewall_ipset.apiserver_nodes_ipv6[0].name}"
+      dest    = try(local.cluster_config.node_classes.etcd.count, 0) == 0 ? "+${proxmox_virtual_environment_firewall_ipset.apiserver_nodes_ipv6[0].name}" : "+${proxmox_virtual_environment_firewall_ipset.etcd_nodes_ipv6[0].name}"
+      dport   = "2379:2380"
+      proto   = "tcp"
+      log     = "nolog"
+    }
   }
   dynamic "rule" {
     for_each = try(local.cluster_config.node_classes.etcd.count, 0) > 0 ? [1] : []
@@ -565,7 +568,7 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "etcd" {
     }
   }
   dynamic "rule" {
-    for_each = try(local.cluster_config.node_classes.etcd.count, 0) > 0 ? [1] : []
+    for_each = try(local.cluster_config.node_classes.etcd.count, 0) > 0 && local.cluster_config.networking.ipv6.enabled ? [1] : []
     content {
       type    = "in"
       action  = "ACCEPT"
