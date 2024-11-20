@@ -26,7 +26,7 @@ variable "clusters" {
         dns1                 : optional(string, "1.1.1.1")                                # Optional. Primary dns server for vm hosts
         dns2                 : optional(string, "1.0.0.1")                                # Optional. Secondary dns server for vm hosts
         management_cidrs     : optional(string, "")                                       # Optional. Proxmox list of ipv4 IPs or cidrs that you want to be able to reach the K8s api and ssh into the hosts. Only used if use_pve_firewall is true.
-        lb_cidrs             : optional(string, "")                                       # Optional. IPv4 ips, ranges, or cidrs to use for MetalLB.
+        lb_cidrs             : optional(string, "")                                       # Optional. IPv4 cidrs to use for MetalLB.
       })
       ipv6                   : object({
         enabled              : optional(bool, false)                                      # Optional. Whether or not to enable IPv6 networking for the VMs and network in the cluster.
@@ -37,7 +37,7 @@ variable "clusters" {
         dns1                 : optional(string, "2607:fa18::1")                           # Optional. Primary dns server for vm hosts
         dns2                 : optional(string, "2607:fa18::2")                           # Optional. Secondary dns server for vm hosts
         management_cidrs     : optional(string, "")                                       # Optional. Proxmox list of ipv6 IPs or cidrs that you want to be able to reach the K8s api and ssh into the hosts. Only used if use_pve_firewall is true.
-        lb_cidrs             : optional(string, "")                                       # Optional. IPv6 ips, ranges, or cidrs to use for MetalLB.
+        lb_cidrs             : optional(string, "")                                       # Optional. IPv6 cidrs to use for MetalLB.
       })
       kube_vip               : object({
         kube_vip_version     : optional(string, "0.8.4")                                  # Optional. Kube-vip version to use. Needs to be their ghcr.io docker image version
@@ -90,7 +90,7 @@ variable "clusters" {
         ipv4 = {
           subnet_prefix        = "10.0.1"
           management_cidrs     = "10.0.0.0/30,10.0.60.2,10.0.50.5,10.0.50.6"
-          lb_cidrs             = "10.0.9.200/29,10.0.9.208/28,10.0.9.224/28,10.0.9.240/29,10.0.9.248/30,10.0.9.252/31,10.0.9.254"
+          lb_cidrs             = "10.0.9.200/29,10.0.9.208/28,10.0.9.224/28,10.0.9.240/29,10.0.9.248/30,10.0.9.252/31"
         }
         ipv6 = {}
         kube_vip = {
@@ -129,7 +129,7 @@ variable "clusters" {
         ipv4 = {
           subnet_prefix        = "10.0.2"
           management_cidrs     = "10.0.0.0/30,10.0.60.2,10.0.50.5,10.0.50.6"
-          lb_cidrs             = "10.0.9.200/29,10.0.9.208/28,10.0.9.224/28,10.0.9.240/29,10.0.9.248/30,10.0.9.252/31,10.0.9.254"
+          lb_cidrs             = "10.0.9.200/29,10.0.9.208/28,10.0.9.224/28,10.0.9.240/29,10.0.9.248/30,10.0.9.252/31"
         }
         ipv6 = {}
         kube_vip = {
@@ -180,7 +180,7 @@ variable "clusters" {
         ipv4 = {
           subnet_prefix        = "10.0.3"
           management_cidrs     = "10.0.0.0/30,10.0.60.2,10.0.50.5,10.0.50.6"
-          lb_cidrs             = "10.0.9.200/29,10.0.9.208/28,10.0.9.224/28,10.0.9.240/29,10.0.9.248/30,10.0.9.252/31,10.0.9.254"
+          lb_cidrs             = "10.0.9.200/29,10.0.9.208/28,10.0.9.224/28,10.0.9.240/29,10.0.9.248/30,10.0.9.252/31"
         }
         ipv6 = {}
         kube_vip = {
