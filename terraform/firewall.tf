@@ -398,16 +398,8 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "ssh" {
       log     = "info"
     }
   }
-}
 
-# FIXME - this ideally shouldn't be necessary
-# allow etcd[0] ssh to other etcd nodes and apiservers over ipv4. It's part of etcd-nodes-setup.yaml.
-resource "proxmox_virtual_environment_cluster_firewall_security_group" "etcd-ssh" {
-  count = local.cluster_config.networking.use_pve_firewall ? 1 : 0
-
-  name    = "k8s-${local.cluster_config.cluster_name}-etcd-ssh"
-  comment = "Etcd SSH into ${local.cluster_config.cluster_name} cluster"
-
+  # allow etcd[0] ssh to other etcd nodes and apiservers over ipv4. It's part of etcd-nodes-setup.yaml.
   rule {
     type    = "in"
     action  = "ACCEPT"
@@ -437,7 +429,7 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "ping" {
   name    = "k8s-${local.cluster_config.cluster_name}-ping"
   comment = "Ping nodes in ${local.cluster_config.cluster_name} cluster"
 
-  # For each range or IP in the management_ranges
+  # Allow admin IPs to ping
   rule {
     type    = "in"
     action  = "ACCEPT"
@@ -464,6 +456,38 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "ping" {
     action  = "ACCEPT"
     comment = "Allow Ping from Management IP or Range VIP"
     source  = local.cluster_config.networking.kube_vip.use_ipv6 ? "+${proxmox_virtual_environment_firewall_ipset.management_ipv6[0].name}":  "+${proxmox_virtual_environment_firewall_ipset.management_ipv4[0].name}"
+    dest    = "+${proxmox_virtual_environment_firewall_ipset.kube_vip[0].name}"
+    macro   = "Ping"
+    log     = "info"
+  }
+
+  # Allow all nodes ping
+  rule {
+    type    = "in"
+    action  = "ACCEPT"
+    comment = "Allow Ping from Management IP or Range IPv4"
+    source  = "+${proxmox_virtual_environment_firewall_ipset.all_nodes_ipv4[0].name}"
+    dest    = "+${proxmox_virtual_environment_firewall_ipset.all_nodes_ipv4[0].name}"
+    macro   = "Ping"
+    log     = "info"
+  }
+  dynamic "rule" {
+    for_each = local.cluster_config.networking.ipv6.enabled ? [1] : []
+    content {
+      type    = "in"
+      action  = "ACCEPT"
+      comment = "Allow Ping from Management IP or Range IPv6"
+      source  = "+${proxmox_virtual_environment_firewall_ipset.all_nodes_ipv6[0].name}"
+      dest    = "+${proxmox_virtual_environment_firewall_ipset.all_nodes_ipv6[0].name}"
+      macro   = "Ping"
+      log     = "info"
+    }
+  }
+  rule {
+    type    = "in"
+    action  = "ACCEPT"
+    comment = "Allow Ping from nodes to VIP"
+    source  = local.cluster_config.networking.kube_vip.use_ipv6 ? "+${proxmox_virtual_environment_firewall_ipset.all_nodes_ipv6[0].name}":  "+${proxmox_virtual_environment_firewall_ipset.all_nodes_ipv4[0].name}"
     dest    = "+${proxmox_virtual_environment_firewall_ipset.kube_vip[0].name}"
     macro   = "Ping"
     log     = "info"
@@ -774,16 +798,6 @@ resource "proxmox_virtual_environment_firewall_rules" "main" {
     content {
       security_group = proxmox_virtual_environment_cluster_firewall_security_group.etcd[0].name
       comment        = proxmox_virtual_environment_cluster_firewall_security_group.etcd[0].name
-      iface          = "net0"
-    }
-  }
-
-  dynamic "rule" {
-    for_each = local.cluster_config.networking.use_pve_firewall && try(local.cluster_config.node_classes.etcd, null) != null ? [1] : []
-
-    content {
-      security_group = proxmox_virtual_environment_cluster_firewall_security_group.etcd-ssh[0].name
-      comment        = proxmox_virtual_environment_cluster_firewall_security_group.etcd-ssh[0].name
       iface          = "net0"
     }
   }
