@@ -1,6 +1,7 @@
 ---
 - name: Label and Taint Kubernetes Nodes
   hosts: localhost
+  gather_facts: false
 
   vars:
     ansible_hosts_path: "tmp/{{ cluster_name }}/ansible-hosts.txt"

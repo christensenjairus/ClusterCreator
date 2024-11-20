@@ -127,6 +127,7 @@ resource "proxmox_virtual_environment_vm" "node" {
       clone,
       machine,
       operating_system,
+      hostpci, # pci devices using database level mapping re-set the mapping once it's booted
       disk, # don't remake disks, could cause data loss! Can comment this out if no production data is present
     ]
   }

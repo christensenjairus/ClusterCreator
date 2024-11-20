@@ -355,16 +355,17 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "k8s_api"
     proto   = "tcp"
     log     = "nolog"
   }
-  rule {
-    type    = "in"
-    action  = "ACCEPT"
-    comment = "Allow K8s API from all K8s Nodes QEMU-found IPs"
-    source  = local.cluster_config.networking.kube_vip.use_ipv6 ? local.ipv6_interface_list : local.ipv4_interface_list
-    dest    = "+${proxmox_virtual_environment_firewall_ipset.kube_vip[0].name}"
-    dport   = "6443"
-    proto   = "tcp"
-    log     = "nolog"
-  }
+  # FIXME - this isn't consistent across terraform runs
+  # rule {
+  #   type    = "in"
+  #   action  = "ACCEPT"
+  #   comment = "Allow K8s API from all K8s Nodes QEMU-found IPs"
+  #   source  = local.cluster_config.networking.kube_vip.use_ipv6 ? local.ipv6_interface_list : local.ipv4_interface_list
+  #   dest    = "+${proxmox_virtual_environment_firewall_ipset.kube_vip[0].name}"
+  #   dport   = "6443"
+  #   proto   = "tcp"
+  #   log     = "nolog"
+  # }
 }
 
 # allow admin ssh
@@ -396,6 +397,36 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "ssh" {
       proto   = "tcp"
       log     = "info"
     }
+  }
+}
+
+# FIXME - this ideally shouldn't be necessary
+# allow etcd[0] ssh to other etcd nodes and apiservers over ipv4. It's part of etcd-nodes-setup.yaml.
+resource "proxmox_virtual_environment_cluster_firewall_security_group" "etcd-ssh" {
+  count = local.cluster_config.networking.use_pve_firewall ? 1 : 0
+
+  name    = "k8s-${local.cluster_config.cluster_name}-etcd-ssh"
+  comment = "Etcd SSH into ${local.cluster_config.cluster_name} cluster"
+
+  rule {
+    type    = "in"
+    action  = "ACCEPT"
+    comment = "Allow SSH from etcd to other etcds"
+    source  = "+${proxmox_virtual_environment_firewall_ipset.etcd_nodes_ipv4[0].name}"
+    dest    = "+${proxmox_virtual_environment_firewall_ipset.etcd_nodes_ipv4[0].name}"
+    dport   = "22"
+    proto   = "tcp"
+    log     = "info"
+  }
+  rule {
+    type    = "in"
+    action  = "ACCEPT"
+    comment = "Allow SSH from etcd to apiservers"
+    source  = "+${proxmox_virtual_environment_firewall_ipset.etcd_nodes_ipv4[0].name}"
+    dest    = "+${proxmox_virtual_environment_firewall_ipset.apiserver_nodes_ipv4[0].name}"
+    dport   = "22"
+    proto   = "tcp"
+    log     = "info"
   }
 }
 
@@ -441,7 +472,7 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "ping" {
 
 # allow etcd
 resource "proxmox_virtual_environment_cluster_firewall_security_group" "etcd" {
-  count = local.cluster_config.networking.use_pve_firewall && try(local.cluster_config.node_classes.etcd, null) != null ? 1 : 0
+  count = local.cluster_config.networking.use_pve_firewall ? 1 : 0
 
   name    = "k8s-${local.cluster_config.cluster_name}-etcd"
   comment = "Etcd for ${local.cluster_config.cluster_name} cluster"
@@ -449,9 +480,9 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "etcd" {
   rule {
     type    = "in"
     action  = "ACCEPT"
-    comment = "Allow Etcd IPv4"
+    comment = "Allow Apiservers to Etcd IPv4"
     source  = "+${proxmox_virtual_environment_firewall_ipset.apiserver_nodes_ipv4[0].name}"
-    dest    = local.cluster_config.node_classes.etcd.count == 0 ? "+${proxmox_virtual_environment_firewall_ipset.apiserver_nodes_ipv4[0].name}" : "+${proxmox_virtual_environment_firewall_ipset.etcd_nodes_ipv4[0].name}"
+    dest    = try(local.cluster_config.node_classes.etcd.count, 0) == 0 ? "+${proxmox_virtual_environment_firewall_ipset.apiserver_nodes_ipv4[0].name}" : "+${proxmox_virtual_environment_firewall_ipset.etcd_nodes_ipv4[0].name}"
     dport   = "2379:2380"
     proto   = "tcp"
     log     = "nolog"
@@ -459,12 +490,38 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "etcd" {
   rule {
     type    = "in"
     action  = "ACCEPT"
-    comment = "Allow Etcd IPv6"
+    comment = "Allow Apiservers to Etcd IPv6"
     source  = "+${proxmox_virtual_environment_firewall_ipset.apiserver_nodes_ipv6[0].name}"
-    dest    = local.cluster_config.node_classes.etcd.count == 0 ? "+${proxmox_virtual_environment_firewall_ipset.apiserver_nodes_ipv6[0].name}" : "+${proxmox_virtual_environment_firewall_ipset.etcd_nodes_ipv6[0].name}"
+    dest    = try(local.cluster_config.node_classes.etcd.count, 0) == 0 ? "+${proxmox_virtual_environment_firewall_ipset.apiserver_nodes_ipv6[0].name}" : "+${proxmox_virtual_environment_firewall_ipset.etcd_nodes_ipv6[0].name}"
     dport   = "2379:2380"
     proto   = "tcp"
     log     = "nolog"
+  }
+  dynamic "rule" {
+    for_each = try(local.cluster_config.node_classes.etcd.count, 0) > 0 ? [1] : []
+    content {
+      type    = "in"
+      action  = "ACCEPT"
+      comment = "Allow Etcd to Etcd IPv4"
+      source  = "+${proxmox_virtual_environment_firewall_ipset.etcd_nodes_ipv4[0].name}"
+      dest    = "+${proxmox_virtual_environment_firewall_ipset.etcd_nodes_ipv4[0].name}"
+      dport   = "2379:2380"
+      proto   = "tcp"
+      log     = "nolog"
+    }
+  }
+  dynamic "rule" {
+    for_each = try(local.cluster_config.node_classes.etcd.count, 0) > 0 ? [1] : []
+    content {
+      type    = "in"
+      action  = "ACCEPT"
+      comment = "Allow Etcd to Etcd IPv6"
+      source  = "+${proxmox_virtual_environment_firewall_ipset.etcd_nodes_ipv6[0].name}"
+      dest    = "+${proxmox_virtual_environment_firewall_ipset.etcd_nodes_ipv6[0].name}"
+      dport   = "2379:2380"
+      proto   = "tcp"
+      log     = "nolog"
+    }
   }
 }
 
@@ -717,6 +774,16 @@ resource "proxmox_virtual_environment_firewall_rules" "main" {
     content {
       security_group = proxmox_virtual_environment_cluster_firewall_security_group.etcd[0].name
       comment        = proxmox_virtual_environment_cluster_firewall_security_group.etcd[0].name
+      iface          = "net0"
+    }
+  }
+
+  dynamic "rule" {
+    for_each = local.cluster_config.networking.use_pve_firewall && try(local.cluster_config.node_classes.etcd, null) != null ? [1] : []
+
+    content {
+      security_group = proxmox_virtual_environment_cluster_firewall_security_group.etcd-ssh[0].name
+      comment        = proxmox_virtual_environment_cluster_firewall_security_group.etcd-ssh[0].name
       iface          = "net0"
     }
   }

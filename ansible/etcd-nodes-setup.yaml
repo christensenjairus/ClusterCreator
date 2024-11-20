@@ -1,8 +1,8 @@
 ---
 - name: Check for existing bootstrap marker file on all etcd nodes
   hosts: etcd
-  become: true
   gather_facts: false
+  become: true
   tasks:
     - name: Check if bootstrap marker file exists
       ansible.builtin.stat:
@@ -16,9 +16,9 @@
 
 - name: Setup etcd kubelet configs
   hosts: etcd
+  gather_facts: false
   any_errors_fatal: true
   become: true
-  gather_facts: true
   tasks:
     - name: Update apt cache on etcd hosts
       become: true
@@ -129,6 +129,7 @@
 
 - name: Generate kubeadmcfg.yaml for each etcd host and generate a certificate authority
   hosts: etcd[0] # Ensures these tasks run on only etcd-0
+  gather_facts: false
   any_errors_fatal: true
   become: true
   tasks:
@@ -162,6 +163,7 @@
 
 - name: Setup configs for remaining etcd nodes
   become: true
+  gather_facts: false
   any_errors_fatal: true
   hosts: etcd[0] # Commands run on etcd-0
   tasks:
@@ -180,6 +182,7 @@
         - etcd_cert_generation
 - name: Setup config for etcd-0
   become: true
+  gather_facts: false
   any_errors_fatal: true
   hosts: etcd[0] # Commands run on etcd-0
   tasks:
@@ -198,7 +201,7 @@
 
 - name: Copy root SSH key to etcd-0
   hosts: etcd[0]
-  gather_facts: no
+  gather_facts: false
   become: yes
   tags:
     - ssh_key_copy
@@ -223,8 +226,8 @@
 
 - name: Ensure specific directories and files do not exist on remaining etcd nodes
   hosts: etcd[1:]
-  any_errors_fatal: true
   gather_facts: false
+  any_errors_fatal: true
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
   tasks:
@@ -258,8 +261,8 @@
         - etcd_cert_copy
 - name: Synchronize PKI directories from etcd-0 to remaining etcd nodes
   hosts: etcd[0]  # Running tasks from etcd-0
-  any_errors_fatal: true
   gather_facts: false
+  any_errors_fatal: true
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
   tasks:
@@ -281,8 +284,8 @@
         - etcd_cert_copy
 - name: Correct ownership and relocate PKI directories on remaining etcd nodes
   hosts: etcd[1:]
-  any_errors_fatal: true
   gather_facts: false
+  any_errors_fatal: true
   become: true # Execute tasks with elevated privileges
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
@@ -308,8 +311,8 @@
 
 - name: Initialize etcd on etcd-0
   hosts: etcd[0]
-  any_errors_fatal: true
   gather_facts: false
+  any_errors_fatal: true
   tasks:
     - name: Initialize etcd with specific configuration
       ansible.builtin.command: sudo kubeadm init phase etcd local --config=/tmp/{{ hostvars[groups['etcd'][0]].ansible_host }}/kubeadmcfg.yaml
@@ -318,8 +321,8 @@
         - etcd_init
 - name: Create static pod manifests on remaining etcd nodes
   hosts: etcd[1:]
-  any_errors_fatal: true
   gather_facts: false
+  any_errors_fatal: true
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
   tasks:
@@ -331,8 +334,8 @@
 
 - name: Transfer PKI files to apiserver-0 and organize them
   hosts: etcd[0]  # Assuming this playbook runs on etcd-0
-  any_errors_fatal: true
   gather_facts: false
+  any_errors_fatal: true
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
   tasks:
@@ -359,8 +362,8 @@
         - kubeadm_config_copy
 - name: Prepare and organize PKI files on apiserver-0
   hosts: apiserver[0]  # Targeting apiserver-0
-  any_errors_fatal: true
   gather_facts: false
+  any_errors_fatal: true
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
   tasks:
@@ -401,8 +404,8 @@
 
 - name: Remove SSH private key from root's .ssh directory
   hosts: etcd[0]
-  any_errors_fatal: true
   gather_facts: false
+  any_errors_fatal: true
   tasks:
     - name: Remove SSH private key
       ansible.builtin.file:
@@ -414,6 +417,7 @@
 
 - name: Ensure etcd backup cronjobs are present
   hosts: etcd[0]
+  gather_facts: false
   become: yes
   tags:
     - etcd_backup
@@ -458,6 +462,7 @@
 
 - name: Apply ionice and traffic control settings for etcd (performance tuning)
   hosts: etcd
+  gather_facts: false
   become: true
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
@@ -498,6 +503,7 @@
 
 - name: Create an alias for 'etcd-health'
   hosts: etcd
+  gather_facts: false
   become: true
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
@@ -516,6 +522,7 @@
 
 - name: Create an alias for 'etcd-health-all'
   hosts: etcd
+  gather_facts: false
   become: true
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
@@ -535,6 +542,7 @@
 
 - name: Add heartbeat-interval and election-timeout to etcd container command if not present
   hosts: etcd
+  gather_facts: false
   become: true
   vars:
     etcd_yaml_path: "/etc/kubernetes/manifests/etcd.yaml"
@@ -560,7 +568,7 @@
   tags:
     - etcd_healthcheck
   tasks:
-    - name: Pause for 30s to give etcd cluster time to start
+    - name: Pause for 30s to give decoupled etcd cluster ample time to start
       ansible.builtin.pause:
         seconds: 30
     - name: Check health for each etcd endpoint

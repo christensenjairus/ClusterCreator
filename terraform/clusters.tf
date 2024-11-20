@@ -31,9 +31,9 @@ variable "clusters" {
       ipv6                   : object({
         enabled              : optional(bool, false)                                      # Optional. Whether or not to enable IPv6 networking for the VMs and network in the cluster.
         dual_stack           : optional(bool, false)                                      # Optional. Whether or not to enable dual stack networking for the cluster. EXPECT COMPLICATIONS IF CHANGED AFTER INITIAL SETUP.
-        subnet_prefix        : optional(string, "[replace-me]:100")                       # Optional. First four hex sections of the host IPv6 network's subnet (assuming its a /64). Used for a static network configuration.
-        pod_cidr             : optional(string, "2001:cafe:42::/56")                      # Optional. Cidr range for pod networking internal to cluster. Should be a subsection of the ipv6 lan network. These must differ cluster to cluster if using clustermesh.
-        svc_cidr             : optional(string, "2001:cafe:43::/112")                     # Optional. Cidr range for service networking internal to cluster. Should be a subsection of the ipv6 lan network.
+        subnet_prefix        : optional(string, "2001:db8:cafe:0000")                      # Optional. The first four hex sections of the host IPv6 network's subnet (assuming its a /64). Used for a static network configuration.
+        pod_cidr             : optional(string, "2001:db8:cafe:0000:244::/80")                 # Optional. Cidr range for pod networking internal to cluster. Should be a subsection of the ipv6 lan network. These must differ cluster to cluster if using clustermesh.
+        svc_cidr             : optional(string, "2001:db8:cafe:0000:96::/112")                # Optional. Cidr range for service networking internal to cluster. Should be a subsection of the ipv6 lan network.
         dns1                 : optional(string, "2607:fa18::1")                           # Optional. Primary dns server for vm hosts
         dns2                 : optional(string, "2607:fa18::2")                           # Optional. Secondary dns server for vm hosts
         management_cidrs     : optional(string, "")                                       # Optional. Proxmox list of ipv6 IPs or cidrs that you want to be able to reach the K8s api and ssh into the hosts. Only used if use_pve_firewall is true.

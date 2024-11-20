@@ -3,7 +3,7 @@
 usage() {
   echo "Usage: ccr upgrade-addons"
   echo ""
-  echo "Upgrades the addons (cilium, local-path-provisioner, metrics-server) to the versions specified in your environment settings"
+  echo "Upgrades the addons (cilium, metallb, local-path-provisioner, metrics-server) to the versions specified in your environment settings"
 }
 
 # Parse command-line arguments

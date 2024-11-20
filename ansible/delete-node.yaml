@@ -1,6 +1,7 @@
 
 - name: Delete node from Kubernetes Cluster
   hosts: apiserver
+  gather_facts: false
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
 

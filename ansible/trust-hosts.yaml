@@ -1,7 +1,7 @@
 ---
 - name: Update SSH keys in known_hosts file for all inventory hosts
   hosts: localhost
-  gather_facts: no
+  gather_facts: false
   any_errors_fatal: true
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"

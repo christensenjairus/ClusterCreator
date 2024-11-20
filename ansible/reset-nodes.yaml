@@ -30,17 +30,35 @@
         - "{{ cluster_config.ssh.ssh_home }}/.kube/"
         - "{{ cluster_config.ssh.ssh_home }}/kubeadm-config.yaml"
         - "{{ cluster_config.ssh.ssh_home }}/kubeadmcfg.yaml"
-        - /etc/kubernetes/
-        - /var/lib/etcd/
-        - /var/lib/kubelet/
+        - /etc/kubernetes
         - /etc/default/kubelet
-        - /etc/systemd/system/kubelet.service.d/kubelet.conf
-        - /etc/systemd/system/kubelet.service.d/20-etcd-service-manager.conf
+        - /etc/ceph
         - /etc/cni/net.d/05-cilium.conf
         - /etc/cni/net.d/.kubernetes-cni-keep
-        - /opt/local-path-provisioner
+        - /etc/systemd/system/kubelet.service.d/kubelet.conf
+        - /etc/systemd/system/kubelet.service.d/20-etcd-service-manager.conf
+        - /var/lib/etcd
+        - /var/lib/kubelet
+        - /var/backups/etcd
         - /var/lib/rook
+        - /var/log/containers
+        - /var/log/pods
+        - /opt/local-path-provisioner
+        - /opt/secrets/kubernetes.io
+        - /run/lib/etcd
         - /root/.bootstrap
+
+    - name: Delete all containers
+      shell: "ctr -n k8s.io c rm $(ctr -n k8s.io c ls -q) 2>/dev/null || true"
+      ignore_errors: true
+
+    - name: Delete all container images
+      shell: "ctr -n k8s.io i rm $(ctr -n k8s.io i ls -q) 2>/dev/null || true"
+      ignore_errors: true
+
+    - name: Unmount all mounts
+      shell: "for mount in $(mount | grep tmpfs | grep '/var/lib/kubelet' | awk '{ print $3 }') /var/lib/kubelet /var/lib/rancher; do umount $mount 2>/dev/null || true; done"
+      ignore_errors: true
 
     - name: Find external storage disks to Zap
       # Zap all vd.* disks except for vda, which is the OS disk. All virtio disks start with vd.

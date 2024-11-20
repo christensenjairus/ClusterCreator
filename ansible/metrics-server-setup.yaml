@@ -1,7 +1,7 @@
 ---
 - name: Apply metrics-server manifest and patch deployment
   hosts: apiserver[0]
-  gather_facts: no
+  gather_facts: false
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
   tasks:

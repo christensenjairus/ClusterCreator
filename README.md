@@ -209,6 +209,7 @@ Includes:
 - Optional decoupled etcd cluster setup.
 - Highly available control plane with Kube-VIP.
 - Cilium CNI (with optional dual-stack networking).
+- MetalLB (with L2 advertisements).
 - Metrics server installation.
 - Node labeling and tainting.
 - StorageClass configuration.

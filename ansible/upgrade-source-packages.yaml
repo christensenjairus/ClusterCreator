@@ -3,8 +3,8 @@
 # Mirrors sections of source-packages.sh that consume a version number
 - name: Reinstall various tools and components
   hosts: all
-  become: true
   gather_facts: false
+  become: true
   vars:
     arch: "amd64"
 

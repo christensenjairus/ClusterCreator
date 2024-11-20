@@ -1,6 +1,7 @@
 ---
 - name: Ensure template was created correctly
   hosts: all
+  gather_facts: false
   tags:
     - ensure_space
   tasks:
@@ -25,6 +26,7 @@
 
 - name: Prepare nodes
   hosts: all
+  gather_facts: false
   become: true  # This ensures all tasks are run with elevated privileges
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
@@ -101,7 +103,7 @@
 - name: Configure settings for nodes with NVIDIA GPUs attached
   hosts: all
   become: true
-  gather_facts: no
+  gather_facts: false
   tags: nvidia
   tasks:
     - name: Check for NVIDIA GPU presence

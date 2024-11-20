@@ -1,7 +1,7 @@
 ---
 - name: Manage node draining and conditional untainting of apiserver
   hosts: apiserver
-  gather_facts: no
+  gather_facts: false
   vars:
     etcd_namespace: "kube-system"
     etcd_cacert: "/etc/kubernetes/pki/etcd/ca.crt"
