@@ -11,9 +11,15 @@
         kube_api_server_names: "{{ kube_api_server_names | default([]) + [item] }}"
       loop: "{{ groups['apiserver'] }}"
 
-    - name: Set the count of worker nodes
+    - name: Set the count of non-apiserver and non-etcd nodes
       set_fact:
-        worker_node_count: "{{ groups | dict2items | rejectattr('key', 'search', '^(apiserver|etcd)') | map(attribute='value') | map('length') | sum }}"
+        worker_node_count: >-
+          {{ groups | dict2items 
+            | rejectattr('key', 'search', '^(apiserver|etcd|all|localhost)') 
+            | map(attribute='value') 
+            | flatten 
+            | unique 
+            | length }}
 
     - name: Fetch current nodes and taint information
       ansible.builtin.command: kubectl get nodes -o json

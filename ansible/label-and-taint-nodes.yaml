@@ -5,6 +5,7 @@
   vars:
     ansible_hosts_path: "tmp/{{ cluster_name }}/ansible-hosts.txt"
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    etcd_group_exists: "{{ 'etcd' in groups }}"  # Check if the etcd group exists
 
   tasks:
     - name: Read Ansible Hosts File
@@ -34,7 +35,9 @@
         - labels
       loop_control:
         label: "{{ item.0.hostname }}:{{ item.1 }}"
-      when: item.0.hostname not in groups['etcd']  # Skip if hostname is in etcd group
+      when:
+        - item.1 | length > 0  # Skip if taint is an empty string
+        - etcd_group_exists == false or item.0.hostname not in groups['etcd']  # Skip if in etcd group
       ignore_errors: yes  # Handles cases where nodes aren't yet joined
       environment:
         KUBECONFIG: "{{ lookup('env', 'HOME') }}/.kube/{{ cluster_config.kubeconfig_file_name }}"
@@ -49,7 +52,7 @@
         label: "{{ item.0.hostname }}:{{ item.1 }}"
       when:
         - item.1 | length > 0  # Skip if taint is an empty string
-        - item.0.hostname not in groups['etcd']  # Skip if hostname is in etcd group
+        - etcd_group_exists == false or item.0.hostname not in groups['etcd']  # Skip if in etcd group
       ignore_errors: yes  # Handles cases where nodes aren't yet joined
       environment:
         KUBECONFIG: "{{ lookup('env', 'HOME') }}/.kube/{{ cluster_config.kubeconfig_file_name }}"

@@ -1,28 +1,38 @@
 ---
 - name: Decoupled Etcdctl healthcheck
-  hosts: etcd[0]
+  hosts: localhost  # Use localhost to manage the health check logic
   any_errors_fatal: true
   gather_facts: false
   become: true
   tags:
     - etcd_healthcheck
   tasks:
-    - name: Check health for each etcd endpoint
+    - name: Ensure etcd group exists
+      ansible.builtin.set_fact:
+        etcd_group_exists: "{{ 'etcd' in groups }}"
+      run_once: true
+
+    - name: Set first etcd node
+      ansible.builtin.set_fact:
+        first_etcd_node: "{{ groups['etcd'][0] if etcd_group_exists else None }}"
+      when: etcd_group_exists
+      run_once: true
+
+    - name: Check health for the first etcd endpoint
       ansible.builtin.shell: |
-          ETCDCTL_API=3 etcdctl \
-          --cert /etc/kubernetes/pki/etcd/peer.crt \
-          --key /etc/kubernetes/pki/etcd/peer.key \
-          --cacert /etc/kubernetes/pki/etcd/ca.crt \
-          --endpoints https://{{ host }}:2379 endpoint health
-      loop: "{{ groups['etcd'] }}"
-      loop_control:
-        loop_var: host
+        ETCDCTL_API=3 etcdctl \
+        --cert /etc/kubernetes/pki/etcd/peer.crt \
+        --key /etc/kubernetes/pki/etcd/peer.key \
+        --cacert /etc/kubernetes/pki/etcd/ca.crt \
+        --endpoints https://{{ first_etcd_node }}:2379 endpoint health
       register: etcd_health_check
       ignore_errors: yes
+      when: etcd_group_exists and first_etcd_node is not none
+
     - name: Show etcd health check output
       ansible.builtin.debug:
-        msg: "{{ etcd_health_check.results | map(attribute='stdout') | list }}"
-      when: etcd_health_check is defined
+        msg: "{{ etcd_health_check.stdout }}"
+      when: etcd_group_exists and first_etcd_node is not none and etcd_health_check is defined
 
 - name: Show connected k8s nodes
   hosts: apiserver[0]
