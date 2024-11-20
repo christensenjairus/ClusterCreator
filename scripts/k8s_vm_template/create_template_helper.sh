@@ -71,8 +71,8 @@ qm create "$TEMPLATE_VM_ID" \
 echo -e "${GREEN}Setting the VM options...${ENDCOLOR}"
 qm set "$TEMPLATE_VM_ID" \
   --scsihw virtio-scsi-pci \
-  --virtio0 "${PROXMOX_DATASTORE}:0,iothread=1,import-from=$PROXMOX_ISO_PATH/$IMAGE_NAME" \
-  --ide2 "${PROXMOX_DATASTORE}:cloudinit" \
+  --virtio0 "${PROXMOX_ISO_DATASTORE}:0,iothread=1,import-from=$PROXMOX_ISO_PATH/$IMAGE_NAME" \
+  --ide2 "${PROXMOX_ISO_DATASTORE}:cloudinit" \
   --boot c \
   --bootdisk virtio0 \
   --serial0 socket \
