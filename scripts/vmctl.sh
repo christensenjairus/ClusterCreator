@@ -1,7 +1,12 @@
 #!/bin/bash
 
 usage() {
-    echo "Usage: ccr power [start|shutdown|pause|resume|hibernate|stop] [--timeout <seconds>]"
+    echo "Usage: ccr vmctl [start|shutdown|pause|resume|hibernate|stop|snapshot|backup] [--timeout <seconds>]"
+    echo ""
+    echo "Controls the states of the VMs, including power, snapshots, and backups."
+    echo ""
+    echo "Snapshots always include VM state, saving the memory state in addition to disk state."
+    echo "Backups are always full and are saved to the datastore from the PROXMOX_DATASTORE variable."
 }
 
 ACTION=""
@@ -17,12 +22,15 @@ while [[ "$#" -gt 0 ]]; do
         pause) ACTION="pause"; ;;
         resume) ACTION="resume"; ;;
         hibernate) ACTION="hibernate"; ;;
+        snapshot) ACTION="snapshot"; ;;
+        backup) ACTION="backup"; ;;
         -t|--timeout) TIMEOUT="$2"; shift ;; # Capture the timeout value
         -h|--help) usage; exit 0 ;;
         *) echo "Unknown parameter passed: $1"; usage; exit 1 ;;
     esac
     shift
 done
+
 # Ensure pool name is uppercase
 POOL_ID=$(echo "$CLUSTER_NAME" | tr '[:lower:]' '[:upper:]')
 
@@ -35,7 +43,7 @@ required_vars=(
 check_required_vars "${required_vars[@]}"
 print_env_vars "${required_vars[@]}"
 
-echo -e "${GREEN}Changing power state on cluster: $CLUSTER_NAME.${ENDCOLOR}"
+echo -e "${GREEN}Performing $ACTION action on cluster: $CLUSTER_NAME.${ENDCOLOR}"
 
 # --------------------------- Script Start ---------------------------
 
@@ -66,6 +74,11 @@ perform_action_with_retry() {
             ${SSH_CMD} "pvesh create /nodes/$NODE/qemu/$VMID/status/suspend --todisk=0"
         elif [[ "$ACTION" == "hibernate" ]]; then
             ${SSH_CMD} "pvesh create /nodes/$NODE/qemu/$VMID/status/suspend --todisk=1"
+        elif [[ "$ACTION" == "snapshot" ]]; then
+            SNAPSHOT_NAME="snapshot-$(date +%Y%m%d%H%M%S)"
+            ${SSH_CMD} "qm snapshot $VMID --vmstate=1 $SNAPSHOT_NAME"
+        elif [[ "$ACTION" == "backup" ]]; then
+            ${SSH_CMD} "vzdump $VMID --node $NODE --mode snapshot --compress zstd --storage $PROXMOX_DATASTORE"
         fi
 
         # Check if the command succeeded

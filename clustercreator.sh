@@ -51,6 +51,11 @@ print_env_vars() {
     fi
   done
 
+  line_width=$((max_length + 40))
+  line=$(printf "%-${line_width}s" "" | tr ' ' '-')
+
+  echo "$line"
+
   # Print each variable with aligned output
   for var in "$@"; do
     if [ -z "${!var}" ]; then  # Using indirect parameter expansion to check variable by name
@@ -66,6 +71,8 @@ print_env_vars() {
       fi
     fi
   done
+
+  echo "$line"
 }
 export -f print_env_vars
 
@@ -200,7 +207,7 @@ display_usage() {
     echo "  reset-all-nodes   Resets Kubernetes configurations for all hosts"
     echo "  upgrade-addons    Upgrades the addons to the versions specified in the environment settings"
     echo "  upgrade-k8s       Upgrades the control-plane api to the version specified in the environment settings"
-    echo "  powerctl          Controls power for VMs"
+    echo "  vmctl             Controls VM state, including power controls and backups"
     echo "  run-command       Runs a bash command on a host or an Ansible host group"
     echo "  toggle-providers  Toggles the S3 (Minio) and Unifi providers"
     echo ""
@@ -299,7 +306,7 @@ if [[ "$COMMAND" == "template" || \
       "$COMMAND" == "reset-all-nodes" || \
       "$COMMAND" == "upgrade-addons" || \
       "$COMMAND" == "upgrade-k8s" || \
-      "$COMMAND" == "powerctl" || \
+      "$COMMAND" == "vmctl" || \
       "$COMMAND" == "run-command" \
     ]]; then
     check_required_vars "${required_vars[@]}"
@@ -347,8 +354,8 @@ case "$COMMAND" in
     upgrade-k8s)
         ( "$REPO_PATH/scripts/upgrade_k8s.sh" "$@" )
         ;;
-    powerctl)
-        ( "$REPO_PATH/scripts/powerctl.sh" "$@")
+    vmctl)
+        ( "$REPO_PATH/scripts/vmctl.sh" "$@")
         ;;
     run-command)
         ( "$REPO_PATH/scripts/run_command.sh" "$@" )
