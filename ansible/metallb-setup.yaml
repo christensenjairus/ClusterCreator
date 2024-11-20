@@ -1,5 +1,6 @@
 - name: Install MetalLB on Kubernetes Cluster
   hosts: apiserver[0]
+  gather_facts: false
   tags:
     - metallb_basic_install
   vars:

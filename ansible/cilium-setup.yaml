@@ -1,5 +1,6 @@
 - name: Install Cilium on Kubernetes Cluster
   hosts: apiserver[0]
+  gather_facts: false
   tags:
     - cilium_basic_install
   vars:

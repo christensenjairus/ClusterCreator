@@ -1,6 +1,7 @@
 ---
 - name: Join other apiserver nodes to the cluster
   hosts: apiserver
+  gather_facts: false
   any_errors_fatal: true
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"

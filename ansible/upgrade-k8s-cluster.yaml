@@ -2,6 +2,7 @@
 # Mirrors sections of apt-packages.sh that consume a version number
 - name: Upgrade Kubernetes Cluster using Apiserver-0
   hosts: apiserver[0]
+  gather_facts: false
   become: true
   any_errors_fatal: true
 

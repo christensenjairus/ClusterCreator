@@ -2,6 +2,7 @@
 # Mirrors sections of apt-packages.sh that consume a version number
 - name: Upgrade Kubernetes Packages
   hosts: all
+  gather_facts: false
   become: true
   any_errors_fatal: true
 
