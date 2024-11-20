@@ -269,6 +269,36 @@ resource "proxmox_virtual_environment_firewall_ipset" "worker_nodes_ipv6" {
   }
 }
 
+# group all application load balancers
+resource "proxmox_virtual_environment_firewall_ipset" "lbs_ipv4" {
+  count = local.cluster_config.networking.use_pve_firewall ? 1 : 0
+
+  name    = "k8s-${local.cluster_config.cluster_name}-lbs-ipv4"
+  comment = "Managed by Terraform"
+
+  dynamic "cidr" {
+    for_each = toset(split(",", local.cluster_config.networking.ipv4.lb_cidrs))
+    content {
+      name    = cidr.value
+      comment = cidr.value
+    }
+  }
+}
+resource "proxmox_virtual_environment_firewall_ipset" "lbs_ipv6" {
+  count = local.cluster_config.networking.use_pve_firewall ? 1 : 0
+
+  name    = "k8s-${local.cluster_config.cluster_name}-lbs-ipv6"
+  comment = "Managed by Terraform"
+
+  dynamic "cidr" {
+    for_each = toset(split(",", local.cluster_config.networking.ipv6.lb_cidrs))
+    content {
+      name    = cidr.value
+      comment = cidr.value
+    }
+  }
+}
+
 # allow k8s api
 resource "proxmox_virtual_environment_cluster_firewall_security_group" "k8s_api" {
   count = local.cluster_config.networking.use_pve_firewall ? 1 : 0
@@ -755,6 +785,34 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "nodeport
   }
 }
 
+# allow anyone to reach load balancers
+resource "proxmox_virtual_environment_cluster_firewall_security_group" "lbs" {
+  count = local.cluster_config.networking.use_pve_firewall ? 1 : 0
+
+  name    = "k8s-${local.cluster_config.cluster_name}-lb"
+  comment = "Application LoadBalancers for ${local.cluster_config.cluster_name} cluster"
+
+  rule {
+    type    = "in"
+    action  = "ACCEPT"
+    comment = "Allow Application LBs IPv4"
+    source  = "0.0.0.0/0"
+    dest    = "+${proxmox_virtual_environment_firewall_ipset.lbs_ipv4[0].name}"
+    log     = "nolog"
+  }
+  dynamic "rule" {
+    for_each = local.cluster_config.networking.ipv6.enabled ? [1] : []
+    content {
+      type    = "in"
+      action  = "ACCEPT"
+      comment = "Allow Application LBs IPv6"
+      source  = "::"
+      dest    = "+${proxmox_virtual_environment_firewall_ipset.lbs_ipv6[0].name}"
+      log     = "nolog"
+    }
+  }
+}
+
 # activate all security groups on the VMs
 resource "proxmox_virtual_environment_firewall_rules" "main" {
   depends_on = [
@@ -768,6 +826,7 @@ resource "proxmox_virtual_environment_firewall_rules" "main" {
     proxmox_virtual_environment_cluster_firewall_security_group.metrics_server,
     proxmox_virtual_environment_cluster_firewall_security_group.cilium,
     proxmox_virtual_environment_cluster_firewall_security_group.nodeport,
+    proxmox_virtual_environment_cluster_firewall_security_group.lbs
   ]
   for_each = { for node in local.nodes : "${node.cluster_name}-${node.node_class}-${node.index}" => node if local.cluster_config.networking.use_pve_firewall }
 
@@ -829,6 +888,12 @@ resource "proxmox_virtual_environment_firewall_rules" "main" {
   rule {
     security_group = proxmox_virtual_environment_cluster_firewall_security_group.nodeport[0].name
     comment        = proxmox_virtual_environment_cluster_firewall_security_group.nodeport[0].name
+    iface          = "net0"
+  }
+
+  rule {
+    security_group = proxmox_virtual_environment_cluster_firewall_security_group.lbs[0].name
+    comment        = proxmox_virtual_environment_cluster_firewall_security_group.lbs[0].name
     iface          = "net0"
   }
 }
