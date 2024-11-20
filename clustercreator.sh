@@ -100,6 +100,7 @@ run_playbooks() {
     -e vitess_download_filename=${VITESS_DOWNLOAD_FILENAME} \
     -e vitess_version=${VITESS_VERSION} \
     -e cilium_version=${CILIUM_VERSION} \
+    -e metallb_version=${METALLB_VERSION} \
     -e local_path_provisioner_version=${LOCAL_PATH_PROVISIONER_VERSION} \
     -e metrics_server_version=${METRICS_SERVER_VERSION}
   "
@@ -284,6 +285,7 @@ required_vars=(
   "CILIUM_VERSION"
   "LOCAL_PATH_PROVISIONER_VERSION"
   "METRICS_SERVER_VERSION"
+  "METALLB_VERSION"
   "CLUSTER_NAME"
 )
 # Only run check_required_vars and print_env_vars for specified commands
@@ -303,17 +305,6 @@ if [[ "$COMMAND" == "template" || \
     check_required_vars "${required_vars[@]}"
     print_env_vars "${required_vars[@]}"
 fi
-
-# Save ansible variables for simplicity in child scripts
-export ANSIBLE_OPTS="-i tmp/${CLUSTER_NAME}/ansible-hosts.txt -u ${VM_USERNAME} --private-key ${HOME}/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY}"
-export EXTRA_ANSIBLE_VARS="\
-  -e ssh_key_file=${HOME}/.ssh/${NON_PASSWORD_PROTECTED_SSH_KEY} \
-  -e ssh_hosts_file=${HOME}/.ssh/known_hosts \
-  -e kubernetes_version=${KUBERNETES_MEDIUM_VERSION} \
-  -e cilium_version=${CILIUM_VERSION} \
-  -e local_path_provisioner_version=${LOCAL_PATH_PROVISIONER_VERSION} \
-  -e metrics_server_version=${METRICS_SERVER_VERSION} \
-"
 
 # Dispatch to the appropriate script based on the command
 case "$COMMAND" in

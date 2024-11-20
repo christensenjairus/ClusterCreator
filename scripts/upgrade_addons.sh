@@ -27,6 +27,7 @@ playbooks=(
   "generate-hosts-txt.yaml"
   "trust-hosts.yaml"
   "cilium-setup.yaml"
+  "metallb-setup.yaml"
   "local-storageclasses-setup.yaml"
   "metrics-server-setup.yaml"
 )
