@@ -55,3 +55,55 @@
         executable: /bin/bash
       tags:
           - metallb_configs_apply
+
+    - name: Set the count of worker nodes
+      set_fact:
+        worker_node_count: >-
+          {{ groups | dict2items 
+            | rejectattr('key', 'search', '^(apiserver|etcd|all|localhost)') 
+            | map(attribute='value') 
+            | flatten 
+            | unique 
+            | length }}
+
+    - name: Apply MetalLB patch for control-plane only cluster
+      ansible.builtin.shell:
+        cmd: |
+          kubectl patch daemonset metallb-speaker -n metallb-system --type=json --patch '[
+            {
+              "op": "add",
+              "path": "/spec/template/spec/containers/0/args/-",
+              "value": "--ignore-exclude-lb"
+            }
+          ]'
+      when: worker_node_count | int == 0
+      args:
+        executable: /bin/bash
+      tags:
+        - metallb_patch
+
+    - name: Check current MetalLB speaker DaemonSet args
+      ansible.builtin.command: kubectl get daemonset metallb-speaker -n metallb-system -o json
+      register: metallb_speaker_ds
+
+    - name: Unapply MetalLB patch for control-plane only cluster (workers have been added)
+      ansible.builtin.shell:
+        cmd: |
+          kubectl patch daemonset metallb-speaker -n metallb-system --type=json --patch '[
+            {
+              "op": "remove",
+              "path": "/spec/template/spec/containers/0/args/{{ ignore_lb_index }}"
+            }
+          ]'
+        vars:
+          ignore_lb_index: >-
+            {{ metallb_speaker_ds.stdout | from_json
+            | json_query('spec.template.spec.containers[0].args')
+            | list | index('--ignore-exclude-lb') }}
+      when:
+        - worker_node_count | int > 0
+        - "'--ignore-exclude-lb' in (metallb_speaker_ds.stdout | from_json | json_query('spec.template.spec.containers[0].args'))"
+      args:
+        executable: /bin/bash
+      tags:
+        - metallb_patch_revert
