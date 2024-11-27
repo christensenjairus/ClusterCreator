@@ -4,6 +4,7 @@ locals {
       for node_class, specs in cluster.node_classes : [
         for i in range(specs.count) : {
           cluster_name       = cluster.cluster_name
+          cluster_id         = cluster.cluster_id
           node_class         = node_class
           index              = i
           vm_id              = tonumber("${cluster.cluster_id}${specs.start_ip + i}")
