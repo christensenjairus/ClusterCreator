@@ -9,6 +9,7 @@ locals {
           index              = i
           vm_id              = tonumber("${cluster.cluster_id}${specs.start_ip + i}")
           on_boot            = cluster.start_on_proxmox_boot
+          use_pve_ha         = cluster.use_pve_ha
           cores              = specs.cores
           sockets            = specs.sockets
           memory             = specs.memory
