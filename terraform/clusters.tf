@@ -3,7 +3,7 @@ variable "clusters" {
   description = "Configuration details for each cluster."
   type = map(object({
     cluster_name             : string                                                     # Required. Name is used in kubeconfig, cluster mesh, network name, k8s_vm_template pool. Must match the cluster name key.
-    cluster_id               : number                                                     # Required. Acts as the vm_id prefix. Also used for cluster mesh. This plus the vm start ip should always be over 100 because of how proxmox likes its vmids. But you can use 0 if the vm start id fits these requirements.
+    cluster_id               : number                                                     # Required. Acts as the vm_id and vlan prefix. This plus the vm start ip should always be over 100 because of how proxmox likes its vmids.
     kubeconfig_file_name     : string                                                     # Required. Name of the local kubeconfig file to be created. Assumed this will be in $HOME/.kube/
     start_on_proxmox_boot    : optional(bool, true)                                       # Optional. Whether or not to start the cluster's vms on proxmox boot
     max_pods_per_node        : optional(number, 512)                                      # Optional. Max pods per node. This should be a function of the quantity of IPs in you pod_cidr and number of nodes.
@@ -18,7 +18,6 @@ variable "clusters" {
       bridge                 : optional(string, "vmbr0")                                  # Optional. Name of the proxmox bridge to use for VM's network interface
       dns_search_domain      : optional(string, "lan")                                    # Optional. Search domain for DNS resolution
       assign_vlan            : optional(bool, false)                                      # Optional. Whether or not to assign a vlan to the network interfaces of the VMs.
-      vlan_id                : optional(number, 100)                                      # Optional. Vlan id to use for the cluster.
       ipv4                   : object({
         subnet_prefix        : string                                                     # Required. First three octets of the host IPv4 network's subnet (assuming its a /24)
         pod_cidr             : optional(string, "10.42.0.0/16")                           # Optional. Cidr range for pod networking internal to cluster. Shouldn't overlap with ipv4 lan network. These must differ cluster to cluster if using clustermesh.
@@ -85,7 +84,6 @@ variable "clusters" {
       }
       networking = {
         use_unifi              = true
-        vlan_id                = 100
         assign_vlan            = true
         ipv4 = {
           subnet_prefix        = "10.0.1"
@@ -124,7 +122,6 @@ variable "clusters" {
       }
       networking = {
         use_unifi              = true
-        vlan_id                = 200
         assign_vlan            = true
         ipv4 = {
           subnet_prefix        = "10.0.2"
@@ -175,7 +172,6 @@ variable "clusters" {
       }
       networking = {
         use_unifi              = true
-        vlan_id                = 300
         assign_vlan            = true
         ipv4 = {
           subnet_prefix        = "10.0.3"

@@ -111,7 +111,7 @@ resource "proxmox_virtual_environment_vm" "node" {
     }
   }
   network_device {
-    vlan_id = each.value.vlan_id
+    vlan_id = "${each.value.cluster_id}00"
     bridge  = each.value.bridge
     firewall = true # we'll toggle the firewall at the node level so it can be toggled w/ terraform without restarting the node
   }

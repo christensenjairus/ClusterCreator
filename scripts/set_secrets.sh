@@ -45,10 +45,10 @@ tf_variables=(
     "vm_ssh_key|Paste your SSH public key for VM access"
     "proxmox_username|Enter the Proxmox username. The README guides you to use 'terraform'"
     "proxmox_api_token|Enter the Proxmox API token in the following format: 'terraform@pve!provider=<token>'. The README guides you through making this token"
-    "unifi_username|Enter the Unifi service account username. User must have 'Site Admin' permissions for the Network app"
-    "unifi_password|Enter the Unifi service account password"
-    "minio_access_key|Enter the MinIO access key"
-    "minio_secret_key|Enter the MinIO secret key"
+#     "unifi_username|Enter the Unifi service account username. User must have 'Site Admin' permissions for the Network app"
+#     "unifi_password|Enter the Unifi service account password"
+#     "minio_access_key|Enter the MinIO access key"
+#     "minio_secret_key|Enter the MinIO secret key"
 )
 
 # Function to prompt and save secrets
