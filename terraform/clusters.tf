@@ -84,8 +84,6 @@ variable "clusters" {
         ssh_home               = "/home/line6"
       }
       networking = {
-        use_unifi              = true
-        assign_vlan            = true
         ipv4 = {
           subnet_prefix        = "10.0.1"
           management_cidrs     = "10.0.0.0/30,10.0.60.2,10.0.50.5,10.0.50.6"
@@ -122,8 +120,6 @@ variable "clusters" {
         ssh_home               = "/home/line6"
       }
       networking = {
-        use_unifi              = true
-        assign_vlan            = true
         ipv4 = {
           subnet_prefix        = "10.0.2"
           management_cidrs     = "10.0.0.0/30,10.0.60.2,10.0.50.5,10.0.50.6"
@@ -172,8 +168,6 @@ variable "clusters" {
         ssh_home               = "/home/line6"
       }
       networking = {
-        use_unifi              = true
-        assign_vlan            = true
         ipv4 = {
           subnet_prefix        = "10.0.3"
           management_cidrs     = "10.0.0.0/30,10.0.60.2,10.0.50.5,10.0.50.6"

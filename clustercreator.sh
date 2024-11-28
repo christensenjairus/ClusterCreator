@@ -165,7 +165,13 @@ setup-ccr() {
     chmod +x "${REPO_PATH}/clustercreator.sh"
     sudo unlink "${INSTALL_PATH}" 2>/dev/null || true
     sudo ln -s "${REPO_PATH}/clustercreator.sh" "${INSTALL_PATH}"
+    echo ""
     echo -e "${BLUE}Installation complete. You can now use 'ccr' as a command.${ENDCOLOR}"
+    echo ""
+    ccr ctx alpha
+    echo ""
+    echo -e "${BLUE}Context has been set to the 'alpha' cluster to start.${ENDCOLOR}"
+    echo -e "${BLUE}The default 'alpha' cluster is the simplest configuration.${ENDCOLOR}"
 }
 
 ctx() {
