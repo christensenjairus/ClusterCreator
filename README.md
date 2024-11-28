@@ -8,28 +8,28 @@
 2. [Features](#features)
 3. [Prerequisites](#prerequisites)
 4. [Installation](#installation)
-  - [1. Add Proxmox Cluster User](#1-add-proxmox-cluster-user)
-  - [2. Add a KUBECONFIG line to your .bashrc or .zshrc](#2-add-a-kubeconfig-line-to-your-bashrc-or-zshrc)
-  - [3. Setup a `ccr` alias](#3-setup-a-ccr-alias)
-  - [4. Configure Additional Providers (optional)](#4-configure-additional-providers-optional)
-  - [5. Configure Variables](#5-configure-variables)
-  - [6. Configure Secrets](#6-configure-secrets)
-  - [7. Configure Clusters](#7-configure-clusters)
+    - [1. Add Proxmox Cluster User](#1-add-proxmox-cluster-user)
+    - [2. Add a KUBECONFIG line to your .bashrc or .zshrc](#2-add-a-kubeconfig-line-to-your-bashrc-or-zshrc)
+    - [3. Setup a `ccr` alias](#3-setup-a-ccr-alias)
+    - [4. Configure Additional Providers (optional)](#4-configure-additional-providers-optional)
+    - [5. Configure Variables](#5-configure-variables)
+    - [6. Configure Secrets](#6-configure-secrets)
+    - [7. Configure Clusters](#7-configure-clusters)
 5. [Usage](#usage)
-  - [1. Create a VM Template](#1-create-a-vm-template)
-  - [2. Initialize Tofu](#2-initialize-tofu)
-  - [3. Set Cluster Context](#3-set-cluster-context)
-  - [4. Create VMs with Tofu](#4-create-vms-with-tofu)
-  - [5. Bootstrap Kubernetes](#5-bootstrap-kubernetes)
-  - [6. Manage Kubernetes Clusters](#6-manage-kubernetes-clusters)
+    - [1. Create a VM Template](#1-create-a-vm-template)
+    - [2. Initialize Tofu](#2-initialize-tofu)
+    - [3. Set Cluster Context](#3-set-cluster-context)
+    - [4. Create VMs with Tofu](#4-create-vms-with-tofu)
+    - [5. Bootstrap Kubernetes](#5-bootstrap-kubernetes)
+    - [6. Manage Kubernetes Clusters](#6-manage-kubernetes-clusters)
 6. [Examples](#examples)
-  - [Alpha Cluster: Single Node](#alpha-cluster-single-node)
-  - [Beta Cluster: Multiple General Workers](#beta-cluster-multiple-general-workers)
-  - [Gamma Cluster: Highly Available Control Plane with Decoupled etcd](#gamma-cluster-highly-available-control-plane-with-decoupled-etcd)
+    - [Alpha Cluster: Single Node](#alpha-cluster-single-node)
+    - [Beta Cluster: Multiple General Workers](#beta-cluster-multiple-general-workers)
+    - [Gamma Cluster: Highly Available Control Plane with Decoupled etcd](#gamma-cluster-highly-available-control-plane-with-decoupled-etcd)
 7. [Advanced Configurations](#advanced-configurations)
-  - [Dynamic Configurations](#dynamic-configurations)
-  - [Dual Stack Networking](#dual-stack-networking)
-  - [Custom Worker Types](#custom-worker-types)
+    - [Dynamic Configurations](#dynamic-configurations)
+    - [Dual Stack Networking](#dual-stack-networking)
+    - [Custom Worker Types](#custom-worker-types)
 8. [Troubleshooting](#troubleshooting)
 9. [Final Product](#final-product)
 
@@ -281,8 +281,8 @@ A minimal cluster resembling Minikube or Kind.
 
 - **Cluster Name**: `alpha`
 - **Control Plane**:
-  - **Nodes**: 1
-  - **Specifications**: 16 CPU cores, 16GB RAM, 100GB disk
+    - **Nodes**: 1
+    - **Specifications**: 16 CPU cores, 16GB RAM, 100GB disk
 
 **Note**: Less than one worker node results in the control plane being untainted, allowing it to run workloads.
 
@@ -292,11 +292,11 @@ Expand with additional worker nodes for diverse workloads.
 
 - **Cluster Name**: `beta`
 - **Control Plane**:
-  - **Nodes**: 1
-  - **Specifications**: 4 CPU cores, 4GB RAM, 30GB disk
+    - **Nodes**: 1
+    - **Specifications**: 4 CPU cores, 4GB RAM, 30GB disk
 - **Workers**:
-  - **Nodes**: 2 (class: `general`)
-  - **Specifications**: 8 CPU cores, 4GB RAM, 30GB disk each
+    - **Nodes**: 2 (class: `general`)
+    - **Specifications**: 8 CPU cores, 4GB RAM, 30GB disk each
 
 **Note**: etcd nodes are utilized by control plane nodes but are not explicitly shown.
 
@@ -306,16 +306,16 @@ A robust setup with multiple control and etcd nodes, including GPU workers.
 
 - **Cluster Name**: `gamma`
 - **Control Plane**:
-  - **Nodes**: 3
-  - **Specifications**: 4 CPU cores, 4GB RAM, 30GB disk each
+    - **Nodes**: 3
+    - **Specifications**: 4 CPU cores, 4GB RAM, 30GB disk each
 - **Decoupled etcd**:
-  - **Nodes**: 3
-  - **Specifications**: 2 CPU cores, 2GB RAM, 30GB disk each
+    - **Nodes**: 3
+    - **Specifications**: 2 CPU cores, 2GB RAM, 30GB disk each
 - **Workers**:
-  - **General Nodes**: 5
-    - **Specifications**: 8 CPU cores, 4GB RAM, 30GB disk
-  - **GPU Nodes**: 2
-    - **Specifications**: 2 CPU cores, 2GB RAM, 20GB disk, with attached GPUs
+    - **General Nodes**: 5
+        - **Specifications**: 8 CPU cores, 4GB RAM, 30GB disk
+    - **GPU Nodes**: 2
+        - **Specifications**: 2 CPU cores, 2GB RAM, 20GB disk, with attached GPUs
 
 ---
 
@@ -388,24 +388,24 @@ Custom worker classes would be done to meet specific workload requirements like:
 
 - **GPU Workers**:
 
-  - **Example**: Already implemented in `clusters.tf`
-  - **Use Case**: AI and machine learning workloads.
+    - **Example**: Already implemented in `clusters.tf`
+    - **Use Case**: AI and machine learning workloads.
 
 - **Storage Workers**:
 
-  - **Configuration**: Extra disks, taints for storage systems like Rook.
+    - **Configuration**: Extra disks, taints for storage systems like Rook.
 
 - **Database Workers**:
 
-  - **Configuration**: Increased memory for database operations.
+    - **Configuration**: Increased memory for database operations.
 
 - **FedRAMP Workers**:
 
-  - **Configuration**: Taints to restrict workloads to government containers.
+    - **Configuration**: Taints to restrict workloads to government containers.
 
 - **Backup Workers**:
 
-  - **Configuration**: Reduced CPU and memory, expanded disks, taints for backup storage.
+    - **Configuration**: Reduced CPU and memory, expanded disks, taints for backup storage.
 
 ---
 
@@ -418,13 +418,13 @@ Custom worker classes would be done to meet specific workload requirements like:
 - **Proxmox Clone Failures**: Proxmox may struggle with cloning identical templates repeatedly. \
   **Solution**:
 
-  - Retry `ccr tofu apply` multiple times with larger cluster sizes.
-  - Add nodes in smaller batches to distribute across the Proxmox cluster.
+    - Retry `ccr tofu apply` multiple times with larger cluster sizes.
+    - Add nodes in smaller batches to distribute across the Proxmox cluster.
 
 - **Configuration Conflicts**: Errors related to existing configurations or unresponsive VMs. \
   **Solution**:
-  - Ensure no conflicting resources exist before applying.
-  - Use `ccr reset-all-nodes` to reset VMs if necessary.
+    - Ensure no conflicting resources exist before applying.
+    - Use `ccr reset-all-nodes` to reset VMs if necessary.
 
 **Workaround**: For persistent issues, create brand-new VMs to ensure a clean environment.
 
