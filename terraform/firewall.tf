@@ -33,32 +33,32 @@ resource "proxmox_virtual_environment_firewall_options" "node" {
   radv          = false
 }
 
-# create aliasees for each node
+# create aliases for each node
 resource "proxmox_virtual_environment_firewall_alias" "node_ipv4" {
   for_each = { for node in local.nodes : "${node.cluster_name}-${node.node_class}-${node.index}" => node if local.cluster_config.networking.use_pve_firewall }
 
-  name    = "k8s-${each.key}-ipv4"
+  name    = "${each.key}-ipv4"
   cidr    = each.value.ipv4.vm_ip
   comment = "Managed by Terraform"
 }
 resource "proxmox_virtual_environment_firewall_alias" "node_ipv6" {
   for_each = { for node in local.nodes : "${node.cluster_name}-${node.node_class}-${node.index}" => node if local.cluster_config.networking.use_pve_firewall && local.cluster_config.networking.ipv6.enabled }
 
-  name    = "k8s-${each.key}-ipv6"
+  name    = "${each.key}-ipv6"
   cidr    = each.value.ipv6.vm_ip
   comment = "Managed by Terraform"
 }
 
 # create aliases for each management ip
 resource "proxmox_virtual_environment_firewall_alias" "management_ipv4" {
-  for_each = { for i, cidr in local.management_cidrs_ipv4_list : "management-${i}-ipv4" => cidr if local.cluster_config.networking.use_pve_firewall }
+  for_each = { for i, cidr in local.management_cidrs_ipv4_list : "${local.cluster_config.cluster_name}-mgmt-${i}-ipv4" => cidr if local.cluster_config.networking.use_pve_firewall }
 
   name    = each.key
   cidr    = each.value
   comment = "Managed by Terraform"
 }
 resource "proxmox_virtual_environment_firewall_alias" "management_ipv6" {
-  for_each = { for i, cidr in local.management_cidrs_ipv6_list : "management-${i}-ipv6" => cidr if local.cluster_config.networking.use_pve_firewall && local.cluster_config.networking.ipv6.enabled }
+  for_each = { for i, cidr in local.management_cidrs_ipv6_list : "${local.cluster_config.cluster_name}-mgmt-${i}-ipv6" => cidr if local.cluster_config.networking.use_pve_firewall && local.cluster_config.networking.ipv6.enabled }
 
   name    = each.key
   cidr    = each.value
@@ -67,7 +67,7 @@ resource "proxmox_virtual_environment_firewall_alias" "management_ipv6" {
 
 # create an alias for kube-vip
 resource "proxmox_virtual_environment_firewall_alias" "kube_vip" {
-  name    = "k8s-${local.cluster_config.cluster_name}-kube-vip"
+  name    = "${local.cluster_config.cluster_name}-kube-vip"
   cidr    = local.cluster_config.networking.kube_vip.vip
   comment = "Managed by Terraform"
 }
@@ -79,13 +79,13 @@ resource "proxmox_virtual_environment_firewall_ipset" "all_nodes_ipv4" {
     proxmox_virtual_environment_firewall_alias.node_ipv4,
   ]
 
-  name    = "k8s-${local.cluster_config.cluster_name}-all-nodes-ipv4"
+  name    = "${local.cluster_config.cluster_name}-all-nodes-ipv4"
   comment = "Managed by Terraform"
 
   dynamic "cidr" {
     for_each = { for key, node in local.nodes : "${node.cluster_name}-${node.node_class}-${node.index}" => node }
     content {
-      name    = "dc/k8s-${cidr.key}-ipv4"
+      name    = "dc/${cidr.key}-ipv4"
       comment = cidr.key
     }
   }
@@ -97,13 +97,13 @@ resource "proxmox_virtual_environment_firewall_ipset" "all_nodes_ipv6" {
     proxmox_virtual_environment_firewall_alias.node_ipv6
   ]
 
-  name    = "k8s-${local.cluster_config.cluster_name}-all-nodes-ipv6"
+  name    = "${local.cluster_config.cluster_name}-all-nodes-ipv6"
   comment = "Managed by Terraform"
 
   dynamic "cidr" {
     for_each = { for key, node in local.nodes : "${node.cluster_name}-${node.node_class}-${node.index}" => node if local.cluster_config.networking.ipv6.enabled }
     content {
-      name    = "dc/k8s-${cidr.key}-ipv6"
+      name    = "dc/${cidr.key}-ipv6"
       comment = cidr.key
     }
   }
@@ -116,13 +116,13 @@ resource "proxmox_virtual_environment_firewall_ipset" "apiserver_nodes_ipv4" {
     proxmox_virtual_environment_firewall_alias.node_ipv4
   ]
 
-  name    = "k8s-${local.cluster_config.cluster_name}-apiserver-nodes-ipv4"
+  name    = "${local.cluster_config.cluster_name}-apiserver-nodes-ipv4"
   comment = "Managed by Terraform"
 
   dynamic "cidr" {
     for_each = { for key, node in local.nodes : "${node.cluster_name}-${node.node_class}-${node.index}" => node if node.node_class == "apiserver" }
     content {
-      name    = "dc/k8s-${cidr.key}-ipv4"
+      name    = "dc/${cidr.key}-ipv4"
       comment = cidr.key
     }
   }
@@ -133,13 +133,13 @@ resource "proxmox_virtual_environment_firewall_ipset" "apiserver_nodes_ipv6" {
     proxmox_virtual_environment_firewall_alias.node_ipv6
   ]
 
-  name    = "k8s-${local.cluster_config.cluster_name}-apiserver-nodes-ipv6"
+  name    = "${local.cluster_config.cluster_name}-apiserver-nodes-ipv6"
   comment = "Managed by Terraform"
 
   dynamic "cidr" {
     for_each = { for key, node in local.nodes : "${node.cluster_name}-${node.node_class}-${node.index}" => node if node.node_class == "apiserver" && local.cluster_config.networking.ipv6.enabled }
     content {
-      name    = "dc/k8s-${cidr.key}-ipv6"
+      name    = "dc/${cidr.key}-ipv6"
       comment = cidr.key
     }
   }
@@ -152,7 +152,7 @@ resource "proxmox_virtual_environment_firewall_ipset" "management_ipv4" {
     proxmox_virtual_environment_firewall_alias.management_ipv4
   ]
 
-  name    = "k8s-${local.cluster_config.cluster_name}-management-ipv4"
+  name    = "${local.cluster_config.cluster_name}-mgmt-ipv4"
   comment = "Managed by Terraform"
 
   dynamic "cidr" {
@@ -169,7 +169,7 @@ resource "proxmox_virtual_environment_firewall_ipset" "management_ipv6" {
     proxmox_virtual_environment_firewall_alias.management_ipv6
   ]
 
-  name    = "k8s-${local.cluster_config.cluster_name}-management-ipv6"
+  name    = "${local.cluster_config.cluster_name}-mgmt-ipv6"
   comment = "Managed by Terraform"
 
   dynamic "cidr" {
@@ -188,7 +188,7 @@ resource "proxmox_virtual_environment_firewall_ipset" "kube_vip" {
     proxmox_virtual_environment_firewall_alias.kube_vip
   ]
 
-  name    = "k8s-${local.cluster_config.cluster_name}-kube-vip"
+  name    = "${local.cluster_config.cluster_name}-kube-vip"
   comment = "Managed by Terraform"
 
   cidr {
@@ -204,13 +204,13 @@ resource "proxmox_virtual_environment_firewall_ipset" "etcd_nodes_ipv4" {
     proxmox_virtual_environment_firewall_alias.node_ipv4
   ]
 
-  name    = "k8s-${local.cluster_config.cluster_name}-etcd-nodes-ipv4"
+  name    = "${local.cluster_config.cluster_name}-etcd-nodes-ipv4"
   comment = "Managed by Terraform"
 
   dynamic "cidr" {
     for_each = { for key, node in local.nodes : "${node.cluster_name}-${node.node_class}-${node.index}" => node if node.node_class == "etcd" }
     content {
-      name    = "dc/k8s-${cidr.key}-ipv4"
+      name    = "dc/${cidr.key}-ipv4"
       comment = cidr.key
     }
   }
@@ -221,13 +221,13 @@ resource "proxmox_virtual_environment_firewall_ipset" "etcd_nodes_ipv6" {
     proxmox_virtual_environment_firewall_alias.node_ipv6
   ]
 
-  name    = "k8s-${local.cluster_config.cluster_name}-etcd-nodes-ipv6"
+  name    = "${local.cluster_config.cluster_name}-etcd-nodes-ipv6"
   comment = "Managed by Terraform"
 
   dynamic "cidr" {
     for_each = { for key, node in local.nodes : "${node.cluster_name}-${node.node_class}-${node.index}" => node if node.node_class == "etcd" && local.cluster_config.networking.ipv6.enabled }
     content {
-      name    = "dc/k8s-${cidr.key}-ipv6"
+      name    = "dc/${cidr.key}-ipv6"
       comment = cidr.key
     }
   }
@@ -240,13 +240,13 @@ resource "proxmox_virtual_environment_firewall_ipset" "worker_nodes_ipv4" {
     proxmox_virtual_environment_firewall_alias.node_ipv4
   ]
 
-  name    = "k8s-${local.cluster_config.cluster_name}-worker-nodes-ipv4"
+  name    = "${local.cluster_config.cluster_name}-worker-nodes-ipv4"
   comment = "Managed by Terraform"
 
   dynamic "cidr" {
     for_each = { for key, node in local.nodes : "${node.cluster_name}-${node.node_class}-${node.index}" => node if node.node_class != "apiserver" && node.node_class != "etcd" }
     content {
-      name    = "dc/k8s-${cidr.key}-ipv4"
+      name    = "dc/${cidr.key}-ipv4"
       comment = cidr.key
     }
   }
@@ -257,13 +257,13 @@ resource "proxmox_virtual_environment_firewall_ipset" "worker_nodes_ipv6" {
     proxmox_virtual_environment_firewall_alias.node_ipv6
   ]
 
-  name    = "k8s-${local.cluster_config.cluster_name}-worker-nodes-ipv6"
+  name    = "${local.cluster_config.cluster_name}-worker-nodes-ipv6"
   comment = "Managed by Terraform"
 
   dynamic "cidr" {
     for_each = { for key, node in local.nodes : "${node.cluster_name}-${node.node_class}-${node.index}" => node if node.node_class != "apiserver" && node.node_class != "etcd" && local.cluster_config.networking.ipv6.enabled }
     content {
-      name    = "dc/k8s-${cidr.key}-ipv6"
+      name    = "dc/${cidr.key}-ipv6"
       comment = cidr.key
     }
   }
@@ -273,7 +273,7 @@ resource "proxmox_virtual_environment_firewall_ipset" "worker_nodes_ipv6" {
 resource "proxmox_virtual_environment_firewall_ipset" "lbs_ipv4" {
   count = local.cluster_config.networking.use_pve_firewall ? 1 : 0
 
-  name    = "k8s-${local.cluster_config.cluster_name}-lbs-ipv4"
+  name    = "${local.cluster_config.cluster_name}-lbs-ipv4"
   comment = "Managed by Terraform"
 
   dynamic "cidr" {
@@ -287,7 +287,7 @@ resource "proxmox_virtual_environment_firewall_ipset" "lbs_ipv4" {
 resource "proxmox_virtual_environment_firewall_ipset" "lbs_ipv6" {
   count = local.cluster_config.networking.use_pve_firewall && local.cluster_config.networking.ipv6.enabled ? 1 : 0
 
-  name    = "k8s-${local.cluster_config.cluster_name}-lbs-ipv6"
+  name    = "${local.cluster_config.cluster_name}-lbs-ipv6"
   comment = "Managed by Terraform"
 
   dynamic "cidr" {
@@ -303,7 +303,7 @@ resource "proxmox_virtual_environment_firewall_ipset" "lbs_ipv6" {
 resource "proxmox_virtual_environment_cluster_firewall_security_group" "k8s_api" {
   count = local.cluster_config.networking.use_pve_firewall ? 1 : 0
 
-  name    = "k8s-${local.cluster_config.cluster_name}-api"
+  name    = "${local.cluster_config.cluster_name}-api"
   comment = "K8s API for ${local.cluster_config.cluster_name} cluster"
 
   rule {
@@ -402,7 +402,7 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "k8s_api"
 resource "proxmox_virtual_environment_cluster_firewall_security_group" "ssh" {
   count = local.cluster_config.networking.use_pve_firewall ? 1 : 0
 
-  name    = "k8s-${local.cluster_config.cluster_name}-ssh"
+  name    = "${local.cluster_config.cluster_name}-ssh"
   comment = "SSH into ${local.cluster_config.cluster_name} cluster"
 
   rule {
@@ -456,7 +456,7 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "ssh" {
 resource "proxmox_virtual_environment_cluster_firewall_security_group" "ping" {
   count = local.cluster_config.networking.use_pve_firewall ? 1 : 0
 
-  name    = "k8s-${local.cluster_config.cluster_name}-ping"
+  name    = "${local.cluster_config.cluster_name}-png"
   comment = "Ping nodes in ${local.cluster_config.cluster_name} cluster"
 
   # Allow admin IPs to ping
@@ -528,7 +528,7 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "ping" {
 resource "proxmox_virtual_environment_cluster_firewall_security_group" "etcd" {
   count = local.cluster_config.networking.use_pve_firewall ? 1 : 0
 
-  name    = "k8s-${local.cluster_config.cluster_name}-etcd"
+  name    = "${local.cluster_config.cluster_name}-etd"
   comment = "Etcd for ${local.cluster_config.cluster_name} cluster"
 
   rule {
@@ -586,7 +586,7 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "etcd" {
 resource "proxmox_virtual_environment_cluster_firewall_security_group" "kubelet_api_apiserver" {
   count = local.cluster_config.networking.use_pve_firewall ? 1 : 0
 
-  name    = "k8s-${local.cluster_config.cluster_name}-kt-cp"
+  name    = "${local.cluster_config.cluster_name}-kta"
   comment = "Kubelet API for ${local.cluster_config.cluster_name} cluster apiservers"
 
   rule {
@@ -618,7 +618,7 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "kubelet_
 resource "proxmox_virtual_environment_cluster_firewall_security_group" "kubelet_api_worker" {
   count = local.cluster_config.networking.use_pve_firewall ? 1 : 0
 
-  name    = "k8s-${local.cluster_config.cluster_name}-kt-wk"
+  name    = "${local.cluster_config.cluster_name}-ktw"
   comment = "Kubelet API for ${local.cluster_config.cluster_name} cluster workers"
 
   rule {
@@ -650,7 +650,7 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "kubelet_
 resource "proxmox_virtual_environment_cluster_firewall_security_group" "metrics_server" {
   count = local.cluster_config.networking.use_pve_firewall ? 1 : 0
 
-  name    = "k8s-${local.cluster_config.cluster_name}-metrics"
+  name    = "${local.cluster_config.cluster_name}-met"
   comment = "Metrics-Server in ${local.cluster_config.cluster_name} cluster"
 
   rule {
@@ -682,7 +682,7 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "metrics_
 resource "proxmox_virtual_environment_cluster_firewall_security_group" "cilium" {
   count = local.cluster_config.networking.use_pve_firewall ? 1 : 0
 
-  name    = "k8s-${local.cluster_config.cluster_name}-cilium"
+  name    = "${local.cluster_config.cluster_name}-cil"
   comment = "Cilium in ${local.cluster_config.cluster_name} cluster"
 
   rule {
@@ -760,7 +760,7 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "cilium" 
 resource "proxmox_virtual_environment_cluster_firewall_security_group" "nodeport" {
   count = local.cluster_config.networking.use_pve_firewall ? 1 : 0
 
-  name    = "k8s-${local.cluster_config.cluster_name}-np"
+  name    = "${local.cluster_config.cluster_name}-ndp"
   comment = "NodePorts for ${local.cluster_config.cluster_name} cluster"
 
   rule {
@@ -792,7 +792,7 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "nodeport
 resource "proxmox_virtual_environment_cluster_firewall_security_group" "lbs" {
   count = local.cluster_config.networking.use_pve_firewall ? 1 : 0
 
-  name    = "k8s-${local.cluster_config.cluster_name}-lb"
+  name    = "${local.cluster_config.cluster_name}-lb"
   comment = "Application LoadBalancers for ${local.cluster_config.cluster_name} cluster"
 
   rule {

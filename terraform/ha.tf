@@ -4,7 +4,7 @@ resource "proxmox_virtual_environment_hagroup" "ha_group" {
     if node.use_pve_ha
   }
 
-  group   = "${each.value.cluster_name}-${each.value.node_class}-${each.value.index}-ha"
+  group   = "vm-${each.value.vm_id}"
   comment = "Managed by Terraform"
 
   nodes = {
@@ -23,7 +23,8 @@ resource "proxmox_virtual_environment_haresource" "ha_resource" {
   }
 
   depends_on = [
-    proxmox_virtual_environment_hagroup.ha_group
+    proxmox_virtual_environment_hagroup.ha_group,
+    proxmox_virtual_environment_vm.node # wait for all vms to be made
   ]
 
   resource_id = "vm:${each.value.vm_id}"
