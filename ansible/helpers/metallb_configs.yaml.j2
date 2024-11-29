@@ -1,0 +1,29 @@
+---
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: metallb-ipaddresspool
+  namespace: metallb-system
+spec:
+  addresses:
+{% if ipv4_lb_cidrs %}
+{% for range in ipv4_lb_cidrs.split(',') if range.strip() %}
+  - {{ range.strip() }}
+{% endfor %}
+{% endif %}
+{% if ipv6_lb_cidrs %}
+{% for range in ipv6_lb_cidrs.split(',') if range.strip() %}
+  - {{ range.strip() }}
+{% endfor %}
+{% endif %}
+  autoAssign: true
+  avoidBuggyIPs: true
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: metallb-l2advertisement
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+  - metallb-ipaddresspool

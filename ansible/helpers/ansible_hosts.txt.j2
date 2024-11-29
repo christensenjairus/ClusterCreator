@@ -2,22 +2,10 @@
 cluster_name={{ cluster_name }}
 ansible_python_interpreter=auto_silent
 
-[kube_api_servers]
-{% for i in range(node_classes.apiserver.count) %}
-{{ cluster_name }}-apiserver-{{ i }} ansible_host={{ networking.ipv4.subnet_prefix }}.{{ node_classes.apiserver.start_ip + i }} ipv4={{ networking.ipv4.subnet_prefix }}.{{ node_classes.apiserver.start_ip + i }} ipv6={{ networking.ipv6.subnet_prefix }}::{{ node_classes.apiserver.start_ip + i }} labels="{% for key, value in node_classes.apiserver.labels.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}" taints="{% for key, value in node_classes.apiserver.taints.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}"
-{% endfor %}
-
-[kube_etcd_servers]
-{% for i in range(node_classes.etcd.count) %}
-{{ cluster_name }}-etcd-{{ i }} ansible_host={{ networking.ipv4.subnet_prefix }}.{{ node_classes.etcd.start_ip + i }} etcd_index={{ i }} ipv4={{ networking.ipv4.subnet_prefix }}.{{ node_classes.etcd.start_ip + i }} ipv6={{ networking.ipv6.subnet_prefix }}::{{ node_classes.etcd.start_ip + i }} labels=""
-{% endfor %}
-
 {% for class_name, class_config in node_classes.items() %}
-{% if class_name not in ['apiserver', 'etcd'] %}
-[kube_{{ class_name }}_servers]
+[{{ class_name }}]
 {% for i in range(class_config.count) %}
-{{ cluster_name }}-{{ class_name }}-{{ i }} ansible_host={{ networking.ipv4.subnet_prefix }}.{{ class_config.start_ip + i }} ipv4={{ networking.ipv4.subnet_prefix }}.{{ class_config.start_ip + i }} ipv6={{ networking.ipv6.subnet_prefix }}::{{ class_config.start_ip + i }} labels="{% for key, value in class_config.labels.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}" taints="{% for key, value in class_config.taints.items() %}{{ key }}={{ value }}{% if not loop.last %},{% endif %}{% endfor %}"
+{{ cluster_name }}-{{ class_name }}-{{ i }} ansible_host={{ networking.ipv4.subnet_prefix }}.{{ class_config.start_ip + i }} ipv4={{ networking.ipv4.subnet_prefix }}.{{ class_config.start_ip + i }} ipv6={{ networking.ipv6.subnet_prefix }}::{{ class_config.start_ip + i }} labels="{% for label in class_config.labels %}{{ label }}{% if not loop.last %},{% endif %}{% endfor %}" taints="{% for taint in class_config.taints %}{{ taint }}{% if not loop.last %},{% endif %}{% endfor %}"
 {% endfor %}
 
-{% endif %}
 {% endfor %}

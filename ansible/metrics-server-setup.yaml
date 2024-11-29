@@ -1,14 +1,14 @@
 ---
 - name: Apply metrics-server manifest and patch deployment
-  hosts: kube_api_servers[0]
-  gather_facts: no
+  hosts: apiserver[0]
+  gather_facts: false
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
   tasks:
 
     - name: Calculate the count of non-API/ETCD servers
       set_fact:
-        non_api_etcd_server_count: "{{ groups['all'] | length - (groups['kube_api_servers'] | default([]) | length + groups['kube_etcd_servers'] | default([]) | length) }}"
+        non_api_etcd_server_count: "{{ groups['all'] | length - (groups['apiserver'] | default([]) | length + groups['etcd'] | default([]) | length) }}"
 
     - name: Determine if needing HA based on non-API/ETCD server count
       set_fact:
@@ -17,13 +17,13 @@
     - name: Apply standard metrics-server manifest
       kubernetes.core.k8s:
         state: present
-        src: "https://github.com/kubernetes-sigs/metrics-server/releases/download/v{{ cluster_config.metrics_server.metrics_server_version }}/components.yaml"
+        src: "https://github.com/kubernetes-sigs/metrics-server/releases/download/v{{ metrics_server_version }}/components.yaml"
       when: metrics_server_replica_count == "1"
 
     - name: Apply HA metrics-server manifest
       kubernetes.core.k8s:
         state: present
-        src: "https://github.com/kubernetes-sigs/metrics-server/releases/download/v{{ cluster_config.metrics_server.metrics_server_version }}/high-availability-1.21+.yaml"
+        src: "https://github.com/kubernetes-sigs/metrics-server/releases/download/v{{ metrics_server_version }}/high-availability-1.21+.yaml"
       when: metrics_server_replica_count == "2"
 
     - name: Scale down metrics-server deployment to zero replicas

@@ -18,7 +18,9 @@ nodePort:
 hostPort:
   enabled: true
 bpf:
-  masquerade: true
+  masquerade: false # not needed when using metallb
+cni:
+  exclusive: false  # needed for some mesh providers (Istio Ambient)
 k8sServiceHost: {{ vip }}
 k8sServicePort: 6443
 kubeProxyReplacement: true
