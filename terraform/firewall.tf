@@ -156,7 +156,7 @@ resource "proxmox_virtual_environment_firewall_ipset" "management_ipv4" {
   comment = "Managed by Terraform"
 
   dynamic "cidr" {
-    for_each = { for i, cidr in local.management_cidrs_ipv4_list : "management-${i}-ipv4" => cidr if local.cluster_config.networking.use_pve_firewall }
+    for_each = { for i, cidr in local.management_cidrs_ipv4_list : "${local.cluster_config.cluster_name}-mgmt-${i}-ipv4" => cidr if local.cluster_config.networking.use_pve_firewall }
     content {
       name    = "dc/${cidr.key}"
       comment = cidr.key
@@ -173,7 +173,7 @@ resource "proxmox_virtual_environment_firewall_ipset" "management_ipv6" {
   comment = "Managed by Terraform"
 
   dynamic "cidr" {
-    for_each = { for i, cidr in local.management_cidrs_ipv6_list : "management-${i}-ipv6" => cidr if local.cluster_config.networking.use_pve_firewall && local.cluster_config.networking.ipv6.enabled }
+    for_each = { for i, cidr in local.management_cidrs_ipv6_list : "${local.cluster_config.cluster_name}-mgmt-${i}-ipv6" => cidr if local.cluster_config.networking.use_pve_firewall && local.cluster_config.networking.ipv6.enabled }
     content {
       name    = "dc/${cidr.key}"
       comment = cidr.key

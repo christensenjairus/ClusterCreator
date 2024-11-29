@@ -10,7 +10,7 @@
       set_fact:
         non_api_etcd_server_count: "{{ groups['all'] | length - (groups['apiserver'] | default([]) | length + groups['etcd'] | default([]) | length) }}"
 
-    - name: Determine if needing replicated longhorn volumes based on non-API/ETCD server count
+    - name: Determine non-API/ETCD server count
       set_fact:
         replica_count: "{{ 1 if non_api_etcd_server_count <= \"1\" else 2 }}"
 

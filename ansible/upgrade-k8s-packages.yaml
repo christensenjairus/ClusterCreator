@@ -13,12 +13,6 @@
         state: directory
         mode: '0755'
 
-    - name: Install GPG if not installed
-      ansible.builtin.apt:
-        name: gpg
-        state: present
-        update_cache: true
-
     - name: Remove old Kubernetes apt key and sources list
       ansible.builtin.file:
         path: "{{ item }}"
@@ -119,10 +113,6 @@
       ansible.builtin.stat:
         path: /etc/kubernetes/manifests/etcd.yaml
       register: etcd_manifest_check
-    - name: Check if etcd group exists and current node is in the etcd group
-      ansible.builtin.fail:
-        msg: "The etcd group does not exist or the current node is not part of the etcd group."
-      when: "'etcd' not in group_names"
     - name: Update etcd image version in /etc/kubernetes/manifests/etcd.yaml
       ansible.builtin.lineinfile:
         path: /etc/kubernetes/manifests/etcd.yaml

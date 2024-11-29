@@ -76,9 +76,9 @@ perform_action_with_retry() {
             ${SSH_CMD} "pvesh create /nodes/$NODE/qemu/$VMID/status/suspend --todisk=1"
         elif [[ "$ACTION" == "snapshot" ]]; then
             SNAPSHOT_NAME="snapshot-$(date +%Y%m%d%H%M%S)"
-            ${SSH_CMD} "qm snapshot $VMID --vmstate=1 $SNAPSHOT_NAME"
+            ${SSH_CMD} "pvesh create /nodes/$NODE/qemu/$VMID/snapshot --snapname=$SNAPSHOT_NAME --vmstate=1"
         elif [[ "$ACTION" == "backup" ]]; then
-            ${SSH_CMD} "vzdump $VMID --node $NODE --mode snapshot --compress zstd --storage $PROXMOX_BACKUPS_DATASTORE"
+            ${SSH_CMD} "pvesh create /nodes/$NODE/vzdump --vmid $VMID --mode snapshot --compress zstd --quiet 1 --storage $PROXMOX_BACKUPS_DATASTORE"
         fi
 
         # Check if the command succeeded

@@ -13,12 +13,6 @@
         state: directory
         mode: '0755'
 
-    - name: Install GPG if not installed
-      ansible.builtin.apt:
-        name: gpg
-        state: present
-        update_cache: true
-
     - name: Remove old Kubernetes apt key and sources list
       ansible.builtin.file:
         path: "{{ item }}"
