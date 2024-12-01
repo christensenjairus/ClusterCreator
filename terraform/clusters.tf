@@ -10,7 +10,6 @@ variable "clusters" {
     use_pve_ha               : optional(bool, false)                                      # Optional. Whether to setup PVE High Availability for the VMs.
     ssh                      : object({
       ssh_user               : string                                                     # Required. username for the remote server
-      ssh_home               : string                                                     # Required. path to your home directory on the remote server
       ssh_key_type           : optional(string, "ssh-ed25519")                            # Optional. Type of key to scan and trust for remote hosts. The key of this type gets added to local ~/.ssh/known_hosts.
     })
     networking               : object({
@@ -81,7 +80,6 @@ variable "clusters" {
       start_on_proxmox_boot    = false
       ssh = {
         ssh_user               = "line6"
-        ssh_home               = "/home/line6"
       }
       networking = {
         ipv4 = {
@@ -117,7 +115,6 @@ variable "clusters" {
       start_on_proxmox_boot    = false
       ssh = {
         ssh_user               = "line6"
-        ssh_home               = "/home/line6"
       }
       networking = {
         ipv4 = {
@@ -165,7 +162,6 @@ variable "clusters" {
       start_on_proxmox_boot    = false
       ssh = {
         ssh_user               = "line6"
-        ssh_home               = "/home/line6"
       }
       networking = {
         ipv4 = {

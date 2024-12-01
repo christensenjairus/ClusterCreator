@@ -27,9 +27,9 @@ playbooks=(
   "generate-hosts-txt.yaml"
   "trust-hosts.yaml"
   "cilium-setup.yaml"
-  "metallb-setup.yaml"
   "local-storageclasses-setup.yaml"
   "metrics-server-setup.yaml"
+  "metallb-setup.yaml"
 )
 run_playbooks "-e node_name=$TARGETED_NODE -e timeout_seconds=$TIMEOUT_SECONDS" "${playbooks[@]}"
 

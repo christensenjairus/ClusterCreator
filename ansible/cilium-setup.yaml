@@ -46,10 +46,3 @@
           --version v{{ cilium_version }}
       args:
         executable: /bin/bash
-
-    - name: Wait for nodes to be ready
-      ansible.builtin.shell:
-        cmd: >
-          cilium status --wait
-      args:
-        executable: /bin/bash

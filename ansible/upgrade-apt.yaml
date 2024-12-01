@@ -41,26 +41,17 @@
       until: upgrade_result is succeeded
       retries: 30
       delay: 10
-    - name: Check if reboot is required
-      become: true
-      ansible.builtin.stat:
-        path: /var/run/reboot-required
-      register: reboot_required
-    - name: Reboot the node (if necessary)
+    - name: Reboot the node
       become: true
       ansible.builtin.reboot:
-        msg: "Rebooting because updates require a reboot"
+        msg: "Rebooting because k8s package upgrades usually require a reboot (e.g. the CNI)"
         connect_timeout: 5
         reboot_timeout: 600
         pre_reboot_delay: 0
         post_reboot_delay: 30
         test_command: uptime
-      when:
-        - reboot_required.stat.exists
 
     - name: Wait for node to be reachable again
       ansible.builtin.wait_for_connection:
         delay: 5
         timeout: 300
-      when:
-        - reboot_required.stat.exists

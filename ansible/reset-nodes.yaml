@@ -27,9 +27,9 @@
         path: "{{ item }}"
         state: absent
       with_items:
-        - "{{ cluster_config.ssh.ssh_home }}/.kube/"
-        - "{{ cluster_config.ssh.ssh_home }}/kubeadm-config.yaml"
-        - "{{ cluster_config.ssh.ssh_home }}/kubeadmcfg.yaml"
+        - "/home/{{ cluster_config.ssh.ssh_user }}/.kube/"
+        - "/home/{{ cluster_config.ssh.ssh_user }}/kubeadm-config.yaml"
+        - "/home/{{ cluster_config.ssh.ssh_user }}/kubeadmcfg.yaml"
         - /etc/kubernetes
         - /etc/default/kubelet
         - /etc/ceph

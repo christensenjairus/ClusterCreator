@@ -40,6 +40,13 @@
       args:
         executable: /bin/bash
 
+    - name: Wait for CNI on nodes to be ready (via 'cilium status --wait')
+      ansible.builtin.shell:
+        cmd: >
+          cilium status --wait
+      args:
+        executable: /bin/bash
+
     - name: Wait for MetalLB controller deployment to be ready
       ansible.builtin.shell:
         cmd: kubectl rollout status deployment/metallb-controller --namespace metallb-system --timeout=300s
