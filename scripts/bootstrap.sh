@@ -57,9 +57,9 @@ playbooks=(
   "move-kubeconfig-remote.yaml"
   "conditionally-taint-control-plane.yaml"
   "cilium-setup.yaml"
-  "metallb-setup.yaml"
   "local-storageclasses-setup.yaml"
   "metrics-server-setup.yaml"
+  "metallb-setup.yaml"
   "label-and-taint-nodes.yaml"
   "ending-output.yaml"
 )

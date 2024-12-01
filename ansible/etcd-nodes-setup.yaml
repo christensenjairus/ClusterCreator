@@ -233,14 +233,14 @@
   tasks:
     - name: Remove the PKI directory if it exists
       ansible.builtin.file:
-        path: "{{ cluster_config.ssh.ssh_home }}/pki"
+        path: "/home/{{ cluster_config.ssh.ssh_user }}/pki"
         state: absent
       become: true
       tags:
         - etcd_cert_copy
     - name: Remove the kubeadmcfg.yaml file if it exists
       ansible.builtin.file:
-        path: "{{ cluster_config.ssh.ssh_home }}/kubeadmcfg.yaml"
+        path: "/home/{{ cluster_config.ssh.ssh_user }}/kubeadmcfg.yaml"
         state: absent
       become: true
       tags:
@@ -292,19 +292,19 @@
   tasks:
     - name: Set correct permissions for PKI files and directories
       ansible.builtin.shell: |
-        find {{ cluster_config.ssh.ssh_home }}/pki -type f -exec chmod 600 {} \;
+        find /home/{{ cluster_config.ssh.ssh_user }}/pki -type f -exec chmod 600 {} \;
       tags:
         - etcd_cert_copy
     - name: Ensure root ownership of the PKI directory
       ansible.builtin.file:
-        path: "{{ cluster_config.ssh.ssh_home }}/pki"
+        path: "/home/{{ cluster_config.ssh.ssh_user }}/pki"
         owner: root
         group: root
         recurse: true
       tags:
         - etcd_cert_copy
     - name: Move PKI directory to /etc/kubernetes
-      ansible.builtin.command: "mv -f {{ cluster_config.ssh.ssh_home }}/pki /etc/kubernetes/"
+      ansible.builtin.command: "mv -f /home/{{ cluster_config.ssh.ssh_user }}/pki /etc/kubernetes/"
       become: true
       tags:
         - etcd_cert_copy
@@ -327,7 +327,7 @@
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
   tasks:
     - name: Initialize etcd with specific configuration
-      ansible.builtin.command: sudo kubeadm init phase etcd local --config={{ cluster_config.ssh.ssh_home }}/kubeadmcfg.yaml
+      ansible.builtin.command: sudo kubeadm init phase etcd local --config=/home/{{ cluster_config.ssh.ssh_user }}/kubeadmcfg.yaml
       become: true
       tags:
         - etcd_init
@@ -341,21 +341,21 @@
   tasks:
     - name: Copy ca.crt to apiserver-0
       ansible.builtin.shell:
-        cmd: "scp -i /root/.ssh/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /etc/kubernetes/pki/etcd/ca.crt {{ cluster_config.ssh.ssh_user }}@{{ hostvars[groups['apiserver'][0]].ansible_host }}:{{ cluster_config.ssh.ssh_home }}/ca.crt"
+        cmd: "scp -i /root/.ssh/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /etc/kubernetes/pki/etcd/ca.crt {{ cluster_config.ssh.ssh_user }}@{{ hostvars[groups['apiserver'][0]].ansible_host }}:/home/{{ cluster_config.ssh.ssh_user }}/ca.crt"
       become: true
       when: groups['etcd'] | default([]) | length > 0
       tags:
         - kubeadm_config_copy
     - name: Copy apiserver-etcd-client.crt to apiserver-0
       ansible.builtin.shell:
-        cmd: "scp -i /root/.ssh/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /etc/kubernetes/pki/apiserver-etcd-client.crt {{ cluster_config.ssh.ssh_user }}@{{ hostvars[groups['apiserver'][0]].ansible_host }}:{{ cluster_config.ssh.ssh_home }}/apiserver-etcd-client.crt"
+        cmd: "scp -i /root/.ssh/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /etc/kubernetes/pki/apiserver-etcd-client.crt {{ cluster_config.ssh.ssh_user }}@{{ hostvars[groups['apiserver'][0]].ansible_host }}:/home/{{ cluster_config.ssh.ssh_user }}/apiserver-etcd-client.crt"
       become: true
       when: groups['etcd'] | default([]) | length > 0
       tags:
         - kubeadm_config_copy
     - name: Copy apiserver-etcd-client.key to apiserver-0
       ansible.builtin.shell:
-        cmd: "scp -i /root/.ssh/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /etc/kubernetes/pki/apiserver-etcd-client.key {{ cluster_config.ssh.ssh_user }}@{{ hostvars[groups['apiserver'][0]].ansible_host }}:{{ cluster_config.ssh.ssh_home }}/apiserver-etcd-client.key"
+        cmd: "scp -i /root/.ssh/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /etc/kubernetes/pki/apiserver-etcd-client.key {{ cluster_config.ssh.ssh_user }}@{{ hostvars[groups['apiserver'][0]].ansible_host }}:/home/{{ cluster_config.ssh.ssh_user }}/apiserver-etcd-client.key"
       become: true
       when: groups['etcd'] | default([]) | length > 0
       tags:
@@ -381,21 +381,21 @@
         - kubeadm_config_copy
     - name: Move apiserver-etcd-client.crt and apiserver-etcd-client.key to /etc/kubernetes/pki
       ansible.builtin.shell:
-        cmd: sudo mv {{ cluster_config.ssh.ssh_home }}/apiserver-etcd-client.crt {{ cluster_config.ssh.ssh_home }}/apiserver-etcd-client.key /etc/kubernetes/pki/
+        cmd: sudo mv /home/{{ cluster_config.ssh.ssh_user }}/apiserver-etcd-client.crt /home/{{ cluster_config.ssh.ssh_user }}/apiserver-etcd-client.key /etc/kubernetes/pki/
       become: true
       when: groups['etcd'] | default([]) | length > 0
       tags:
         - kubeadm_config_copy
     - name: Move ca.crt to /etc/kubernetes/pki/etcd
       ansible.builtin.shell:
-        cmd: sudo mv {{ cluster_config.ssh.ssh_home }}/ca.crt /etc/kubernetes/pki/etcd/
+        cmd: sudo mv /home/{{ cluster_config.ssh.ssh_user }}/ca.crt /etc/kubernetes/pki/etcd/
       become: true
       when: groups['etcd'] | default([]) | length > 0
       tags:
         - kubeadm_config_copy
     - name: Clean up etcd folder
       ansible.builtin.file:
-        path: "{{ cluster_config.ssh.ssh_home }}/etcd"
+        path: "/home/{{ cluster_config.ssh.ssh_user }}/etcd"
         state: absent
       become: true
       when: groups['etcd'] | default([]) | length > 0
@@ -516,7 +516,7 @@
 
     - name: Add alias to .bashrc for monitoring etcd health
       lineinfile:
-        path: "{{ cluster_config.ssh.ssh_home }}/.bashrc"
+        path: "/home/{{ cluster_config.ssh.ssh_user }}/.bashrc"
         create: yes
         line: "alias etcd-health='{{ etcd_health_command }}'"
 
@@ -536,7 +536,7 @@
 
     - name: Add alias to .bashrc for monitoring etcd health
       lineinfile:
-        path: "{{ cluster_config.ssh.ssh_home }}/.bashrc"
+        path: "/home/{{ cluster_config.ssh.ssh_user }}/.bashrc"
         create: yes
         line: "alias etcd-health-all='{{ etcd_health_all_command }}'"
 
@@ -549,7 +549,7 @@
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
   tasks:
     - name: Backup the etcd YAML file to ~/.etcd.bak
-      ansible.builtin.command: "cp {{ etcd_yaml_path }} {{ cluster_config.ssh.ssh_home }}/.etcd.bak"
+      ansible.builtin.command: "cp {{ etcd_yaml_path }} /home/{{ cluster_config.ssh.ssh_user }}/.etcd.bak"
     - name: Check if heartbeat-interval and election-timeout are already present
       ansible.builtin.shell: |
         grep -q -- '--heartbeat-interval=50' {{ etcd_yaml_path }} && grep -q -- '--election-timeout=5000' {{ etcd_yaml_path }}

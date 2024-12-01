@@ -122,12 +122,12 @@
         - name: Extract Vitess port-forwarding script
           ansible.builtin.unarchive:
             src: "/tmp/{{ vitess_download_filename }}"
-            dest: "{{ cluster_config.ssh.ssh_home }}"
+            dest: "/home/{{ cluster_config.ssh.ssh_user }}"
             remote_src: yes
             extra_opts: "--strip-components=3 --wildcards '{{ vitess_download_filename | regex_replace('.tar.gz$', '') }}/examples/operator/pf.sh'"
         - name: Rename port-forwarding script
           ansible.builtin.command:
-            cmd: "mv {{ cluster_config.ssh.ssh_home }}/pf.sh {{ cluster_config.ssh.ssh_home }}/vitess-port-forward.sh"
+            cmd: "mv /home/{{ cluster_config.ssh.ssh_user }}/pf.sh /home/{{ cluster_config.ssh.ssh_user }}/vitess-port-forward.sh"
         - name: Clean up Vitess tarball
           ansible.builtin.file:
             path: "/tmp/{{ vitess_download_filename }}"

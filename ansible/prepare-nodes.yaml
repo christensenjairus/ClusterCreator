@@ -61,9 +61,9 @@
 
     - name: Set helpful aliases
       shell: |
-        echo "alias k='kubectl'" | tee -a {{ cluster_config.ssh.ssh_home }}/.bashrc
-        echo "alias c='clear'" | tee -a {{ cluster_config.ssh.ssh_home }}/.bashrc
-        echo "alias h='history'" | tee -a {{ cluster_config.ssh.ssh_home }}/.bashrc
+        echo "alias k='kubectl'" | tee -a /home/{{ cluster_config.ssh.ssh_user }}/.bashrc
+        echo "alias c='clear'" | tee -a /home/{{ cluster_config.ssh.ssh_user }}/.bashrc
+        echo "alias h='history'" | tee -a /home/{{ cluster_config.ssh.ssh_user }}/.bashrc
       args:
         executable: /bin/bash
       tags:
