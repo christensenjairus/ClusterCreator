@@ -172,7 +172,7 @@ tofu workspace new <cluster_name>
 **Purpose**: Ensures Tofu commands are scoped to the specified cluster. Switch between workspaces using:
 
 ```bash
-tofu workspace switch <cluster_name>
+tofu workspace select <cluster_name>
 ```
 
 ### 4. Create VMs with Tofu
