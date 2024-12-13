@@ -18,6 +18,8 @@ variable "clusters" {
       bridge                 : optional(string, "vmbr0")                                  # Optional. Name of the proxmox bridge to use for VM's network interface
       dns_search_domain      : optional(string, "lan")                                    # Optional. Search domain for DNS resolution
       assign_vlan            : optional(bool, false)                                      # Optional. Whether or not to assign a vlan to the network interfaces of the VMs.
+      vlan_id                : optional(number, null)                                     # Optional. The vlan id to assign to the network interfaces of the VMs. Defaults to <cluster_id>00 (e.e. 100, 200, 300, etc.)
+      vlan_name              : optional(string, null)                                     # Optional. The name of the VLAN in Unifi. Defaults to the cluster name in all caps.
       ipv4                   : object({
         subnet_prefix        : string                                                     # Required. First three octets of the host IPv4 network's subnet (assuming its a /24)
         pod_cidr             : optional(string, "10.42.0.0/16")                           # Optional. Cidr range for pod networking internal to cluster. Shouldn't overlap with ipv4 lan network. These must differ cluster to cluster if using clustermesh.
