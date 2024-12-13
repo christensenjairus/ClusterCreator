@@ -17,7 +17,7 @@ terraform {
 #   backend "s3" {
 #     bucket     = local.minio_bucket
 #     key        = "cluster_creator.tfstate"
-#     region     = "default"
+#     region     = local.minio_region
 #     access_key = local.minio_access_key
 #     secret_key = local.minio_secret_key
 # 
@@ -34,7 +34,7 @@ terraform {
 }
 
 # provider "aws" {
-#   region     = "default"
+#   region     = local.minio_region
 #   access_key = local.minio_access_key
 #   secret_key = local.minio_secret_key
 # 
