@@ -415,6 +415,26 @@
       tags:
         - remove_ssh_key
 
+- name: Add heartbeat-interval and election-timeout to etcd container command if not present
+  hosts: etcd
+  gather_facts: false
+  become: true
+  vars:
+    etcd_yaml_path: "/etc/kubernetes/manifests/etcd.yaml"
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+  tasks:
+    - name: Backup the etcd YAML file to ~/.etcd.bak
+      ansible.builtin.command: "cp {{ etcd_yaml_path }} /home/{{ cluster_config.ssh.ssh_user }}/.etcd.bak"
+    - name: Check if heartbeat-interval and election-timeout are already present
+      ansible.builtin.shell: |
+        grep -q -- '--heartbeat-interval=50' {{ etcd_yaml_path }} && grep -q -- '--election-timeout=5000' {{ etcd_yaml_path }}
+      register: etcd_args_present
+      failed_when: false
+    - name: Add heartbeat-interval and election-timeout to etcd container command using sed
+      ansible.builtin.command: |
+        sed -i '/- etcd/a \    - --heartbeat-interval=500\n    - --election-timeout=2500' {{ etcd_yaml_path }}
+      when: etcd_args_present.rc != 0
+
 - name: Ensure etcd backup cronjobs are present
   hosts: etcd[0]
   gather_facts: false
@@ -540,26 +560,6 @@
         create: yes
         line: "alias etcd-health-all='{{ etcd_health_all_command }}'"
 
-- name: Add heartbeat-interval and election-timeout to etcd container command if not present
-  hosts: etcd
-  gather_facts: false
-  become: true
-  vars:
-    etcd_yaml_path: "/etc/kubernetes/manifests/etcd.yaml"
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
-  tasks:
-    - name: Backup the etcd YAML file to ~/.etcd.bak
-      ansible.builtin.command: "cp {{ etcd_yaml_path }} /home/{{ cluster_config.ssh.ssh_user }}/.etcd.bak"
-    - name: Check if heartbeat-interval and election-timeout are already present
-      ansible.builtin.shell: |
-        grep -q -- '--heartbeat-interval=50' {{ etcd_yaml_path }} && grep -q -- '--election-timeout=5000' {{ etcd_yaml_path }}
-      register: etcd_args_present
-      failed_when: false
-    - name: Add heartbeat-interval and election-timeout to etcd container command using sed
-      ansible.builtin.command: |
-        sed -i '/- etcd/a \    - --heartbeat-interval=500\n    - --election-timeout=2500' {{ etcd_yaml_path }}
-      when: etcd_args_present.rc != 0
-
 - name: Etcdctl healthcheck
   hosts: etcd[0]
   any_errors_fatal: true
@@ -577,7 +577,7 @@
         --cert /etc/kubernetes/pki/etcd/peer.crt \
         --key /etc/kubernetes/pki/etcd/peer.key \
         --cacert /etc/kubernetes/pki/etcd/ca.crt \
-        --endpoints {{ groups['etcd'] | map('extract', hostvars, 'ansible_host') | map('regex_replace', '$', ':2379') | map('regex_replace', '^', 'https://') | join(',') }} endpoint health -w json
+        --endpoints {{ groups['etcd'] | map('extract', hostvars, 'ansible_host') | map('regex_replace', '$', ':2379') | map('regex_replace', '^', 'https://') | join(',') }} endpoint health -w json 2>/dev/null | tail -n 1 || echo "[]"
       register: etcd_health_check
       retries: 20
       delay: 3

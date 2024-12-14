@@ -13,7 +13,7 @@
         --cert /etc/kubernetes/pki/etcd/peer.crt \
         --key /etc/kubernetes/pki/etcd/peer.key \
         --cacert /etc/kubernetes/pki/etcd/ca.crt \
-        --endpoints https://{{ host }}:2379 endpoint health
+        --endpoints https://{{ host }}:2379 endpoint health 2>&1
       loop: "{{ groups['etcd'] }}"
       loop_control:
         loop_var: host

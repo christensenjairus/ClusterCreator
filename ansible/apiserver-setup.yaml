@@ -112,24 +112,6 @@
         (kubernetes_medium_version.split('.')[0] | int > 1))
       tags:
         - kubeadm_init
-    - name: Pause for 10s to give kube-vip pod time to stop (only on 1.29+)
-      ansible.builtin.pause:
-        seconds: 10
-      when: not kube_config_exists.stat.exists and
-        ((kubernetes_medium_version.split('.')[0] | int == 1 and kubernetes_medium_version.split('.')[1] | int >= 29) or
-        (kubernetes_medium_version.split('.')[0] | int > 1))
-      tags:
-        - kubeadm_init
-    - name: Wait for kube-vip pod to start and be running (only on 1.29+)
-      ansible.builtin.wait_for:
-        timeout: 300
-        delay: 5
-        state: started
-        port: 6443 # Adjust if a different port or service check is needed
-      when: not kube_config_exists.stat.exists and
-        ((kubernetes_medium_version.split('.')[0] | int == 1 and kubernetes_medium_version.split('.')[1] | int >= 29) or
-        (kubernetes_medium_version.split('.')[0] | int > 1))
-      register: check
 
     - name: Run kubeadm init with custom config
       ansible.builtin.shell:
@@ -202,8 +184,9 @@
         (kubernetes_medium_version.split('.')[0] | int > 1))
       tags:
         - kubeadm_init
-    - name: Wait for kube-vip pod to start and be running (only on 1.29+)
+    - name: Wait for kube-vip pod to start (only on 1.29+)
       ansible.builtin.wait_for:
+        host: "{{ cluster_config.networking.kube_vip.vip }}"
         timeout: 300
         delay: 5
         state: started
