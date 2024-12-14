@@ -29,6 +29,15 @@
   hosts: apiserver[0]
   gather_facts: false
   tasks:
+    - name: Read etcd encryption secret
+      become: true
+      ansible.builtin.slurp:
+        src: /etc/kubernetes/enc/enc.key
+      register: encryption_key
+    - name: Print ETCD Encryption Secret (Base64 Encoded)
+      ansible.builtin.debug:
+        msg: ETCD Encryption Secret (Base64 Encoded) => {{ encryption_key.content }}
+
     - name: Get connected k8s nodes
       ansible.builtin.command:
         cmd: kubectl get nodes

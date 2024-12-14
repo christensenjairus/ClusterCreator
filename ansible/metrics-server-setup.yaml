@@ -1,5 +1,5 @@
 ---
-- name: Apply metrics-server manifest and patch deployment
+- name: Apply metrics-server manifest
   hosts: apiserver[0]
   gather_facts: false
   vars:
@@ -24,43 +24,4 @@
       kubernetes.core.k8s:
         state: present
         src: "https://github.com/kubernetes-sigs/metrics-server/releases/download/v{{ metrics_server_version }}/high-availability-1.21+.yaml"
-      when: metrics_server_replica_count == "2"
-
-    - name: Scale down metrics-server deployment to zero replicas
-      kubernetes.core.k8s:
-        kind: Deployment
-        name: metrics-server
-        namespace: kube-system
-        definition:
-          spec:
-            replicas: 0
-
-    - name: Patch metrics-server deployment to ignore self-signed kubelet certificate
-      kubernetes.core.k8s_json_patch:
-        kind: Deployment
-        name: metrics-server
-        namespace: kube-system
-        patch:
-          - op: add
-            path: /spec/template/spec/containers/0/args/-
-            value: "--kubelet-insecure-tls=true"
-
-    - name: Scale metrics-server deployment back up
-      kubernetes.core.k8s:
-        kind: Deployment
-        name: metrics-server
-        namespace: kube-system
-        definition:
-          spec:
-            replicas: 1
-      when: metrics_server_replica_count == "1"
-
-    - name: Scale metrics-server deployment back up to HA mode
-      kubernetes.core.k8s:
-        kind: Deployment
-        name: metrics-server
-        namespace: kube-system
-        definition:
-          spec:
-            replicas: 2
       when: metrics_server_replica_count == "2"

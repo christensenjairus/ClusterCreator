@@ -50,7 +50,7 @@
         node_ip="{{ ipv4 }}"
         {% endif %}
 
-        kubelet_extra_args="--node-ip=${node_ip} --max-pods={{ cluster_config.max_pods_per_node }} --housekeeping-interval=5s"
+        kubelet_extra_args="--node-ip=${node_ip} --max-pods={{ cluster_config.max_pods_per_node }} --rotate-server-certificates=true --rotate-certificates=true --housekeeping-interval=5s"
         # the housekeeping-interval was a fix I needed to fix cadvisor metrics not being deduplicated correctly when sent to Mimir.
 
         echo "KUBELET_EXTRA_ARGS=\"$kubelet_extra_args\"" | tee /etc/default/kubelet
