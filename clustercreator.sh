@@ -98,14 +98,9 @@ run_playbooks() {
     -e kubernetes_long_version=${KUBERNETES_LONG_VERSION} \
     -e kubernetes_medium_version=${KUBERNETES_MEDIUM_VERSION} \
     -e kubernetes_short_version=${KUBERNETES_SHORT_VERSION} \
-    -e helm_version=${HELM_VERSION} \
-    -e containerd_version=${CONTAINERD_VERSION} \
     -e cni_plugins_version=${CNI_PLUGINS_VERSION} \
     -e etcd_version=${ETCD_VERSION} \
     -e cilium_cli_version=${CILIUM_CLI_VERSION} \
-    -e hubble_cli_version=${HUBBLE_CLI_VERSION} \
-    -e vitess_download_filename=${VITESS_DOWNLOAD_FILENAME} \
-    -e vitess_version=${VITESS_VERSION} \
     -e cilium_version=${CILIUM_VERSION} \
     -e metallb_version=${METALLB_VERSION} \
     -e local_path_provisioner_version=${LOCAL_PATH_PROVISIONER_VERSION} \
@@ -199,23 +194,25 @@ display_usage() {
     echo "Usage: clustercreator.sh|ccr <command> [options]"
     echo ""
     echo "Commands:"
-    echo "  setup-ccr         Creates 'ccr' command and tells it where to look for scripts"
-    echo "  ctx               Sets the current cluster context"
-    echo "  set-secrets       Sets secrets to be used by bash, ansible, and tofu"
-    echo "  template          Creates a VM template for Kubernetes"
-    echo "  tofu              Executes tofu commands directly"
-    echo "  bootstrap         Bootstraps Kubernetes to create a cluster"
-    echo "  add-nodes         Adds un-joined nodes to the cluster"
-    echo "  drain-node        Drains a node of workloads"
-    echo "  delete-node       Immediately deletes the node from the Kubernetes cluster"
-    echo "  upgrade-node      Upgrades a node to use the Kubernetes version specified in the environment settings"
-    echo "  reset-node        Resets Kubernetes configurations for one host"
-    echo "  reset-all-nodes   Resets Kubernetes configurations for all hosts"
-    echo "  upgrade-addons    Upgrades the addons to the versions specified in the environment settings"
-    echo "  upgrade-k8s       Upgrades the control-plane api to the version specified in the environment settings"
-    echo "  vmctl             Controls VM state, including power controls and backups"
-    echo "  run-command       Runs a bash command on a host or an Ansible host group"
-    echo "  toggle-providers  Toggles the S3 (Minio) and Unifi providers"
+    echo "  setup-ccr            Creates 'ccr' command and tells it where to look for scripts"
+    echo "  ctx                  Sets the current cluster context"
+    echo "  configure-variables  Opens files with variables to be used by bash, ansible, and tofu"
+    echo "  configure-secrets    Guides you though setting secrets to be used by bash, ansible, and tofu"
+    echo "  configure-clusters   Opens your clusters configuration file"
+    echo "  template             Creates a VM template for Kubernetes"
+    echo "  tofu                 Executes tofu commands directly"
+    echo "  bootstrap            Bootstraps Kubernetes to create a cluster"
+    echo "  add-nodes            Adds un-joined nodes to the cluster"
+    echo "  drain-node           Drains a node of workloads"
+    echo "  delete-node          Immediately deletes the node from the Kubernetes cluster"
+    echo "  upgrade-node         Upgrades a node to use the Kubernetes version specified in the environment settings"
+    echo "  reset-node           Resets Kubernetes configurations for one host"
+    echo "  reset-all-nodes      Resets Kubernetes configurations for all hosts"
+    echo "  upgrade-addons       Upgrades the addons to the versions specified in the environment settings"
+    echo "  upgrade-k8s          Upgrades the control-plane api to the version specified in the environment settings"
+    echo "  vmctl                Controls VM state, including power controls and backups"
+    echo "  run-command          Runs a bash command on a host or an Ansible host group"
+    echo "  toggle-providers     Toggles the S3 (Minio) and Unifi providers"
     echo ""
     echo "Use the -h/--help flag following a command for more descriptive help output."
 }
@@ -230,6 +227,7 @@ required_commands=(
   "kubectl"
   "kubectx"
   "tofu"
+  "vim"
 )
 check_required_commands "${required_commands[@]}"
 
@@ -287,11 +285,8 @@ required_vars=(
   "TEMPLATE_VM_CPU"
   "TEMPLATE_VM_MEM"
   "TWO_DNS_SERVERS"
-  "CONTAINERD_VERSION"
   "CNI_PLUGINS_VERSION"
   "CILIUM_CLI_VERSION"
-  "HUBBLE_CLI_VERSION"
-  "HELM_VERSION"
   "ETCD_VERSION"
   "KUBERNETES_SHORT_VERSION"
   "KUBERNETES_MEDIUM_VERSION"
@@ -328,8 +323,14 @@ case "$COMMAND" in
     ctx)
         ctx "$@"
         ;;
-    set-secrets)
-        ( "$REPO_PATH/scripts/set_secrets.sh" "$@" )
+    configure-variables)
+        ( "$REPO_PATH/scripts/configure_variables.sh" "$@" )
+        ;;
+    configure-secrets)
+        ( "$REPO_PATH/scripts/configure_secrets.sh" "$@" )
+        ;;
+    configure-clusters)
+        ( "$REPO_PATH/scripts/configure_clusters.sh" "$@" )
         ;;
     template)
         ( "$REPO_PATH/scripts/template.sh" "$@" )

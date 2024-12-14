@@ -12,8 +12,9 @@
    - [2. Add a KUBECONFIG line to your .bashrc or .zshrc](#2-add-a-kubeconfig-line-to-your-bashrc-or-zshrc)
    - [3. Setup a `ccr` alias](#3-setup-a-ccr-alias)
    - [4. Configure Additional Providers (optional)](#4-configure-additional-providers-optional)
-   - [5. Configure Secrets](#5-configure-secrets)
-   - [6. Edit Configuration Files](#6-edit-configuration-files)
+   - [5. Configure Variables](#5-configure-variables)
+   - [6. Configure Secrets](#6-configure-secrets)
+   - [7. Configure Clusters](#7-configure-clusters)
 5. [Usage](#usage)
    - [1. Create a VM Template](#1-create-a-vm-template)
    - [2. Initialize Tofu](#2-initialize-tofu)
@@ -137,12 +138,26 @@ Use the new `ccr` command to enable the provider of your choice.
 ccr toggle-providers
 ```
 
-### 5. Configure Secrets
+### 5. Configure Variables
+
+The following command will show you where to set your variables. The variables you enter will be used for bash (`scripts/k8s.env`) and tofu (`terraform/variables.tf`).
+
+```bash
+ccr configure-variables
+```
+
+This will open the files for you to set
+- **Template VM settings**: Temporary settings for the Template VM while it is installing packages.
+- **Proxmox Information**: Information like the Proxmox url, ISO path, datastore names, etc.
+- **Unifi Information**: (optional, needs to be toggled on first) The Unifi API url.
+- **Minio Bucket, Region, and URL**: (optional, needs to be toggled on first) The minio bucket, region, and URL for storing Tofu state.
+
+### 6. Configure Secrets
 
 The following command will help you set up your secrets. The secrets you enter will be used for bash (`scripts/.env`) and tofu (`terraform/secrets.tf`).
 
 ```bash
-ccr set-secrets
+ccr configure-secrets
 ```
 
 This will guide you through setting
@@ -151,13 +166,15 @@ This will guide you through setting
 - **Unifi Credentials**: (optional, needs to be toggled on first) Create a service account in the Unifi Controller with Site Admin permissions for the Network app.
 - **Minio Access Key/Secret**: (optional, needs to be toggled on first) Create a minio access key that has read/write access to the bucket specified in `terraform/variables.tf`.
 
-### 6. Edit Configuration Files
+### 7. Configure Clusters
 
-Customize the following configuration files to suit your environment:
+The following command will show you where to configure your cluster configurations. This file is found in tofu's (`terraform/clusters.tf`).
 
-- `scripts/k8s.env`: Specify Kubernetes versions and template VM configurations.
-- `terraform/variables.tf`: Define non-sensitive variables for Tofu.
-- `terraform/clusters.tf`: Configure cluster specifications. Update the username to your own.
+Remember to set the username to be your own.
+
+```bash
+ccr configure-clusters
+```
 
 **NOTE: Make sure you understand the cluster object definined at the top of `terraform/clusters.tf`. It has many options with set defaults, and many features like the PVE firewall, HA, boot on PVE startup, which are all *disabled by default***.
 
@@ -179,8 +196,8 @@ ccr template
 
 What It Does:
 
-- Installs necessary apt packages (e.g., kubeadm, kubelet, kubectl, helm).
-- Compiles and installs packages from source (e.g., cilium CLI, etcdctl).
+- Installs necessary apt packages (e.g., kubeadm, kubelet, kubectl).
+- Compiles and installs packages from source (e.g., cilium CLI, CNI plugins).
 - Updates the operating system.
 - Configures system settings for Kubernetes (kernel modules, sysctl).
 - Sets up multipath configuration for storage systems like Longhorn.

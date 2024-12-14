@@ -568,25 +568,28 @@
   tags:
     - etcd_healthcheck
   tasks:
-    - name: Pause for 30s to give decoupled etcd cluster ample time to start
+    - name: Pause for 10s to give decoupled etcd cluster ample time to start
       ansible.builtin.pause:
-        seconds: 30
-    - name: Check health for each etcd endpoint
+        seconds: 10
+    - name: Wait until majority of etcd endpoints are healthy
       ansible.builtin.shell: |
         ETCDCTL_API=3 etcdctl \
         --cert /etc/kubernetes/pki/etcd/peer.crt \
         --key /etc/kubernetes/pki/etcd/peer.key \
         --cacert /etc/kubernetes/pki/etcd/ca.crt \
-        --endpoints https://{{ hostvars[host].ansible_host }}:2379 endpoint health
-      loop: "{{ groups['etcd'] }}"
-      loop_control:
-        loop_var: host
+        --endpoints {{ groups['etcd'] | map('extract', hostvars, 'ansible_host') | map('regex_replace', '$', ':2379') | map('regex_replace', '^', 'https://') | join(',') }} endpoint health -w json
       register: etcd_health_check
-      ignore_errors: yes
-    - name: Show etcd health check output
+      retries: 20
+      delay: 3
+      until: >
+        etcd_health_check is defined and
+        etcd_health_check.stdout is defined and
+        (etcd_health_check.stdout | from_json | selectattr('health', 'equalto', true) | list | length) >= ((groups['etcd'] | length) // 2 + 1)
+      ignore_errors: false
+      become: true
+    - name: Debug etcd health check output
       ansible.builtin.debug:
-        msg: "{{ etcd_health_check.results | map(attribute='stdout') | list }}"
-      when: etcd_health_check is defined
+        var: etcd_health_check.stdout | from_json
 
 - name: Create a bootstrap file on all etcd nodes
   hosts: etcd

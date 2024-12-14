@@ -7,8 +7,8 @@
 #     if key == terraform.workspace && value.networking.use_unifi == true && value.networking.assign_vlan == true
 #   }
 # 
-#   name      = each.value.vlan_name
-#   vlan_id   = each.value.vlan_id
+#   vlan_id = each.value.networking.vlan_id == null ? "${each.value.cluster_id}00" : each.value.networking.vlan_id
+#   name    = each.value.networking.vlan_name == null ? upper(each.value.cluster_name) : each.value.networking.vlan_name
 #   purpose = "corporate" # Must be one of corporate, guest, wan, or vlan-only.
 # 
 #   # IPv4 settings

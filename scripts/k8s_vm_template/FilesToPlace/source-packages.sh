@@ -17,27 +17,11 @@ tar Cxzvf /opt/cni/bin "cni-plugins-linux-amd64-v$CNI_PLUGINS_VERSION.tgz"
 rm "cni-plugins-linux-amd64-v$CNI_PLUGINS_VERSION.tgz"
 chown -R root:root /opt/cni/bin # https://github.com/cilium/cilium/issues/23838
 
-# install etcdctl
-wget -q "https://github.com/etcd-io/etcd/releases/download/v${ETCD_VERSION}/etcd-v${ETCD_VERSION}-linux-amd64.tar.gz"
-tar xzvf "etcd-v${ETCD_VERSION}-linux-amd64.tar.gz"
-install -o root -g root -m 0755 "etcd-v$ETCD_VERSION-linux-amd64/etcdctl" /usr/local/bin/etcdctl
-install -o root -g root -m 0755 "etcd-v$ETCD_VERSION-linux-amd64/etcdutl" /usr/local/bin/etcdutl
-rm -rf "etcd-v$ETCD_VERSION-linux-amd64" "etcd-v${ETCD_VERSION}-linux-amd64.tar.gz"
-
 # install cilium cli
 curl -s -L --remote-name-all "https://github.com/cilium/cilium-cli/releases/download/v$CILIUM_CLI_VERSION/cilium-linux-${ARCH}.tar.gz{,.sha256sum}"
 sha256sum --check cilium-linux-$ARCH.tar.gz.sha256sum
 tar xzvfC cilium-linux-$ARCH.tar.gz /usr/local/bin
 rm cilium-linux-$ARCH*
-
-# install hubble cli
-curl -s -L --remote-name-all "https://github.com/cilium/hubble/releases/download/v$HUBBLE_CLI_VERSION/hubble-linux-$ARCH.tar.gz{,.sha256sum}"
-sha256sum --check hubble-linux-$ARCH.tar.gz.sha256sum
-tar xzvfC hubble-linux-$ARCH.tar.gz /usr/local/bin
-rm hubble-linux-$ARCH*
-
-### install flux
-curl -s https://fluxcd.io/install.sh | bash 2>&1 | grep -v "printf" # silence the log that checks for a downloader and fails
 
 ### install yq
 wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
@@ -46,13 +30,3 @@ chmod +x /usr/local/bin/yq
 ### install yj
 wget -q https://github.com/sclevine/yj/releases/download/v5.1.0/yj-linux-amd64 -O /usr/local/bin/yj
 chmod +x /usr/local/bin/yj
-
-### install vtctldclient and vtexplain (optional)
-if [[ -n "$VITESS_DOWNLOAD_FILENAME" && "$VITESS_DOWNLOAD_FILENAME" != "none" && -n "$VITESS_VERSION" && "$VITESS_VERSION" != "none" ]]; then
-  wget -q https://github.com/vitessio/vitess/releases/download/v"${VITESS_VERSION}"/"${VITESS_DOWNLOAD_FILENAME}"
-  tar -xvzf "${VITESS_DOWNLOAD_FILENAME}" --strip-components=2 -C /usr/local/bin/ "${VITESS_DOWNLOAD_FILENAME/.tar.gz/}"/bin/vtctldclient
-  tar -xvzf "${VITESS_DOWNLOAD_FILENAME}" --strip-components=2 -C /usr/local/bin/ "${VITESS_DOWNLOAD_FILENAME/.tar.gz/}"/bin/vtexplain
-  tar -xvzf "${VITESS_DOWNLOAD_FILENAME}" --strip-components=3 -C "/${VM_USERNAME}/" "${VITESS_DOWNLOAD_FILENAME/.tar.gz/}"/examples/operator/pf.sh
-  mv "/${VM_USERNAME}/pf.sh" "/${VM_USERNAME}/vitess-port-forward.sh"
-  rm -rf "${VITESS_DOWNLOAD_FILENAME}"
-fi

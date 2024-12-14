@@ -21,7 +21,6 @@ locals {
           bridge             = cluster.networking.bridge
           use_unifi          = cluster.networking.use_unifi
           vlan_id            = cluster.networking.vlan_id == null ? "${cluster.cluster_id}00" : cluster.networking.vlan_id
-          vlan_name          = cluster.networking.vlan_name == null ? upper(cluster.cluster_name) : cluster.networking.vlan_name
           ipv4               : {
             vm_ip            = "${cluster.networking.ipv4.subnet_prefix}.${specs.start_ip + i}"
             gateway          = "${cluster.networking.ipv4.subnet_prefix}.1"

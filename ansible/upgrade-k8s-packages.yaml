@@ -34,79 +34,35 @@
         state: present
         filename: "kubernetes"
 
-    - name: Unhold kubelet, kubeadm, kubectl, helm, and containerd packages (Ubuntu)
+    - name: Unhold kubelet, kubeadm, kubectl
       ansible.builtin.command: "sudo apt-mark unhold {{ item }}"
       loop:
         - kubelet
         - kubeadm
         - kubectl
-        - helm
-        - containerd
       register: unhold_result
       until: unhold_result is succeeded
-      when: ansible_facts['os_family'] == 'Debian' and ansible_facts['distribution'] == 'Ubuntu'
-
-    - name: Unhold kubelet, kubeadm, kubectl, helm, and containerd packages (Debian)
-      ansible.builtin.command: "sudo apt-mark unhold {{ item }}"
-      loop:
-        - kubelet
-        - kubeadm
-        - kubectl
-        - helm
-        - containerd.io
-      register: unhold_result
-      until: unhold_result is succeeded
-      when: ansible_facts['os_family'] == 'Debian' and ansible_facts['distribution'] == 'Debian'
 
     - name: Update package list
       ansible.builtin.apt:
         update_cache: yes
 
-    - name: Install specific versions of kubelet, kubeadm, kubectl, helm, and containerd (Ubuntu)
+    - name: Install specific versions of kubelet, kubeadm, kubectl
       ansible.builtin.apt:
         name:
           - "kubelet={{ kubernetes_long_version }}"
           - "kubeadm={{ kubernetes_long_version }}"
           - "kubectl={{ kubernetes_long_version }}"
-          - "helm={{ helm_version }}"
-          - "containerd={{ containerd_version }}"
         state: present
-      when: ansible_facts['os_family'] == 'Debian' and ansible_facts['distribution'] == 'Ubuntu'
 
-    - name: Install specific versions of kubelet, kubeadm, kubectl, helm, and containerd.io (Debian)
-      ansible.builtin.apt:
-        name:
-          - "kubelet={{ kubernetes_long_version }}"
-          - "kubeadm={{ kubernetes_long_version }}"
-          - "kubectl={{ kubernetes_long_version }}"
-          - "helm={{ helm_version }}"
-          - "containerd.io={{ containerd_version }}"
-        state: present
-      when: ansible_facts['os_family'] == 'Debian' and ansible_facts['distribution'] == 'Debian'
-
-    - name: Hold kubelet, kubeadm, kubectl, helm, and containerd packages (Ubuntu)
+    - name: Hold kubelet, kubeadm, kubectl
       ansible.builtin.command: "sudo apt-mark hold {{ item }}"
       loop:
         - kubelet
         - kubeadm
         - kubectl
-        - helm
-        - containerd
       register: hold_result
       until: hold_result is succeeded
-      when: ansible_facts['os_family'] == 'Debian' and ansible_facts['distribution'] == 'Ubuntu'
-
-    - name: Hold kubelet, kubeadm, kubectl, helm, and containerd packages (Debian)
-      ansible.builtin.command: "sudo apt-mark hold {{ item }}"
-      loop:
-        - kubelet
-        - kubeadm
-        - kubectl
-        - helm
-        - containerd.io
-      register: hold_result
-      until: hold_result is succeeded
-      when: ansible_facts['os_family'] == 'Debian' and ansible_facts['distribution'] == 'Debian'
 
     # Upgrade external ETCD
     - name: Ensure /etc/kubernetes/manifests/etcd.yaml exists
