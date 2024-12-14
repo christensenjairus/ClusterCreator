@@ -436,7 +436,7 @@
       when: etcd_args_present.rc != 0
 
 - name: Ensure etcd backup cronjobs are present
-  hosts: etcd[0]
+  hosts: etcd
   gather_facts: false
   become: yes
   tags:
@@ -579,7 +579,7 @@
         --cacert /etc/kubernetes/pki/etcd/ca.crt \
         --endpoints {{ groups['etcd'] | map('extract', hostvars, 'ansible_host') | map('regex_replace', '$', ':2379') | map('regex_replace', '^', 'https://') | join(',') }} endpoint health -w json 2>/dev/null | tail -n 1 || echo "[]"
       register: etcd_health_check
-      retries: 20
+      retries: 30
       delay: 3
       until: >
         etcd_health_check is defined and

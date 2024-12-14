@@ -37,6 +37,7 @@ playbooks=(
   "join-worker-nodes.yaml"
   "move-kubeconfig-remote.yaml"
   "conditionally-taint-control-plane.yaml"
+  "etcd-encryption.yaml"
   "label-and-taint-nodes.yaml"
   "ending-output.yaml"
 )

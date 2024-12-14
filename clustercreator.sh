@@ -104,7 +104,8 @@ run_playbooks() {
     -e cilium_version=${CILIUM_VERSION} \
     -e metallb_version=${METALLB_VERSION} \
     -e local_path_provisioner_version=${LOCAL_PATH_PROVISIONER_VERSION} \
-    -e metrics_server_version=${METRICS_SERVER_VERSION}
+    -e metrics_server_version=${METRICS_SERVER_VERSION} \
+    -e kubelet_serving_cert_approver_version=${KUBELET_SERVING_CERT_APPROVER_VERSION}
   "
 
   # Separate playbooks from extra_vars
@@ -292,6 +293,7 @@ required_vars=(
   "KUBERNETES_MEDIUM_VERSION"
   "KUBERNETES_LONG_VERSION"
   "CILIUM_VERSION"
+  "KUBELET_SERVING_CERT_APPROVER_VERSION"
   "LOCAL_PATH_PROVISIONER_VERSION"
   "METRICS_SERVER_VERSION"
   "METALLB_VERSION"
