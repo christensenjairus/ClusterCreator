@@ -71,13 +71,14 @@ cron \
 iproute2 \
 intel-gpu-tools \
 intel-opencl-icd \
+helm \
+etcd-client \
 kubelet="$KUBERNETES_LONG_VERSION" \
 kubeadm="$KUBERNETES_LONG_VERSION" \
-kubectl="$KUBERNETES_LONG_VERSION" \
-helm="$HELM_VERSION"
+kubectl="$KUBERNETES_LONG_VERSION"
 
 # hold back kubernetes packages
-apt-mark hold kubelet kubeadm kubectl helm
+apt-mark hold kubelet kubeadm kubectl
 
 # install containerd, which have different package names on Debian and Ubuntu
 distro=$(lsb_release -is)
@@ -92,8 +93,7 @@ if [[ "$distro" = *"Debian"* ]]; then
       $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
       sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
     sudo apt update
-    sudo apt install -y containerd.io="$CONTAINERD_VERSION"
-    apt-mark hold containerd.io
+    sudo apt install -y containerd.io
 
     # remove the extra kernel modules script, it's not needed on Debian
     rm -f /root/extra-kernel-modules.sh
@@ -101,8 +101,7 @@ if [[ "$distro" = *"Debian"* ]]; then
 elif [[ "$distro" = *"Ubuntu"* ]]; then
 
     echo "Installing containerd on Ubuntu..."
-    sudo apt install -y containerd="$CONTAINERD_VERSION"
-    apt-mark hold containerd
+    sudo apt install -y containerd
 
     # ----------------- Disable Runc AppArmor Profile -----------------
 

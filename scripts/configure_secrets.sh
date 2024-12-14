@@ -1,7 +1,7 @@
 #!/bin/bash
 
 usage() {
-  echo "Usage: ccr set-secrets"
+  echo "Usage: ccr configure-secrets"
   echo ""
   echo "Helps you set the secrets found in:"
   echo " * scripts/.env"
@@ -42,7 +42,7 @@ env_variables=(
 
 # Define secrets.tf variables and descriptions (excluding VM_USERNAME and VM_PASSWORD as they’ll be auto-filled)
 tf_variables=(
-    "vm_ssh_key|Paste your SSH public key for VM access"
+    "vm_ssh_key|Paste the contents of your SSH key's .pub file, for VM access"
     "proxmox_username|Enter the Proxmox username. The README guides you to use 'terraform'"
     "proxmox_api_token|Enter the Proxmox API token in the following format: 'terraform@pve!provider=<token>'. The README guides you through making this token"
 #     "unifi_username|Enter the Unifi service account username. User must have 'Site Admin' permissions for the Network app"

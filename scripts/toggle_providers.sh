@@ -51,7 +51,7 @@ toggle_tf_block() {
     fi
 }
 
-# Function to toggle specific lines in set_secrets.sh
+# Function to toggle specific lines in configure_secrets.sh
 toggle_secrets_lines() {
     local line_pattern="$1"
     local condition="$2"
@@ -74,7 +74,8 @@ toggle_secrets_lines() {
 
 # Define the file path variables
 providers_file="$REPO_PATH/terraform/providers.tf"
-secrets_file="$REPO_PATH/scripts/set_secrets.sh"
+secrets_file="$REPO_PATH/scripts/configure_secrets.sh"
+variables_file="$REPO_PATH/terraform/variables.tf"
 unifi_file="$REPO_PATH/terraform/unifi.tf"
 
 # Toggle specific blocks in providers.tf based on user input
@@ -84,21 +85,35 @@ toggle_tf_block 'provider "aws"' "$use_minio" "$providers_file"
 toggle_tf_block 'provider "unifi"' "$use_unifi" "$providers_file"
 toggle_tf_block 'resource "unifi_network"' "$use_unifi" "$unifi_file"
 
-# Toggle minio-related lines in set_secrets.sh
+# Toggle minio-related lines in configure_secrets.sh
 toggle_secrets_lines "minio_access_key" "$use_minio" "$secrets_file"
 toggle_secrets_lines "minio_secret_key" "$use_minio" "$secrets_file"
 
-# Toggle unifi-related lines in set_secrets.sh
+# Toggle minio-related lines in variables.tf
+toggle_secrets_lines "minio_bucket" "$use_minio" "$variables_file"
+toggle_secrets_lines "minio_region" "$use_minio" "$variables_file"
+toggle_secrets_lines "minio_endpoint" "$use_minio" "$variables_file"
+
+# Toggle unifi-related lines in configure_secrets.sh
 toggle_secrets_lines "unifi_username" "$use_unifi" "$secrets_file"
 toggle_secrets_lines "unifi_password" "$use_unifi" "$secrets_file"
+
+# Toggle unifi-related lines in variables.tf
+toggle_secrets_lines "unifi_api_url" "$use_unifi" "$variables_file"
 
 chmod +x "$secrets_file"
 
 echo -e "${GREEN}Configuration has been updated based on your selections.${ENDCOLOR}"
 
-echo -e "${GREEN}Setting secrets (new providers may need new secrets)${ENDCOLOR}"
-"${REPO_PATH}/clustercreator.sh" set-secrets
+echo ""
+echo -e "${GREEN}Setting variables (new providers may need new variables)${ENDCOLOR}"
+"${REPO_PATH}/clustercreator.sh" configure-variables
 
+echo ""
+echo -e "${GREEN}Setting secrets (new providers may need new secrets)${ENDCOLOR}"
+"${REPO_PATH}/clustercreator.sh" configure-secrets
+
+echo ""
 echo -e "${GREEN}Running tofu init to initialize new providers${ENDCOLOR}"
 "${REPO_PATH}/clustercreator.sh" tofu init -upgrade -reconfigure
 
