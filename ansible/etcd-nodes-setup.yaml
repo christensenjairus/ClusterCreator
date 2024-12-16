@@ -20,36 +20,13 @@
   any_errors_fatal: true
   become: true
   tasks:
-    - name: Update apt cache on etcd hosts
-      become: true
-      ansible.builtin.apt:
-        update_cache: yes
-        cache_valid_time: 3600  # Cache is considered valid for 1 hour
-      register: upgrade_result
-      until: upgrade_result is succeeded
-      retries: 30
-      delay: 10
     - name: Upgrade all packages to the latest version on etcd nodes
       become: true
       ansible.builtin.apt:
         upgrade: 'dist'  # Use 'dist' for distribution upgrade, or 'full' for full upgrade
         force_apt_get: yes  # Optionally force using apt-get instead of aptitude
-      register: upgrade_result
-      until: upgrade_result is succeeded
-      retries: 30
-      delay: 10
-    - name: Remove unused packages and dependencies on etcd nodes
-      become: true
-      ansible.builtin.apt:
+        update_cache: yes
         autoremove: yes
-        purge: yes
-      register: upgrade_result
-      until: upgrade_result is succeeded
-      retries: 30
-      delay: 10
-    - name: Clean up apt cache on etcd nodes
-      become: true
-      ansible.builtin.apt:
         autoclean: yes
       register: upgrade_result
       until: upgrade_result is succeeded

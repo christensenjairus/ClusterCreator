@@ -34,19 +34,6 @@
         state: present
         filename: "kubernetes"
 
-    - name: Unhold kubelet, kubeadm, kubectl
-      ansible.builtin.command: "sudo apt-mark unhold {{ item }}"
-      loop:
-        - kubelet
-        - kubeadm
-        - kubectl
-      register: unhold_result
-      until: unhold_result is succeeded
-
-    - name: Update package list
-      ansible.builtin.apt:
-        update_cache: yes
-
     - name: Install specific versions of kubelet, kubeadm, kubectl
       ansible.builtin.apt:
         name:
@@ -54,23 +41,10 @@
           - "kubeadm={{ kubernetes_long_version }}"
           - "kubectl={{ kubernetes_long_version }}"
         state: present
-
-    - name: Install specific versions of kubelet, kubeadm, kubectl
-      ansible.builtin.apt:
-        name:
-          - "kubelet={{ kubernetes_long_version }}"
-          - "kubeadm={{ kubernetes_long_version }}"
-          - "kubectl={{ kubernetes_long_version }}"
-        state: present
-
-    - name: Hold kubelet, kubeadm, kubectl
-      ansible.builtin.command: "sudo apt-mark hold {{ item }}"
-      loop:
-        - kubelet
-        - kubeadm
-        - kubectl
-      register: hold_result
-      until: hold_result is succeeded
+        allow_change_held_packages: true
+        allow_downgrade: true
+        update_cache: true
+        upgrade: dist # take the opportunity to upgrade the node
 
     - name: Kubeadm Upgrade Plan
       ansible.builtin.shell:
