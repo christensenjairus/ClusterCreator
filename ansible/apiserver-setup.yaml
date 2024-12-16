@@ -40,39 +40,13 @@
       when: kube_config_exists.stat.exists
 
     # update and upgrade apiserver-0 node and reboot if necessary - but only if kubeadm init has not been run
-    - name: Update apt cache on apiserver-0
-      become: true
-      ansible.builtin.apt:
-        update_cache: yes
-        cache_valid_time: 3600  # Cache is considered valid for 1 hour
-      register: upgrade_result
-      until: upgrade_result is succeeded
-      retries: 30
-      delay: 10
-      when: not kube_config_exists.stat.exists
     - name: Upgrade all packages to the latest version on apiserver-0
       become: true
       ansible.builtin.apt:
         upgrade: 'dist'  # Use 'dist' for distribution upgrade, or 'full' for full upgrade
         force_apt_get: yes  # Optionally force using apt-get instead of aptitude
-      register: upgrade_result
-      until: upgrade_result is succeeded
-      retries: 30
-      delay: 10
-      when: not kube_config_exists.stat.exists
-    - name: Remove unused packages and dependencies on apiserver-0
-      become: true
-      ansible.builtin.apt:
+        update_cache: yes
         autoremove: yes
-        purge: yes
-      register: upgrade_result
-      until: upgrade_result is succeeded
-      retries: 30
-      delay: 10
-      when: not kube_config_exists.stat.exists
-    - name: Clean up apt cache on apiserver-0
-      become: true
-      ansible.builtin.apt:
         autoclean: yes
       register: upgrade_result
       until: upgrade_result is succeeded
