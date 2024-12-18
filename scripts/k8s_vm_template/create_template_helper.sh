@@ -53,6 +53,13 @@ echo -e "${GREEN}Deleting the old template vm if it exists...${ENDCOLOR}"
 qm stop "$TEMPLATE_VM_ID" --skiplock 1 || true
 qm destroy "$TEMPLATE_VM_ID" --purge 1 --skiplock 1 --destroy-unreferenced-disks 1 || true
 
+# Check if TEMPLATE_VLAN_TAG is valid
+if [[ -z "$TEMPLATE_VLAN_TAG" || "$TEMPLATE_VLAN_TAG" == "0" || "$TEMPLATE_VLAN_TAG" =~ ^(none|null|None)$ ]]; then
+    TAG_ARG=""  # No VLAN tag applied
+else
+    TAG_ARG="tag=$TEMPLATE_VLAN_TAG"  # Apply VLAN tag
+fi
+
 echo -e "${GREEN}Creating the VM...${ENDCOLOR}"
 qm create "$TEMPLATE_VM_ID" \
   --name "$TEMPLATE_VM_NAME" \
@@ -60,7 +67,7 @@ qm create "$TEMPLATE_VM_ID" \
   --cores "$TEMPLATE_VM_CPU" \
   --sockets 1 \
   --memory "$TEMPLATE_VM_MEM" \
-  --net0 virtio,bridge=vmbr0,tag="$TEMPLATE_VLAN_TAG" \
+  --net0 "virtio,bridge=vmbr0,$TAG_ARG" \
   --agent "enabled=1,freeze-fs-on-backup=1,fstrim_cloned_disks=1" \
   --onboot 1 \
   --balloon 0 \
