@@ -1,14 +1,14 @@
 ---
-- name: Join other apiserver nodes to the cluster
-  hosts: apiserver
+- name: Join other controlplane nodes to the cluster
+  hosts: controlplane
   gather_facts: false
   any_errors_fatal: true
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
     control_plane_host: null
   tasks:
-    # finding an apiserver node is necessary because we can't use apiserver[0] because it could be a new node.
-    - name: Find an apiserver node to query for the list of nodes
+    # finding an controlplane node is necessary because we can't use controlplane[0] because it could be a new node.
+    - name: Find an controlplane node to query for the list of nodes
       ansible.builtin.shell:
         cmd: >
           kubectl get node "{{ item }}" -o jsonpath='{.metadata.labels.node-role\.kubernetes\.io\/control-plane}'
@@ -17,10 +17,10 @@
       changed_when: false
       no_log: true
       failed_when: false
-      loop: "{{ groups['apiserver'] }}"
+      loop: "{{ groups['controlplane'] }}"
       when: control_plane_host is none
 
-    - name: Set apiserver host
+    - name: Set controlplane host
       set_fact:
         control_plane_host: "{{ item.item }}"
       loop: "{{ node_status.results }}"
@@ -36,12 +36,12 @@
 
     - name: Fail if no control_plane_host was found
       fail:
-        msg: "No active apiserver found. Has the cluster been bootstrapped?"
+        msg: "No active controlplane found. Has the cluster been bootstrapped?"
       when: control_plane_found == false
 
-    - name: Show selected apiserver host
+    - name: Show selected controlplane host
       debug:
-        msg: "Selected apiserver host: {{ control_plane_host }}"
+        msg: "Selected controlplane host: {{ control_plane_host }}"
       when: control_plane_host is not none
 
     - name: Get list of nodes from the Kubernetes cluster
@@ -78,7 +78,7 @@
       any_errors_fatal: false # if it fails, we can join it later
       block:
 
-        - name: Upgrade all packages to the latest version on apiserver nodes to be added to cluster
+        - name: Upgrade all packages to the latest version on controlplane nodes to be added to cluster
           become: true
           ansible.builtin.apt:
             upgrade: 'dist'  # Use 'dist' for distribution upgrade, or 'full' for full upgrade
@@ -90,12 +90,12 @@
           until: upgrade_result is succeeded
           retries: 30
           delay: 10
-        - name: Check if reboot is required on apiserver nodes to be added to cluster
+        - name: Check if reboot is required on controlplane nodes to be added to cluster
           become: true
           ansible.builtin.stat:
             path: /var/run/reboot-required
           register: reboot_required
-        - name: Reboot the apiserver nodes to be added to cluster (if necessary)
+        - name: Reboot the controlplane nodes to be added to cluster (if necessary)
           become: true
           ansible.builtin.reboot:
             msg: "Rebooting because updates require a reboot"
@@ -105,17 +105,17 @@
             post_reboot_delay: 30
             test_command: uptime
           when: reboot_required.stat.exists
-        - name: Wait for new apiserver nodes to be reachable again
+        - name: Wait for new controlplane nodes to be reachable again
           ansible.builtin.wait_for_connection:
             delay: 5
-            timeout: 300
+            timeout: 600
           when: reboot_required.stat.exists
 
-        - name: Read apiserver join command
+        - name: Read controlplane join command
           ansible.builtin.set_fact:
             join_command_local: "{{ lookup('file', 'tmp/{{ cluster_name }}/control_plane_join_command.sh') }}"
 
-        - name: Join apiserver nodes to cluster
+        - name: Join controlplane nodes to cluster
           ansible.builtin.shell:
             cmd: "{{ join_command_local }}"
           become: true

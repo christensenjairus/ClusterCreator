@@ -109,35 +109,35 @@ resource "proxmox_virtual_environment_firewall_ipset" "all_nodes_ipv6" {
   }
 }
 
-# group all apiserver nodes
-resource "proxmox_virtual_environment_firewall_ipset" "apiserver_nodes_ipv4" {
+# group all controlplane nodes
+resource "proxmox_virtual_environment_firewall_ipset" "controlplane_nodes_ipv4" {
   count = local.cluster_config.networking.use_pve_firewall ? 1 : 0
   depends_on = [
     proxmox_virtual_environment_firewall_alias.node_ipv4
   ]
 
-  name    = "${local.cluster_config.cluster_name}-apiserver-nodes-ipv4"
+  name    = "${local.cluster_config.cluster_name}-controlplane-nodes-ipv4"
   comment = "Managed by Terraform"
 
   dynamic "cidr" {
-    for_each = { for key, node in local.nodes : "${node.cluster_name}-${node.node_class}-${node.index}" => node if node.node_class == "apiserver" }
+    for_each = { for key, node in local.nodes : "${node.cluster_name}-${node.node_class}-${node.index}" => node if node.node_class == "controlplane" }
     content {
       name    = "dc/${cidr.key}-ipv4"
       comment = cidr.key
     }
   }
 }
-resource "proxmox_virtual_environment_firewall_ipset" "apiserver_nodes_ipv6" {
+resource "proxmox_virtual_environment_firewall_ipset" "controlplane_nodes_ipv6" {
   count = local.cluster_config.networking.use_pve_firewall && local.cluster_config.networking.ipv6.enabled ? 1 : 0
   depends_on = [
     proxmox_virtual_environment_firewall_alias.node_ipv6
   ]
 
-  name    = "${local.cluster_config.cluster_name}-apiserver-nodes-ipv6"
+  name    = "${local.cluster_config.cluster_name}-controlplane-nodes-ipv6"
   comment = "Managed by Terraform"
 
   dynamic "cidr" {
-    for_each = { for key, node in local.nodes : "${node.cluster_name}-${node.node_class}-${node.index}" => node if node.node_class == "apiserver" && local.cluster_config.networking.ipv6.enabled }
+    for_each = { for key, node in local.nodes : "${node.cluster_name}-${node.node_class}-${node.index}" => node if node.node_class == "controlplane" && local.cluster_config.networking.ipv6.enabled }
     content {
       name    = "dc/${cidr.key}-ipv6"
       comment = cidr.key
@@ -244,7 +244,7 @@ resource "proxmox_virtual_environment_firewall_ipset" "worker_nodes_ipv4" {
   comment = "Managed by Terraform"
 
   dynamic "cidr" {
-    for_each = { for key, node in local.nodes : "${node.cluster_name}-${node.node_class}-${node.index}" => node if node.node_class != "apiserver" && node.node_class != "etcd" }
+    for_each = { for key, node in local.nodes : "${node.cluster_name}-${node.node_class}-${node.index}" => node if node.node_class != "controlplane" && node.node_class != "etcd" }
     content {
       name    = "dc/${cidr.key}-ipv4"
       comment = cidr.key
@@ -261,7 +261,7 @@ resource "proxmox_virtual_environment_firewall_ipset" "worker_nodes_ipv6" {
   comment = "Managed by Terraform"
 
   dynamic "cidr" {
-    for_each = { for key, node in local.nodes : "${node.cluster_name}-${node.node_class}-${node.index}" => node if node.node_class != "apiserver" && node.node_class != "etcd" && local.cluster_config.networking.ipv6.enabled }
+    for_each = { for key, node in local.nodes : "${node.cluster_name}-${node.node_class}-${node.index}" => node if node.node_class != "controlplane" && node.node_class != "etcd" && local.cluster_config.networking.ipv6.enabled }
     content {
       name    = "dc/${cidr.key}-ipv6"
       comment = cidr.key
@@ -311,7 +311,7 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "k8s_api"
       action  = "ACCEPT"
       comment = "Allow K8s API from Management IP or Range IPV4"
       source  = "+${proxmox_virtual_environment_firewall_ipset.management_ipv4[0].name}"
-      dest    = "+${proxmox_virtual_environment_firewall_ipset.apiserver_nodes_ipv4[0].name}"
+      dest    = "+${proxmox_virtual_environment_firewall_ipset.controlplane_nodes_ipv4[0].name}"
       dport   = "6443"
       proto   = "tcp"
       log     = "info"
@@ -323,7 +323,7 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "k8s_api"
       action  = "ACCEPT"
       comment = "Allow K8s API from Management IP or Range IPV6"
       source  = "+${proxmox_virtual_environment_firewall_ipset.management_ipv6[0].name}"
-      dest    = "+${proxmox_virtual_environment_firewall_ipset.apiserver_nodes_ipv6[0].name}"
+      dest    = "+${proxmox_virtual_environment_firewall_ipset.controlplane_nodes_ipv6[0].name}"
       dport   = "6443"
       proto   = "tcp"
       log     = "info"
@@ -357,7 +357,7 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "k8s_api"
     action  = "ACCEPT"
     comment = "Allow K8s API from all K8s Nodes IPV4"
     source  = "+${proxmox_virtual_environment_firewall_ipset.all_nodes_ipv4[0].name}"
-    dest    = "+${proxmox_virtual_environment_firewall_ipset.apiserver_nodes_ipv4[0].name}"
+    dest    = "+${proxmox_virtual_environment_firewall_ipset.controlplane_nodes_ipv4[0].name}"
     dport   = "6443"
     proto   = "tcp"
     log     = "nolog"
@@ -369,7 +369,7 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "k8s_api"
       action  = "ACCEPT"
       comment = "Allow K8s API from all K8s Nodes IPV6"
       source  = "+${proxmox_virtual_environment_firewall_ipset.all_nodes_ipv6[0].name}"
-      dest    = "+${proxmox_virtual_environment_firewall_ipset.apiserver_nodes_ipv6[0].name}"
+      dest    = "+${proxmox_virtual_environment_firewall_ipset.controlplane_nodes_ipv6[0].name}"
       dport   = "6443"
       proto   = "tcp"
       log     = "nolog"
@@ -429,7 +429,7 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "ssh" {
     }
   }
 
-  # allow etcd[0] ssh to other etcd nodes and apiservers over ipv4. It's part of etcd-nodes-setup.yaml.
+  # allow etcd[0] ssh to other etcd nodes and controlplanes over ipv4. It's part of etcd-nodes-setup.yaml.
   rule {
     type    = "in"
     action  = "ACCEPT"
@@ -443,9 +443,9 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "ssh" {
   rule {
     type    = "in"
     action  = "ACCEPT"
-    comment = "Allow SSH from etcd to apiservers"
+    comment = "Allow SSH from etcd to controlplanes"
     source  = "+${proxmox_virtual_environment_firewall_ipset.etcd_nodes_ipv4[0].name}"
-    dest    = "+${proxmox_virtual_environment_firewall_ipset.apiserver_nodes_ipv4[0].name}"
+    dest    = "+${proxmox_virtual_environment_firewall_ipset.controlplane_nodes_ipv4[0].name}"
     dport   = "22"
     proto   = "tcp"
     log     = "info"
@@ -534,9 +534,9 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "etcd" {
   rule {
     type    = "in"
     action  = "ACCEPT"
-    comment = "Allow Apiservers to Etcd IPv4"
-    source  = "+${proxmox_virtual_environment_firewall_ipset.apiserver_nodes_ipv4[0].name}"
-    dest    = try(local.cluster_config.node_classes.etcd.count, 0) == 0 ? "+${proxmox_virtual_environment_firewall_ipset.apiserver_nodes_ipv4[0].name}" : "+${proxmox_virtual_environment_firewall_ipset.etcd_nodes_ipv4[0].name}"
+    comment = "Allow Controlplanes to Etcd IPv4"
+    source  = "+${proxmox_virtual_environment_firewall_ipset.controlplane_nodes_ipv4[0].name}"
+    dest    = try(local.cluster_config.node_classes.etcd.count, 0) == 0 ? "+${proxmox_virtual_environment_firewall_ipset.controlplane_nodes_ipv4[0].name}" : "+${proxmox_virtual_environment_firewall_ipset.etcd_nodes_ipv4[0].name}"
     dport   = "2379:2380"
     proto   = "tcp"
     log     = "nolog"
@@ -546,9 +546,9 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "etcd" {
     content {
       type    = "in"
       action  = "ACCEPT"
-      comment = "Allow Apiservers to Etcd IPv6"
-      source  = "+${proxmox_virtual_environment_firewall_ipset.apiserver_nodes_ipv6[0].name}"
-      dest    = try(local.cluster_config.node_classes.etcd.count, 0) == 0 ? "+${proxmox_virtual_environment_firewall_ipset.apiserver_nodes_ipv6[0].name}" : "+${proxmox_virtual_environment_firewall_ipset.etcd_nodes_ipv6[0].name}"
+      comment = "Allow Controlplanes to Etcd IPv6"
+      source  = "+${proxmox_virtual_environment_firewall_ipset.controlplane_nodes_ipv6[0].name}"
+      dest    = try(local.cluster_config.node_classes.etcd.count, 0) == 0 ? "+${proxmox_virtual_environment_firewall_ipset.controlplane_nodes_ipv6[0].name}" : "+${proxmox_virtual_environment_firewall_ipset.etcd_nodes_ipv6[0].name}"
       dport   = "2379:2380"
       proto   = "tcp"
       log     = "nolog"
@@ -583,18 +583,18 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "etcd" {
 }
 
 # allow kubelet api (control-plane)
-resource "proxmox_virtual_environment_cluster_firewall_security_group" "kubelet_api_apiserver" {
+resource "proxmox_virtual_environment_cluster_firewall_security_group" "kubelet_api_controlplane" {
   count = local.cluster_config.networking.use_pve_firewall ? 1 : 0
 
   name    = "${local.cluster_config.cluster_name}-kta"
-  comment = "Kubelet API for ${local.cluster_config.cluster_name} cluster apiservers"
+  comment = "Kubelet API for ${local.cluster_config.cluster_name} cluster controlplanes"
 
   rule {
     type    = "in"
     action  = "ACCEPT"
     comment = "Allow Kubelet API IPv4"
-    source  = "+${proxmox_virtual_environment_firewall_ipset.apiserver_nodes_ipv4[0].name}"
-    dest    = "+${proxmox_virtual_environment_firewall_ipset.apiserver_nodes_ipv4[0].name}"
+    source  = "+${proxmox_virtual_environment_firewall_ipset.controlplane_nodes_ipv4[0].name}"
+    dest    = "+${proxmox_virtual_environment_firewall_ipset.controlplane_nodes_ipv4[0].name}"
     dport   = "10250"
     proto   = "tcp"
     log     = "nolog"
@@ -605,8 +605,8 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "kubelet_
       type    = "in"
       action  = "ACCEPT"
       comment = "Allow Kubelet API IPv6"
-      source  = "+${proxmox_virtual_environment_firewall_ipset.apiserver_nodes_ipv6[0].name}"
-      dest    = "+${proxmox_virtual_environment_firewall_ipset.apiserver_nodes_ipv6[0].name}"
+      source  = "+${proxmox_virtual_environment_firewall_ipset.controlplane_nodes_ipv6[0].name}"
+      dest    = "+${proxmox_virtual_environment_firewall_ipset.controlplane_nodes_ipv6[0].name}"
       dport   = "10250"
       proto   = "tcp"
       log     = "nolog"
@@ -625,7 +625,7 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "kubelet_
     type    = "in"
     action  = "ACCEPT"
     comment = "Allow Kubelet API IPv4"
-    source  = "+${proxmox_virtual_environment_firewall_ipset.apiserver_nodes_ipv4[0].name}"
+    source  = "+${proxmox_virtual_environment_firewall_ipset.controlplane_nodes_ipv4[0].name}"
     dest    = "+${proxmox_virtual_environment_firewall_ipset.worker_nodes_ipv4[0].name}"
     dport   = "10250"
     proto   = "tcp"
@@ -637,7 +637,7 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "kubelet_
       type    = "in"
       action  = "ACCEPT"
       comment = "Allow Kubelet API IPv6"
-      source  = "+${proxmox_virtual_environment_firewall_ipset.apiserver_nodes_ipv6[0].name}"
+      source  = "+${proxmox_virtual_environment_firewall_ipset.controlplane_nodes_ipv6[0].name}"
       dest    = "+${proxmox_virtual_environment_firewall_ipset.worker_nodes_ipv6[0].name}"
       dport   = "10250"
       proto   = "tcp"
@@ -824,7 +824,7 @@ resource "proxmox_virtual_environment_firewall_rules" "main" {
     proxmox_virtual_environment_cluster_firewall_security_group.ssh,
     proxmox_virtual_environment_cluster_firewall_security_group.ping,
     proxmox_virtual_environment_cluster_firewall_security_group.etcd,
-    proxmox_virtual_environment_cluster_firewall_security_group.kubelet_api_apiserver,
+    proxmox_virtual_environment_cluster_firewall_security_group.kubelet_api_controlplane,
     proxmox_virtual_environment_cluster_firewall_security_group.kubelet_api_worker,
     proxmox_virtual_environment_cluster_firewall_security_group.metrics_server,
     proxmox_virtual_environment_cluster_firewall_security_group.cilium,
@@ -865,8 +865,8 @@ resource "proxmox_virtual_environment_firewall_rules" "main" {
   }
 
   rule {
-    security_group = proxmox_virtual_environment_cluster_firewall_security_group.kubelet_api_apiserver[0].name
-    comment        = proxmox_virtual_environment_cluster_firewall_security_group.kubelet_api_apiserver[0].name
+    security_group = proxmox_virtual_environment_cluster_firewall_security_group.kubelet_api_controlplane[0].name
+    comment        = proxmox_virtual_environment_cluster_firewall_security_group.kubelet_api_controlplane[0].name
     iface          = "net0"
   }
 

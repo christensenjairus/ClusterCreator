@@ -4,7 +4,7 @@ usage() {
   echo "Usage: ccr upgrade-k8s"
   echo ""
   echo "Upgrades the kubernetes control-plane api to the version specified in your environment settings."
-  echo "This upgrades the k8s packages on Apiserver-0. Afterward, you'll want to upgrade all the other k8s nodes using 'upgrade-node'"
+  echo "This upgrades the k8s packages on Controlplane-0. Afterward, you'll want to upgrade all the other k8s nodes using 'upgrade-node'"
   echo ""
   echo "Skipping MINOR versions when upgrading is unsupported by kubeadm."
   echo ""

@@ -1,5 +1,5 @@
-- name: Setup Kube-Vip on the apiserver servers
-  hosts: apiserver
+- name: Setup Kube-Vip on the controlplane servers
+  hosts: controlplane
   gather_facts: false
   any_errors_fatal: true
   vars:

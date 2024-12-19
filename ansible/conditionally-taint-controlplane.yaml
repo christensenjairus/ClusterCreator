@@ -1,21 +1,21 @@
-- name: Conditionally taint apiserver nodes depending on if worker nodes will be added
-  hosts: apiserver
+- name: Conditionally taint controlplane nodes depending on if worker nodes will be added
+  hosts: controlplane
   gather_facts: false
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
   tags:
     - conditionally_taint_control_plane_nodes
   tasks:
-    - name: Map IP addresses to hostnames for apiservers
+    - name: Map IP addresses to hostnames for controlplanes
       set_fact:
         kube_api_server_names: "{{ kube_api_server_names | default([]) + [item] }}"
-      loop: "{{ groups['apiserver'] }}"
+      loop: "{{ groups['controlplane'] }}"
 
-    - name: Set the count of non-apiserver and non-etcd nodes
+    - name: Set the count of non-controlplane and non-etcd nodes
       set_fact:
         worker_node_count: >-
           {{ groups | dict2items 
-            | rejectattr('key', 'search', '^(apiserver|etcd|all|localhost)') 
+            | rejectattr('key', 'search', '^(controlplane|etcd|all|localhost)') 
             | map(attribute='value') 
             | flatten 
             | unique 

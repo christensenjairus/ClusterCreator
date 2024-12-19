@@ -50,7 +50,7 @@
     - name: Wait for systems to become reachable again
       ansible.builtin.wait_for_connection:
         delay: 5
-        timeout: 300
+        timeout: 600
       when: reboot_required.stat.exists
 
     - name: Ensure kubelet service directory exists
@@ -171,8 +171,8 @@
           command: kubeadm init phase certs etcd-peer --config=/tmp/{{ hostvars[groups['etcd'][0]].ansible_host }}/kubeadmcfg.yaml
         - name: Generate etcd-healthcheck-client certificates for etcd-0
           command: kubeadm init phase certs etcd-healthcheck-client --config=/tmp/{{ hostvars[groups['etcd'][0]].ansible_host }}/kubeadmcfg.yaml
-        - name: Generate apiserver-etcd-client certificates for etcd-0
-          command: kubeadm init phase certs apiserver-etcd-client --config=/tmp/{{ hostvars[groups['etcd'][0]].ansible_host }}/kubeadmcfg.yaml
+        - name: Generate controlplane-etcd-client certificates for etcd-0
+          command: kubeadm init phase certs controlplane-etcd-client --config=/tmp/{{ hostvars[groups['etcd'][0]].ansible_host }}/kubeadmcfg.yaml
       tags:
         - etcd_cert_generation
 
@@ -309,36 +309,36 @@
       tags:
         - etcd_init
 
-- name: Transfer PKI files to apiserver-0 and organize them
+- name: Transfer PKI files to controlplane-0 and organize them
   hosts: etcd[0]  # Assuming this playbook runs on etcd-0
   gather_facts: false
   any_errors_fatal: true
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
   tasks:
-    - name: Copy ca.crt to apiserver-0
+    - name: Copy ca.crt to controlplane-0
       ansible.builtin.shell:
-        cmd: "scp -i /root/.ssh/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /etc/kubernetes/pki/etcd/ca.crt {{ cluster_config.ssh.ssh_user }}@{{ hostvars[groups['apiserver'][0]].ansible_host }}:/home/{{ cluster_config.ssh.ssh_user }}/ca.crt"
+        cmd: "scp -i /root/.ssh/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /etc/kubernetes/pki/etcd/ca.crt {{ cluster_config.ssh.ssh_user }}@{{ hostvars[groups['controlplane'][0]].ansible_host }}:/home/{{ cluster_config.ssh.ssh_user }}/ca.crt"
       become: true
       when: groups['etcd'] | default([]) | length > 0
       tags:
         - kubeadm_config_copy
-    - name: Copy apiserver-etcd-client.crt to apiserver-0
+    - name: Copy apiserver-etcd-client.crt to controlplane-0
       ansible.builtin.shell:
-        cmd: "scp -i /root/.ssh/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /etc/kubernetes/pki/apiserver-etcd-client.crt {{ cluster_config.ssh.ssh_user }}@{{ hostvars[groups['apiserver'][0]].ansible_host }}:/home/{{ cluster_config.ssh.ssh_user }}/apiserver-etcd-client.crt"
+        cmd: "scp -i /root/.ssh/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /etc/kubernetes/pki/apiserver-etcd-client.crt {{ cluster_config.ssh.ssh_user }}@{{ hostvars[groups['controlplane'][0]].ansible_host }}:/home/{{ cluster_config.ssh.ssh_user }}/apiserver-etcd-client.crt"
       become: true
       when: groups['etcd'] | default([]) | length > 0
       tags:
         - kubeadm_config_copy
-    - name: Copy apiserver-etcd-client.key to apiserver-0
+    - name: Copy apiserver-etcd-client.key to controlplane-0
       ansible.builtin.shell:
-        cmd: "scp -i /root/.ssh/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /etc/kubernetes/pki/apiserver-etcd-client.key {{ cluster_config.ssh.ssh_user }}@{{ hostvars[groups['apiserver'][0]].ansible_host }}:/home/{{ cluster_config.ssh.ssh_user }}/apiserver-etcd-client.key"
+        cmd: "scp -i /root/.ssh/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /etc/kubernetes/pki/apiserver-etcd-client.key {{ cluster_config.ssh.ssh_user }}@{{ hostvars[groups['controlplane'][0]].ansible_host }}:/home/{{ cluster_config.ssh.ssh_user }}/apiserver-etcd-client.key"
       become: true
       when: groups['etcd'] | default([]) | length > 0
       tags:
         - kubeadm_config_copy
-- name: Prepare and organize PKI files on apiserver-0
-  hosts: apiserver[0]  # Targeting apiserver-0
+- name: Prepare and organize PKI files on controlplane-0
+  hosts: controlplane[0]  # Targeting controlplane-0
   gather_facts: false
   any_errors_fatal: true
   vars:

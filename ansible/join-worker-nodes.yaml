@@ -7,8 +7,8 @@
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
     control_plane_host: null
   tasks:
-    # finding an apiserver node is necessary because we can't use apiserver[0] because it could be a new node.
-    - name: Find an apiserver node to query for the list of nodes
+    # finding an controlplane node is necessary because we can't use controlplane[0] because it could be a new node.
+    - name: Find an controlplane node to query for the list of nodes
       ansible.builtin.shell:
         cmd: >
           kubectl get node "{{ item }}" -o jsonpath='{.metadata.labels.node-role\.kubernetes\.io\/control-plane}'
@@ -17,10 +17,10 @@
       changed_when: false
       no_log: true
       failed_when: false
-      loop: "{{ groups['apiserver'] }}"
+      loop: "{{ groups['controlplane'] }}"
       when: control_plane_host is none
 
-    - name: Set apiserver host
+    - name: Set controlplane host
       set_fact:
         control_plane_host: "{{ item.item }}"
       loop: "{{ node_status.results }}"
@@ -36,12 +36,12 @@
           
     - name: Fail if no control_plane_host was found
       fail:
-        msg: "No active apiserver found. Has the cluster been bootstrapped?"
+        msg: "No active controlplane found. Has the cluster been bootstrapped?"
       when: control_plane_found == false
 
-    - name: Show selected apiserver host
+    - name: Show selected controlplane host
       debug:
-        msg: "Selected apiserver host: {{ control_plane_host }}"
+        msg: "Selected controlplane host: {{ control_plane_host }}"
       when: control_plane_host is not none
 
     - name: Get list of nodes from the Kubernetes cluster
@@ -58,20 +58,20 @@
     - name: Check if current host's hostname is in the Kubernetes node list
       set_fact:
         is_in_cluster: "{{ inventory_hostname in k8s_node_names }}"
-      when: "'apiserver' not in group_names and 'etcd' not in group_names"
+      when: "'controlplane' not in group_names and 'etcd' not in group_names"
 
     - name: Check host status if in cluster
       ansible.builtin.debug:
         msg: "Host {{ inventory_hostname }} is already in the cluster"
       when:
-        - "'apiserver' not in group_names and 'etcd' not in group_names"
+        - "'controlplane' not in group_names and 'etcd' not in group_names"
         - is_in_cluster
 
     - name: Check host status if not in cluster
       ansible.builtin.debug:
         msg: "Host {{ inventory_hostname }} is not in the cluster and will join"
       when:
-        - "'apiserver' not in group_names and 'etcd' not in group_names"
+        - "'controlplane' not in group_names and 'etcd' not in group_names"
         - not is_in_cluster
 
     - name: Upgrade all packages to the latest version on worker nodes to be added to cluster
@@ -87,7 +87,7 @@
       retries: 30
       delay: 10
       when:
-        - "'apiserver' not in group_names and 'etcd' not in group_names"
+        - "'controlplane' not in group_names and 'etcd' not in group_names"
         - not is_in_cluster
     - name: Check if reboot is required on worker nodes to be added to cluster
       become: true
@@ -95,7 +95,7 @@
         path: /var/run/reboot-required
       register: reboot_required
       when:
-        - "'apiserver' not in group_names and 'etcd' not in group_names"
+        - "'controlplane' not in group_names and 'etcd' not in group_names"
         - not is_in_cluster
     - name: Reboot the worker nodes to be added to cluster (if necessary)
       become: true
@@ -107,16 +107,16 @@
         post_reboot_delay: 30
         test_command: uptime
       when:
-        - "'apiserver' not in group_names and 'etcd' not in group_names"
+        - "'controlplane' not in group_names and 'etcd' not in group_names"
         - not is_in_cluster
         - reboot_required.stat.exists
 
     - name: Wait for new worker nodes to be reachable again
       ansible.builtin.wait_for_connection:
         delay: 5
-        timeout: 300
+        timeout: 600
       when:
-        - "'apiserver' not in group_names and 'etcd' not in group_names"
+        - "'controlplane' not in group_names and 'etcd' not in group_names"
         - not is_in_cluster
         - reboot_required.stat.exists
 
@@ -124,7 +124,7 @@
       set_fact:
         join_command_local: "{{ lookup('file', 'tmp/{{ cluster_name }}/worker_join_command.sh') }}"
       when:
-        - "'apiserver' not in group_names and 'etcd' not in group_names"
+        - "'controlplane' not in group_names and 'etcd' not in group_names"
         - not is_in_cluster
       tags:
         - kubeadm_join_wrkrs
@@ -134,7 +134,7 @@
       command: "{{ join_command_local }}"
       become: true
       when:
-        - "'apiserver' not in group_names and 'etcd' not in group_names"
+        - "'controlplane' not in group_names and 'etcd' not in group_names"
         - not is_in_cluster
       tags:
         - kubeadm_join_wrkrs

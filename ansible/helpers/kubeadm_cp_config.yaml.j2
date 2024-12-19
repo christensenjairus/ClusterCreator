@@ -7,7 +7,7 @@ controlPlaneEndpoint: "{{ cluster_config.networking.kube_vip.vip_hostname }}:644
 apiServer:
   certSANs:
   - "{{ cluster_config.networking.kube_vip.vip }}"
-{% for host in groups['apiserver'] %}
+{% for host in groups['controlplane'] %}
   - "{{ hostvars[host].ansible_host }}"
 {% endfor %}
   - "{{ cluster_config.cluster_name }}"

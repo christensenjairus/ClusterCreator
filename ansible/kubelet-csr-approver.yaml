@@ -1,6 +1,6 @@
 ---
 - name: Apply kubelet-serving-cert-approver manifest
-  hosts: apiserver[0]
+  hosts: controlplane[0]
   gather_facts: false
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
@@ -8,7 +8,7 @@
 
     - name: Calculate the count of non-API/ETCD servers
       set_fact:
-        non_api_etcd_server_count: "{{ groups['all'] | length - (groups['apiserver'] | default([]) | length + groups['etcd'] | default([]) | length) }}"
+        non_api_etcd_server_count: "{{ groups['all'] | length - (groups['controlplane'] | default([]) | length + groups['etcd'] | default([]) | length) }}"
 
     - name: Determine if needing HA based on non-API/ETCD server count
       set_fact:
