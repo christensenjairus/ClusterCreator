@@ -1,6 +1,6 @@
 ---
-- name: Manage node draining and conditional untainting of apiserver
-  hosts: apiserver
+- name: Manage node draining and conditional untainting of controlplane
+  hosts: controlplane
   gather_facts: false
   vars:
     etcd_namespace: "kube-system"
@@ -9,7 +9,7 @@
     etcd_key: "/etc/kubernetes/pki/etcd/peer.key"
 
   tasks:
-    - name: Fetch active apiserver nodes
+    - name: Fetch active controlplane nodes
       command: >
         kubectl get nodes
         --selector='node-role.kubernetes.io/control-plane'
@@ -42,9 +42,9 @@
       when: matching_node_names == []
       run_once: true
 
-    - name: Set fact for apiserver node names
+    - name: Set fact for controlplane node names
       set_fact:
-        apiserver_node_names: "{{ all_nodes_json.stdout | from_json | json_query('items[?spec.taints[?key==`node-role.kubernetes.io/control-plane`]].metadata.name') }}"
+        controlplane_node_names: "{{ all_nodes_json.stdout | from_json | json_query('items[?spec.taints[?key==`node-role.kubernetes.io/control-plane`]].metadata.name') }}"
       delegate_to: "{{ hostvars[active_api_server_name].ansible_host }}"
       run_once: true
 
@@ -54,9 +54,9 @@
       delegate_to: "{{ hostvars[active_api_server_name].ansible_host }}"
       run_once: true
 
-    - name: Determine if the target node is an apiserver node
+    - name: Determine if the target node is an controlplane node
       set_fact:
-        is_an_apiserver: "{{ node_name in apiserver_node_names }}"
+        is_a_controlplane: "{{ node_name in controlplane_node_names }}"
       delegate_to: "{{ hostvars[active_api_server_name].ansible_host }}"
       run_once: true
 
@@ -75,7 +75,7 @@
       register: etcd_health
       failed_when: "'false' in etcd_health.stdout"
       when:
-        - is_an_apiserver
+        - is_a_controlplane
         - groups['etcd'] | length < 1
       ignore_errors: true
 
@@ -88,7 +88,7 @@
       register: etcd_id_to_delete
       delegate_to: "{{ hostvars[active_api_server_name]['ansible_host'] }}"
       when:
-        - is_an_apiserver
+        - is_a_controlplane
         - groups['etcd'] | length < 1
       run_once: true
 
@@ -99,13 +99,13 @@
       delegate_to: "{{ hostvars[active_api_server_name].ansible_host }}"
       run_once: true
       when:
-        - is_an_apiserver
+        - is_a_controlplane
         - groups['etcd'] | length < 1
         - etcd_id_to_delete.stdout != ""
 
     - name: Untaint all API server nodes if last worker is being removed
       command: kubectl taint nodes {{ item }} node-role.kubernetes.io/control-plane:NoSchedule-
-      loop: "{{ groups['apiserver'] }}"
+      loop: "{{ groups['controlplane'] }}"
       delegate_to: "{{ hostvars[active_api_server_name].ansible_host }}"
       when: is_last_worker
       ignore_errors: true

@@ -96,7 +96,7 @@ variable "clusters" {
         }
       }
       node_classes = {
-        apiserver = {
+        controlplane = {
           count      = 1
           cores      = 16
           memory     = 16384
@@ -105,7 +105,7 @@ variable "clusters" {
           ]
           start_ip   = 110
           labels = [
-            "nodeclass=apiserver"
+            "nodeclass=controlplane"
           ]
         }
       }
@@ -131,7 +131,7 @@ variable "clusters" {
         }
       }
       node_classes = {
-        apiserver = {
+        controlplane = {
           count      = 1
           cores      = 4
           memory     = 4096
@@ -140,7 +140,7 @@ variable "clusters" {
           ]
           start_ip   = 110
           labels = [
-            "nodeclass=apiserver"
+            "nodeclass=controlplane"
           ]
         }
         general = {
@@ -178,7 +178,7 @@ variable "clusters" {
         }
       }
       node_classes = {
-        apiserver = {
+        controlplane = {
           count     = 3
           cores     = 4
           memory    = 4096
@@ -187,7 +187,7 @@ variable "clusters" {
           ]
           start_ip = 110
           labels   = [
-            "nodeclass=apiserver"
+            "nodeclass=controlplane"
           ]
         }
         etcd = {

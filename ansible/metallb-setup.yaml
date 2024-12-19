@@ -1,5 +1,5 @@
 - name: Install MetalLB on Kubernetes Cluster
-  hosts: apiserver[0]
+  hosts: controlplane[0]
   gather_facts: false
   tags:
     - metallb_basic_install
@@ -42,7 +42,7 @@
 
     - name: Wait for MetalLB controller deployment to be ready
       ansible.builtin.shell:
-        cmd: kubectl rollout status deployment/metallb-controller --namespace metallb-system --timeout=300s
+        cmd: kubectl rollout status deployment/metallb-controller --namespace metallb-system --timeout=600s
       args:
         executable: /bin/bash
       tags:
@@ -60,7 +60,7 @@
       set_fact:
         worker_node_count: >-
           {{ groups | dict2items 
-            | rejectattr('key', 'search', '^(apiserver|etcd|all|localhost)') 
+            | rejectattr('key', 'search', '^(controlplane|etcd|all|localhost)') 
             | map(attribute='value') 
             | flatten 
             | unique 

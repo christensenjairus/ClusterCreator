@@ -1,14 +1,14 @@
 ---
 - name: Generate join commands for new nodes
-  hosts: apiserver
+  hosts: controlplane
   gather_facts: false
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
     control_plane_host: null
 
   tasks:
-    # finding a working apiserver node is necessary because we can't use apiserver[0] because it could be a new node.
-    - name: Find a ready apiserver node for generating new join commands
+    # finding a working controlplane node is necessary because we can't use controlplane[0] because it could be a new node.
+    - name: Find a ready controlplane node for generating new join commands
       ansible.builtin.shell:
         cmd: >
           kubectl get node {{ item }} -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}{.metadata.labels.node-role.kubernetes.io/control-plane}'
@@ -17,10 +17,10 @@
       changed_when: false
       no_log: true
       failed_when: false
-      loop: "{{ groups['apiserver'] }}"
+      loop: "{{ groups['controlplane'] }}"
       when: control_plane_host is none
 
-    - name: Set apiserver host
+    - name: Set controlplane host
       set_fact:
         control_plane_host: "{{ item.item }}"
       loop: "{{ node_status.results }}"
@@ -29,7 +29,7 @@
         - item.stdout is defined
         - item.stdout == "True"
         - control_plane_host is none
-      run_once: true # only needs to succeed once. We only need one ready apiserver node for this.
+      run_once: true # only needs to succeed once. We only need one ready controlplane node for this.
 
     - name: Check if control_plane_host was set
       set_fact:
@@ -37,12 +37,12 @@
 
     - name: Fail if no control_plane_host was found
       fail:
-        msg: "No active apiserver found. Has the cluster been bootstrapped?"
+        msg: "No active controlplane found. Has the cluster been bootstrapped?"
       when: control_plane_found == false
 
-    - name: Show selected apiserver host
+    - name: Show selected controlplane host
       debug:
-        msg: "Selected apiserver host: {{ control_plane_host }}"
+        msg: "Selected controlplane host: {{ control_plane_host }}"
       when: control_plane_host is not none
 
     - block:
@@ -77,7 +77,7 @@
             certificate_key: "{{ upload_certs_output.stdout | regex_search('Using certificate key:\\s*([a-f0-9]+)', '\\1') | first }}"
           delegate_to: localhost
 
-        - name: Save apiserver join command to file
+        - name: Save controlplane join command to file
           copy:
             content: "{{ worker_join_command.stdout }} --control-plane --certificate-key {{ certificate_key }}"
             dest: "tmp/{{ cluster_name }}/control_plane_join_command.sh"

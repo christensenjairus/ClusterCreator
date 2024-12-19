@@ -1,6 +1,6 @@
 ---
 - name: Deploy etcd encryption configuration
-  hosts: apiserver
+  hosts: controlplane
   gather_facts: false
   become: true
   vars:
@@ -17,7 +17,7 @@
       set_fact:
         key_source_node: "{{ item }}"
       when: hostvars[item].enc_key_stat.stat.exists | default(false)
-      loop: "{{ groups['apiserver'] }}"
+      loop: "{{ groups['controlplane'] }}"
       loop_control:
         label: "{{ item }}"
       run_once: true
@@ -83,13 +83,13 @@
         owner: root
         group: root
 
-    - name: Check if apiserver manifest already has encryption
+    - name: Check if controlplane manifest already has encryption
       ansible.builtin.shell: >
         grep -- '--encryption-provider-config=/etc/kubernetes/enc/enc.yaml' /etc/kubernetes/manifests/kube-apiserver.yaml
       register: config_check
       failed_when: false
 
-    - name: Add encryption to apiserver manifests (if necessary)
+    - name: Add encryption to controlplane manifests (if necessary)
       ansible.builtin.command: >
         yq eval '
           .spec.containers[0].command |=
@@ -116,7 +116,7 @@
     - name: Wait for API to be reachable (if necessary)
       ansible.builtin.wait_for:
         host: "{{ cluster_config.networking.kube_vip.vip }}"
-        timeout: 300
+        timeout: 600
         delay: 5
         state: started
         port: 6443

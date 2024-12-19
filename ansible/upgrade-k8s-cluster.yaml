@@ -1,7 +1,7 @@
 ---
 # Mirrors sections of apt-packages.sh that consume a version number
-- name: Upgrade Kubernetes Cluster using Apiserver-0
-  hosts: apiserver[0]
+- name: Upgrade Kubernetes Cluster using Controlplane-0
+  hosts: controlplane[0]
   gather_facts: true # Needs to know OS type
   become: true
   any_errors_fatal: true

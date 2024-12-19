@@ -26,7 +26,7 @@
       when: etcd_health_check is defined
 
 - name: Show connected k8s nodes
-  hosts: apiserver[0]
+  hosts: controlplane[0]
   gather_facts: false
   tasks:
     - name: Read etcd encryption secret
