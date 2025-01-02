@@ -45,11 +45,3 @@
       ansible.builtin.file:
         path: "/tmp/cni-plugins-linux-{{ arch }}-v{{ cni_plugins_version }}.tgz"
         state: absent
-
-    # Reinstall Cilium CLI
-    - name: Reinstall Cilium CLI
-      ansible.builtin.shell: |
-        curl -s -L --remote-name-all "https://github.com/cilium/cilium-cli/releases/download/v{{ cilium_cli_version }}/cilium-linux-{{ arch }}.tar.gz{,.sha256sum}"
-        sha256sum --check cilium-linux-{{ arch }}.tar.gz.sha256sum
-        tar -xzf cilium-linux-{{ arch }}.tar.gz -C /usr/local/bin
-        rm -f cilium-linux-{{ arch }}.tar.gz*

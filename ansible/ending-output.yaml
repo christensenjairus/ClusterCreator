@@ -25,9 +25,12 @@
         msg: "{{ etcd_health_check.results | map(attribute='stdout') | list }}"
       when: etcd_health_check is defined
 
-- name: Show connected k8s nodes
+- name: Show connected k8s nodes and path of kubeconfig
   hosts: controlplane[0]
   gather_facts: false
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    kubeconfig: "{{ lookup('env', 'HOME') }}/.kube/{{ cluster_config.kubeconfig_file_name }}"
   tasks:
     - name: Read etcd encryption secret
       become: true
@@ -45,3 +48,7 @@
     - name: Display connected k8s nodes
       ansible.builtin.debug:
         var: kubectl_output.stdout_lines
+
+    - name: Display path of kubeconfig
+      debug:
+        msg: "The kubeconfig file path is: {{ kubeconfig }}"

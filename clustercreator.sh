@@ -100,7 +100,6 @@ run_playbooks() {
     -e kubernetes_short_version=${KUBERNETES_SHORT_VERSION} \
     -e cni_plugins_version=${CNI_PLUGINS_VERSION} \
     -e etcd_version=${ETCD_VERSION} \
-    -e cilium_cli_version=${CILIUM_CLI_VERSION} \
     -e cilium_version=${CILIUM_VERSION} \
     -e metallb_version=${METALLB_VERSION} \
     -e local_path_provisioner_version=${LOCAL_PATH_PROVISIONER_VERSION} \
@@ -288,7 +287,6 @@ required_vars=(
   "TEMPLATE_VM_MEM"
   "TWO_DNS_SERVERS"
   "CNI_PLUGINS_VERSION"
-  "CILIUM_CLI_VERSION"
   "ETCD_VERSION"
   "KUBERNETES_SHORT_VERSION"
   "KUBERNETES_MEDIUM_VERSION"

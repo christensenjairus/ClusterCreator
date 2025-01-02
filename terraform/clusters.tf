@@ -52,7 +52,7 @@ variable "clusters" {
       count                  : number                                                     # Required. Number of VMs to create for this node class.
       pve_nodes              : optional(list(string),["Citadel","Acropolis","Parthenon"]) # Optional. Nodes that this class is allowed to run on. They will be cycled through and will repeat if count > length(pve_nodes).
       machine                : optional(string, "q35")                                    # Optional. Default to "q35". Use i400fx for partial gpu pass-through.
-      cpu_type               : optional(string, "x86-64-v2-AES")                          # Optional. Default CPU type. Use 'host' for full gpu pass-through.
+      cpu_type               : optional(string, "x86-64-v3")                              # Optional. Default to x86-64-v3. 'host' gives the best performance and is needed for full gpu pass-through, but it can't live migrate. https://www.yinfor.com/2023/06/how-i-choose-vm-cpu-type-in-proxmox-ve.html
       cores                  : optional(number, 2)                                        # Optional. Number of cores to use.
       sockets                : optional(number, 1)                                        # Optional. Number of sockets to use or emulate.
       memory                 : optional(number, 2048)                                     # Optional. Non-ballooning memory in MB.

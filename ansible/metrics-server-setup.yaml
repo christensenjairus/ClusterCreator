@@ -14,14 +14,24 @@
       set_fact:
         metrics_server_replica_count: "{{ 1 if non_api_etcd_server_count <= \"1\" else 2 }}"
 
-    - name: Apply standard metrics-server manifest
-      kubernetes.core.k8s:
-        state: present
-        src: "https://github.com/kubernetes-sigs/metrics-server/releases/download/v{{ metrics_server_version }}/components.yaml"
-      when: metrics_server_replica_count == "1"
+    - name: Add Metrics-Server Helm repository
+      ansible.builtin.shell:
+        cmd: helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
+      args:
+        executable: /bin/bash
 
-    - name: Apply HA metrics-server manifest
-      kubernetes.core.k8s:
-        state: present
-        src: "https://github.com/kubernetes-sigs/metrics-server/releases/download/v{{ metrics_server_version }}/high-availability-1.21+.yaml"
-      when: metrics_server_replica_count == "2"
+    - name: Update Helm repositories
+      ansible.builtin.shell:
+        cmd: helm repo update
+      args:
+        executable: /bin/bash
+
+    - name: Install Metrics-Server
+      ansible.builtin.shell:
+        cmd: >
+          helm upgrade --install metrics-server metrics-server/metrics-server
+          --namespace kube-system
+          --set replicas={{ metrics_server_replica_count }}
+          --version {{ metrics_server_version }}
+      args:
+        executable: /bin/bash
