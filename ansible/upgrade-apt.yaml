@@ -1,0 +1,34 @@
+---
+- name: Full APT Upgrade
+  hosts: all
+  gather_facts: false
+  become: true
+  any_errors_fatal: true
+
+  tasks:
+    - name: Upgrade all packages to the latest version
+      become: true
+      ansible.builtin.apt:
+        upgrade: 'full'  # Use 'dist' for distribution upgrade, or 'full' for full upgrade
+        force_apt_get: yes  # Optionally force using apt-get instead of aptitude
+        update_cache: yes
+        autoremove: yes
+        autoclean: yes
+      register: upgrade_result
+      until: upgrade_result is succeeded
+      retries: 30
+      delay: 10
+    - name: Reboot the node
+      become: true
+      ansible.builtin.reboot:
+        msg: "Rebooting because k8s package upgrades sometimes require a reboot (e.g. the CNI)"
+        connect_timeout: 5
+        reboot_timeout: 600
+        pre_reboot_delay: 0
+        post_reboot_delay: 30
+        test_command: uptime
+
+    - name: Wait for node to be reachable again
+      ansible.builtin.wait_for_connection:
+        delay: 5
+        timeout: 600

@@ -1,0 +1,122 @@
+---
+- name: Join other controlplane nodes to the cluster
+  hosts: controlplane
+  gather_facts: false
+  any_errors_fatal: true
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    control_plane_host: null
+  tasks:
+    # finding an controlplane node is necessary because we can't use controlplane[0] because it could be a new node.
+    - name: Find an controlplane node to query for the list of nodes
+      ansible.builtin.shell:
+        cmd: >
+          kubectl get node "{{ item }}" -o jsonpath='{.metadata.labels.node-role\.kubernetes\.io\/control-plane}'
+      register: node_status
+      delegate_to: "{{ item }}"
+      changed_when: false
+      no_log: true
+      failed_when: false
+      loop: "{{ groups['controlplane'] }}"
+      when: control_plane_host is none
+
+    - name: Set controlplane host
+      set_fact:
+        control_plane_host: "{{ item.item }}"
+      loop: "{{ node_status.results }}"
+      no_log: true
+      when:
+        - item.stdout is defined
+        - item.stderr == ""
+        - control_plane_host is none
+
+    - name: Check if control_plane_host was set
+      set_fact:
+        control_plane_found: "{{ control_plane_host is defined and control_plane_host is not none }}"
+
+    - name: Fail if no control_plane_host was found
+      fail:
+        msg: "No active controlplane found. Has the cluster been bootstrapped?"
+      when: control_plane_found == false
+
+    - name: Show selected controlplane host
+      debug:
+        msg: "Selected controlplane host: {{ control_plane_host }}"
+      when: control_plane_host is not none
+
+    - name: Get list of nodes from the Kubernetes cluster
+      ansible.builtin.shell: kubectl get nodes -o jsonpath='{.items[*].metadata.name}'
+      delegate_to: "{{ control_plane_host }}"
+      run_once: true
+      register: k8s_nodes
+
+    - name: Set fact for Kubernetes node names
+      set_fact:
+        k8s_node_names: "{{ k8s_nodes.stdout.split() }}"
+      run_once: true
+
+    - name: Debug - show Kubernetes node names
+      ansible.builtin.debug:
+        msg: "Kubernetes nodes from cluster: {{ k8s_node_names }}"
+      run_once: true
+
+    - name: Check if current host's hostname is in the Kubernetes node list
+      ansible.builtin.set_fact:
+        is_in_cluster: "{{ inventory_hostname in k8s_node_names }}"
+
+    - name: Check host status if in cluster
+      ansible.builtin.debug:
+        msg: "Host {{ inventory_hostname }} is already in the cluster"
+      when: is_in_cluster
+
+    - name: Check host status if not in cluster
+      ansible.builtin.debug:
+        msg: "Host {{ inventory_hostname }} is not in the cluster and will join"
+      when: not is_in_cluster
+
+    - name: Join the nodes not in the cluster
+      any_errors_fatal: false # if it fails, we can join it later
+      block:
+
+        - name: Upgrade all packages to the latest version on controlplane nodes to be added to cluster
+          become: true
+          ansible.builtin.apt:
+            upgrade: 'dist'  # Use 'dist' for distribution upgrade, or 'full' for full upgrade
+            force_apt_get: yes  # Optionally force using apt-get instead of aptitude
+            update_cache: yes
+            autoremove: yes
+            autoclean: yes
+          register: upgrade_result
+          until: upgrade_result is succeeded
+          retries: 30
+          delay: 10
+        - name: Check if reboot is required on controlplane nodes to be added to cluster
+          become: true
+          ansible.builtin.stat:
+            path: /var/run/reboot-required
+          register: reboot_required
+        - name: Reboot the controlplane nodes to be added to cluster (if necessary)
+          become: true
+          ansible.builtin.reboot:
+            msg: "Rebooting because updates require a reboot"
+            connect_timeout: 5
+            reboot_timeout: 600
+            pre_reboot_delay: 0
+            post_reboot_delay: 30
+            test_command: uptime
+          when: reboot_required.stat.exists
+        - name: Wait for new controlplane nodes to be reachable again
+          ansible.builtin.wait_for_connection:
+            delay: 5
+            timeout: 600
+          when: reboot_required.stat.exists
+
+        - name: Read controlplane join command
+          ansible.builtin.set_fact:
+            join_command_local: "{{ lookup('file', 'tmp/{{ cluster_name }}/control_plane_join_command.sh') }}"
+
+        - name: Join controlplane nodes to cluster
+          ansible.builtin.shell:
+            cmd: "{{ join_command_local }}"
+          become: true
+      when: not is_in_cluster

@@ -1,33 +1,46 @@
 ---
-- name: External Etcdctl healthcheck
-  hosts: kube_etcd_servers[0]
+- name: Decoupled Etcdctl healthcheck
+  hosts: etcd[0]
   any_errors_fatal: true
   gather_facts: false
   become: true
   tags:
     - etcd_healthcheck
   tasks:
-    - name: Check health for each etcd endpoint
+    - name: Check health for the first etcd endpoint
       ansible.builtin.shell: |
-          ETCDCTL_API=3 etcdctl \
-          --cert /etc/kubernetes/pki/etcd/peer.crt \
-          --key /etc/kubernetes/pki/etcd/peer.key \
-          --cacert /etc/kubernetes/pki/etcd/ca.crt \
-          --endpoints https://{{ host }}:2379 endpoint health
-      loop: "{{ groups['kube_etcd_servers'] }}"
+        ETCDCTL_API=3 etcdctl \
+        --cert /etc/kubernetes/pki/etcd/peer.crt \
+        --key /etc/kubernetes/pki/etcd/peer.key \
+        --cacert /etc/kubernetes/pki/etcd/ca.crt \
+        --endpoints https://{{ host }}:2379 endpoint health 2>&1
+      loop: "{{ groups['etcd'] }}"
       loop_control:
         loop_var: host
       register: etcd_health_check
       ignore_errors: yes
+
     - name: Show etcd health check output
       ansible.builtin.debug:
         msg: "{{ etcd_health_check.results | map(attribute='stdout') | list }}"
       when: etcd_health_check is defined
 
-- name: Show connected k8s nodes
-  hosts: kube_api_servers[0]
+- name: Show connected k8s nodes and path of kubeconfig
+  hosts: controlplane[0]
   gather_facts: false
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    kubeconfig: "{{ lookup('env', 'HOME') }}/.kube/{{ cluster_config.kubeconfig_file_name }}"
   tasks:
+    - name: Read etcd encryption secret
+      become: true
+      ansible.builtin.slurp:
+        src: /etc/kubernetes/enc/enc.key
+      register: encryption_key
+    - name: Print ETCD Encryption Secret (Base64 Encoded)
+      ansible.builtin.debug:
+        msg: ETCD Encryption Secret (Base64 Encoded) => {{ encryption_key.content }}
+
     - name: Get connected k8s nodes
       ansible.builtin.command:
         cmd: kubectl get nodes
@@ -35,3 +48,7 @@
     - name: Display connected k8s nodes
       ansible.builtin.debug:
         var: kubectl_output.stdout_lines
+
+    - name: Display path of kubeconfig
+      debug:
+        msg: "The kubeconfig file path is: {{ kubeconfig }}"

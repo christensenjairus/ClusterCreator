@@ -1,0 +1,138 @@
+---
+- name: Manage node draining and conditional untainting of controlplane
+  hosts: controlplane
+  gather_facts: false
+  vars:
+    etcd_namespace: "kube-system"
+    etcd_cacert: "/etc/kubernetes/pki/etcd/ca.crt"
+    etcd_cert: "/etc/kubernetes/pki/etcd/peer.crt"
+    etcd_key: "/etc/kubernetes/pki/etcd/peer.key"
+
+  tasks:
+    - name: Fetch active controlplane nodes
+      command: >
+        kubectl get nodes
+        --selector='node-role.kubernetes.io/control-plane'
+        --field-selector='metadata.name!={{ node_name }}'
+        -o json
+      register: active_nodes
+      run_once: true
+      when: ansible_host != node_name
+
+    - name: Set fact for active API server names
+      set_fact:
+        active_api_server_name: "{{ active_nodes.stdout | from_json | json_query('items[].metadata.name') | first }}"
+      when: ansible_host != node_name
+      run_once: true
+
+    - name: Fetch all nodes
+      command: kubectl get nodes -o json
+      register: all_nodes_json
+      delegate_to: "{{ hostvars[active_api_server_name].ansible_host }}"
+      run_once: true
+
+    - name: Get node names matching the provided node name
+      set_fact:
+        matching_node_names: "{{ all_nodes_json.stdout | from_json | json_query('items[?metadata.name==`' + node_name + '`].metadata.name') }}"
+      run_once: true
+
+    - name: Determine if node is in cluster
+      fail:
+        msg: "Node {{ node_name }} is not in the cluster"
+      when: matching_node_names == []
+      run_once: true
+
+    - name: Set fact for controlplane node names
+      set_fact:
+        controlplane_node_names: "{{ all_nodes_json.stdout | from_json | json_query('items[?spec.taints[?key==`node-role.kubernetes.io/control-plane`]].metadata.name') }}"
+      delegate_to: "{{ hostvars[active_api_server_name].ansible_host }}"
+      run_once: true
+
+    - name: Set fact for worker node names
+      set_fact:
+        worker_node_names: "{{ all_nodes_json.stdout | from_json | json_query('items[? !(spec.taints[?key==`node-role.kubernetes.io/control-plane`])].metadata.name') }}"
+      delegate_to: "{{ hostvars[active_api_server_name].ansible_host }}"
+      run_once: true
+
+    - name: Determine if the target node is an controlplane node
+      set_fact:
+        is_a_controlplane: "{{ node_name in controlplane_node_names }}"
+      delegate_to: "{{ hostvars[active_api_server_name].ansible_host }}"
+      run_once: true
+
+    - name: Determine if the target node is the last worker node
+      set_fact:
+        is_last_worker: "{{ worker_node_names | length == 1 and node_name in worker_node_names }}"
+      delegate_to: "{{ hostvars[active_api_server_name].ansible_host }}"
+      run_once: true
+
+    - name: Check etcd cluster health (if a stacked etcd server)
+      command: >
+        kubectl exec etcd-{{ active_api_server_name }} -n {{ etcd_namespace }} -- etcdctl --cacert {{ etcd_cacert }}
+        --cert {{ etcd_cert }} --key {{ etcd_key }} endpoint health --cluster -w=table
+      delegate_to: "{{ hostvars[active_api_server_name].ansible_host }}"
+      run_once: true
+      register: etcd_health
+      failed_when: "'false' in etcd_health.stdout"
+      when:
+        - is_a_controlplane
+        - groups['etcd'] | length < 1
+      ignore_errors: true
+
+    - name: Get etcd member list (if a stacked etcd server)
+      shell: >
+        kubectl exec etcd-{{ active_api_server_name }} -n {{ etcd_namespace }} --
+        etcdctl --cacert {{ etcd_cacert }} --cert {{ etcd_cert }} --key {{ etcd_key }} member list
+        | grep {{ node_name }}
+        | cut -f1 -d','
+      register: etcd_id_to_delete
+      delegate_to: "{{ hostvars[active_api_server_name]['ansible_host'] }}"
+      when:
+        - is_a_controlplane
+        - groups['etcd'] | length < 1
+      run_once: true
+
+    - name: Remove specific etcd node (if a stacked etcd server)
+      shell: >
+        kubectl exec etcd-{{ active_api_server_name }} -n {{ etcd_namespace }} -- etcdctl --cacert {{ etcd_cacert }}
+        --cert {{ etcd_cert }} --key {{ etcd_key }} member remove {{ etcd_id_to_delete.stdout }}
+      delegate_to: "{{ hostvars[active_api_server_name].ansible_host }}"
+      run_once: true
+      when:
+        - is_a_controlplane
+        - groups['etcd'] | length < 1
+        - etcd_id_to_delete.stdout != ""
+
+    - name: Untaint all API server nodes if last worker is being removed
+      command: kubectl taint nodes {{ item }} node-role.kubernetes.io/control-plane:NoSchedule-
+      loop: "{{ groups['controlplane'] }}"
+      delegate_to: "{{ hostvars[active_api_server_name].ansible_host }}"
+      when: is_last_worker
+      ignore_errors: true
+      run_once: true
+
+    - name: "Drain the node with eviction & timeout of {{ timeout_seconds }}s"
+      command: >
+        kubectl drain {{ node_name }}
+        --ignore-daemonsets --delete-emptydir-data --timeout {{ timeout_seconds }}s
+      delegate_to: "{{ hostvars[active_api_server_name].ansible_host }}"
+      register: drain_result
+      ignore_errors: true
+      run_once: true
+
+    - name: Force drain the node without eviction
+      command: >
+        kubectl drain {{ node_name }}
+        --ignore-daemonsets --delete-emptydir-data --disable-eviction --force
+      delegate_to: "{{ hostvars[active_api_server_name].ansible_host }}"
+      run_once: true
+      when: drain_result.rc != 0
+
+    - name: Delete volumeattachments related to the removed node
+      ansible.builtin.shell: >
+        kubectl get volumeattachments -o json |
+        jq -r '.items[] | select(.spec.nodeName == "{{ node_name }}") | .metadata.name' |
+        xargs -r -I {} kubectl delete volumeattachment {}
+      register: volumeattachments
+      delegate_to: "{{ hostvars[active_api_server_name].ansible_host }}"
+      run_once: true

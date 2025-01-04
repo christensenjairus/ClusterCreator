@@ -1,0 +1,109 @@
+- name: Install MetalLB on Kubernetes Cluster
+  hosts: controlplane[0]
+  gather_facts: false
+  tags:
+    - metallb_basic_install
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+  tasks:
+
+    - name: Generate MetalLB configuration files
+      become: yes
+      ansible.builtin.template:
+        src: helpers/metallb_configs.yaml.j2
+        dest: "/tmp/metallb_configs.yaml"
+      vars:
+        ipv4_lb_cidrs: "{{ cluster_config.networking.ipv4.lb_cidrs }}"
+        ipv6_lb_cidrs: "{{ cluster_config.networking.ipv6.lb_cidrs }}"
+      tags:
+        - metallb_configs
+
+    - name: Add MetalLB Helm repository
+      ansible.builtin.shell:
+        cmd: helm repo add metallb https://metallb.github.io/metallb
+      args:
+        executable: /bin/bash
+
+    - name: Update Helm repositories
+      ansible.builtin.shell:
+        cmd: helm repo update
+      args:
+        executable: /bin/bash
+
+    - name: Install MetalLB
+      ansible.builtin.shell:
+        cmd: >
+          helm upgrade --install metallb metallb/metallb
+          --namespace metallb-system
+          --create-namespace
+          --version v{{ metallb_version }}
+      args:
+        executable: /bin/bash
+
+    - name: Wait for MetalLB controller deployment to be ready
+      ansible.builtin.shell:
+        cmd: kubectl rollout status deployment/metallb-controller --namespace metallb-system --timeout=600s
+      args:
+        executable: /bin/bash
+      tags:
+        - metallb_wait
+
+    - name: Apply MetalLB configuration files
+      ansible.builtin.shell:
+        cmd: kubectl apply -f /tmp/metallb_configs.yaml
+      args:
+        executable: /bin/bash
+      tags:
+          - metallb_configs_apply
+
+    - name: Set the count of worker nodes
+      set_fact:
+        worker_node_count: >-
+          {{ groups | dict2items 
+            | rejectattr('key', 'search', '^(controlplane|etcd|all|localhost)') 
+            | map(attribute='value') 
+            | flatten 
+            | unique 
+            | length }}
+
+    - name: Apply MetalLB patch for control-plane only cluster
+      ansible.builtin.shell:
+        cmd: |
+          kubectl patch daemonset metallb-speaker -n metallb-system --type=json --patch '[
+            {
+              "op": "add",
+              "path": "/spec/template/spec/containers/0/args/-",
+              "value": "--ignore-exclude-lb"
+            }
+          ]'
+      when: worker_node_count | int == 0
+      args:
+        executable: /bin/bash
+      tags:
+        - metallb_patch
+
+    - name: Check current MetalLB speaker DaemonSet args
+      ansible.builtin.command: kubectl get daemonset metallb-speaker -n metallb-system -o json
+      register: metallb_speaker_ds
+
+    - name: Unapply MetalLB patch for control-plane only cluster (workers have been added)
+      ansible.builtin.shell:
+        cmd: |
+          kubectl patch daemonset metallb-speaker -n metallb-system --type=json --patch '[
+            {
+              "op": "remove",
+              "path": "/spec/template/spec/containers/0/args/{{ ignore_lb_index }}"
+            }
+          ]'
+        vars:
+          ignore_lb_index: >-
+            {{ metallb_speaker_ds.stdout | from_json
+            | json_query('spec.template.spec.containers[0].args')
+            | list | index('--ignore-exclude-lb') }}
+      when:
+        - worker_node_count | int > 0
+        - "'--ignore-exclude-lb' in (metallb_speaker_ds.stdout | from_json | json_query('spec.template.spec.containers[0].args'))"
+      args:
+        executable: /bin/bash
+      tags:
+        - metallb_patch_revert

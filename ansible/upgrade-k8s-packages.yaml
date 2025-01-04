@@ -1,0 +1,87 @@
+---
+# Mirrors sections of apt-packages.sh that consume a version number
+- name: Upgrade Kubernetes Packages
+  hosts: all
+  gather_facts: true # Needs to know OS type
+  become: true
+  any_errors_fatal: true
+
+  tasks:
+    - name: Create directory for apt keyrings
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Remove old Kubernetes apt key and sources list
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+        - /etc/apt/sources.list.d/kubernetes.list
+
+    - name: Add Kubernetes apt repository key
+      ansible.builtin.shell: |
+        curl -fsSL "https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_short_version }}/deb/Release.key" |
+        gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+      args:
+        creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+    - name: Add Kubernetes apt repository
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_short_version }}/deb/ /"
+        state: present
+        filename: "kubernetes"
+
+    - name: Install specific versions of kubelet, kubeadm, kubectl
+      ansible.builtin.apt:
+        name:
+          - "kubelet={{ kubernetes_long_version }}"
+          - "kubeadm={{ kubernetes_long_version }}"
+          - "kubectl={{ kubernetes_long_version }}"
+        state: present
+        allow_change_held_packages: true
+        allow_downgrade: true
+        update_cache: true
+        upgrade: dist # take the opportunity to upgrade the node
+
+    # Upgrade external ETCD
+    - name: Ensure /etc/kubernetes/manifests/etcd.yaml exists
+      ansible.builtin.stat:
+        path: /etc/kubernetes/manifests/etcd.yaml
+      register: etcd_manifest_check
+    - name: Update etcd image version in /etc/kubernetes/manifests/etcd.yaml
+      ansible.builtin.lineinfile:
+        path: /etc/kubernetes/manifests/etcd.yaml
+        regexp: '    image: registry.k8s.io/etcd:.*-0'
+        line: "    image: registry.k8s.io/etcd:{{ etcd_version }}-0"
+        backrefs: yes
+      when:
+        - etcd_manifest_check.stat.exists
+        - "'etcd' in group_names"
+
+    - name: End playbook for etcd hosts
+      ansible.builtin.meta: end_host
+      when: "'etcd' in groups and 'etcd' in group_names"
+
+    - name: Upgrade Kubeadm
+      ansible.builtin.shell:
+        cmd: >
+          kubeadm upgrade node
+      ignore_errors: true
+
+    - name: Reload systemd daemon
+      ansible.builtin.systemd:
+        daemon_reload: yes
+
+    - name: Restart containerd service
+      ansible.builtin.systemd:
+        name: containerd
+        state: restarted
+
+    - name: Restart kubelet service
+      ansible.builtin.systemd:
+        name: kubelet
+        state: restarted
+

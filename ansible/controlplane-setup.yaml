@@ -1,0 +1,183 @@
+---
+- name: Check for existing bootstrap marker file on all controlplane nodes
+  hosts: controlplane
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Check if bootstrap marker file exists
+      ansible.builtin.stat:
+        path: /root/.bootstrap
+      register: bootstrap_marker_check
+
+    - name: Display warning and ask for confirmation
+      ansible.builtin.pause:
+        prompt: "This k8s cluster may have already been bootstrapped. Press Enter to continue anyway or Ctrl+C to abort."
+      when: bootstrap_marker_check.stat.exists
+
+- name: Generate and deploy kubeadm config file
+  hosts: controlplane[0]
+  gather_facts: false
+  any_errors_fatal: true
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+  tasks:
+    - name: Deploy kubeadm config file
+      ansible.builtin.template:
+        src: helpers/kubeadm_cp_config.yaml.j2
+        dest: "~/kubeadm-config.yaml"
+      tags:
+        - kubeadm_config
+
+    - name: Check if kubeadm init has already been run
+      ansible.builtin.stat:
+        path: /etc/kubernetes/admin.conf
+      register: kube_config_exists
+      become: true
+
+    - name: Fail if kubeadm init has already been run
+      fail:
+        msg: "Cluster has already been bootstrapped"
+      when: kube_config_exists.stat.exists
+
+    # update and upgrade controlplane-0 node and reboot if necessary - but only if kubeadm init has not been run
+    - name: Upgrade all packages to the latest version on controlplane-0
+      become: true
+      ansible.builtin.apt:
+        upgrade: 'dist'  # Use 'dist' for distribution upgrade, or 'full' for full upgrade
+        force_apt_get: yes  # Optionally force using apt-get instead of aptitude
+        update_cache: yes
+        autoremove: yes
+        autoclean: yes
+      register: upgrade_result
+      until: upgrade_result is succeeded
+      retries: 30
+      delay: 10
+      when: not kube_config_exists.stat.exists
+    - name: Check if reboot is required on controlplane-0
+      become: true
+      ansible.builtin.stat:
+        path: /var/run/reboot-required
+      register: reboot_required
+      when: not kube_config_exists.stat.exists
+    - name: Reboot controlplane-0 (if necessary)
+      become: true
+      ansible.builtin.reboot:
+        msg: "Rebooting because updates require a reboot"
+        connect_timeout: 5
+        reboot_timeout: 600
+        pre_reboot_delay: 0
+        post_reboot_delay: 30
+        test_command: uptime
+      when: not kube_config_exists.stat.exists and reboot_required.stat.exists
+    - name: Wait for system to become reachable again
+      ansible.builtin.wait_for_connection:
+        delay: 5
+        timeout: 600
+      when: not kube_config_exists.stat.exists and reboot_required.stat.exists
+
+    - name: Replace admin.conf with super-admin.conf in kube-vip manifest (only on 1.29+)
+      # https://github.com/kube-vip/kube-vip/issues/684
+      ansible.builtin.shell:
+        cmd: >
+          sed -i 's#path: /etc/kubernetes/admin.conf#path: /etc/kubernetes/super-admin.conf#' /etc/kubernetes/manifests/kube-vip.yaml
+      become: true
+      when: not kube_config_exists.stat.exists and 
+        ((kubernetes_medium_version.split('.')[0] | int == 1 and kubernetes_medium_version.split('.')[1] | int >= 29) or
+        (kubernetes_medium_version.split('.')[0] | int > 1))
+      tags:
+        - kubeadm_init
+
+    - name: Run kubeadm init with custom config
+      ansible.builtin.shell:
+        cmd: >
+          kubeadm init
+          --config /home/{{ cluster_config.ssh.ssh_user }}/kubeadm-config.yaml
+          --upload-certs
+          --skip-phases=addon/kube-proxy
+      become: true
+      register: kubeadm_init
+      failed_when: kubeadm_init.rc != 0
+      when: not kube_config_exists.stat.exists
+      tags:
+        - kubeadm_init
+    - name: Prepare kubeadm init output for parsing, replacing newlines with spaces
+      set_fact:
+        kubeadm_init_output_single_line: "{{ kubeadm_init.stdout | regex_replace('[\\\n\t]', ' ') }}"
+      tags:
+        - kubeadm_init
+      when: not kube_config_exists.stat.exists
+    - name: Extract join command for worker nodes and remove backslashes & extra spaces
+      set_fact:
+        worker_join_command: "{{ kubeadm_init_output_single_line | regex_search('kubeadm join .*? --token .*? --discovery-token-ca-cert-hash sha256:[a-fA-F0-9]+(?=\\s)') | regex_replace('\\\\\\s+', ' ') }}"
+      tags:
+        - kubeadm_init
+      when: not kube_config_exists.stat.exists
+    - name: Extract controlplane join command and remove backslashes & extra spaces
+      set_fact:
+        control_plane_join_command: "{{ kubeadm_init_output_single_line | regex_search('kubeadm join .*? --token .*? --control-plane --certificate-key [a-fA-F0-9]+') | regex_replace('\\\\\\s+', ' ') }}"
+      tags:
+        - kubeadm_init
+      when: not kube_config_exists.stat.exists
+    - name: Save worker node join command to file
+      local_action: copy content="{{ worker_join_command }}" dest="tmp/{{ cluster_name }}/worker_join_command.sh"
+      run_once: true
+      tags:
+        - kubeadm_init
+      when: not kube_config_exists.stat.exists
+    - name: Save controlplane join command to file
+      local_action: copy content="{{ control_plane_join_command }}" dest="tmp/{{ cluster_name }}/control_plane_join_command.sh"
+      run_once: true
+      tags:
+        - kubeadm_init
+      when: not kube_config_exists.stat.exists
+    - name: Remove kubeadm-config.yaml
+      ansible.builtin.file:
+        path: "/home/{{ cluster_config.ssh.ssh_user }}/kubeadm-config.yaml"
+        state: absent
+      become: true
+      when: not kube_config_exists.stat.exists
+      tags:
+        - kubeadm_init
+
+    - name: Revert replacing admin.conf with super-admin.conf in kube-vip manifest (only on 1.29+)
+      # https://github.com/kube-vip/kube-vip/issues/684
+      ansible.builtin.shell:
+        cmd: >
+          sed -i 's#path: /etc/kubernetes/super-admin.conf#path: /etc/kubernetes/admin.conf#' /etc/kubernetes/manifests/kube-vip.yaml
+      become: true
+      when: not kube_config_exists.stat.exists and 
+        ((kubernetes_medium_version.split('.')[0] | int == 1 and kubernetes_medium_version.split('.')[1] | int >= 29) or
+        (kubernetes_medium_version.split('.')[0] | int > 1))
+      tags:
+        - kubeadm_init
+    - name: Pause for 10s to give kube-vip pod time to stop (only on 1.29+)
+      ansible.builtin.pause:
+        seconds: 10
+      when: not kube_config_exists.stat.exists and
+        ((kubernetes_medium_version.split('.')[0] | int == 1 and kubernetes_medium_version.split('.')[1] | int >= 29) or
+        (kubernetes_medium_version.split('.')[0] | int > 1))
+      tags:
+        - kubeadm_init
+    - name: Wait for kube-vip pod to start (only on 1.29+)
+      ansible.builtin.wait_for:
+        host: "{{ cluster_config.networking.kube_vip.vip }}"
+        timeout: 600
+        delay: 5
+        state: started
+        port: 6443 # Adjust if a different port or service check is needed
+      when: not kube_config_exists.stat.exists and
+        ((kubernetes_medium_version.split('.')[0] | int == 1 and kubernetes_medium_version.split('.')[1] | int >= 29) or
+        (kubernetes_medium_version.split('.')[0] | int > 1))
+      register: check
+
+- name: Create a bootstrap file on all controlplane nodes
+  hosts: controlplane
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Create a bootstrap marker file
+      ansible.builtin.file:
+        path: /root/.bootstrap
+        state: touch
+      tags:
+        - kubeadm_init

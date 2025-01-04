@@ -1,6 +1,7 @@
 ---
 - name: Ensure template was created correctly
   hosts: all
+  gather_facts: false
   tags:
     - ensure_space
   tasks:
@@ -11,7 +12,7 @@
       register: log_files
     - name: Check firstboot log files for failures to ensure all packages were installed correctly (excluding specific patterns)
       shell: |
-        grep -iE 'Error|Fatal' {{ item.path }} | grep -vE 'mysql/error.log|errors = false|liberror|No error reported|Failed to open terminal.debconf'
+        grep -iE 'Error|Fatal' {{ item.path }} | grep -vE 'mysql/error.log|errors = false|liberror|No error reported|Failed to open terminal.debconf|errorcode.md'
       # ADD EXCLUSIONS HERE^
       register: grep_output
       failed_when: grep_output.rc == 0
@@ -25,7 +26,7 @@
 
 - name: Prepare nodes
   hosts: all
-  any_errors_fatal: true
+  gather_facts: true # needs to know OS type
   become: true  # This ensures all tasks are run with elevated privileges
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
@@ -49,7 +50,8 @@
         node_ip="{{ ipv4 }}"
         {% endif %}
 
-        kubelet_extra_args="--node-ip=${node_ip} --max-pods={{ cluster_config.max_pods_per_node }}"
+        kubelet_extra_args="--node-ip=${node_ip} --max-pods={{ cluster_config.max_pods_per_node }} --rotate-server-certificates=true --rotate-certificates=true --housekeeping-interval=5s"
+        # the housekeeping-interval was a fix I needed to fix cadvisor metrics not being deduplicated correctly when sent to Mimir.
 
         echo "KUBELET_EXTRA_ARGS=\"$kubelet_extra_args\"" | tee /etc/default/kubelet
       args:
@@ -57,64 +59,15 @@
       tags:
         - kubelet_node_ip
 
-    # needed on recent Ubuntu versions. https://www.reddit.com/r/kubernetes/comments/1dv6z9d/ubuntu_2404_pod_termination_issue/
-    - name: Check if /etc/apparmor.d/runc profile exists
-      ansible.builtin.stat:
-        path: /etc/apparmor.d/runc
-      register: apparmor_runc_file_exists
-    - name: Check if /etc/apparmor.d/runc profile is disabled
-      ansible.builtin.stat:
-        path: /etc/apparmor.d/disable/runc
-      register: apparmor_runc_file_disabled
-    - name: Disable Default AppArmor Profile for Runc (containerd has its own)
-      ansible.builtin.command: ln -s /etc/apparmor.d/runc /etc/apparmor.d/disable/
-      ignore_errors: yes
-      tags:
-        - disable_apparmor
-      when: apparmor_runc_file_exists.stat.exists and not apparmor_runc_file_disabled.stat.exists
-    - name: Reload AppArmor
-      ansible.builtin.command: apparmor_parser -R /etc/apparmor.d/runc
-      ignore_errors: yes
-      tags:
-        - disable_apparmor
-      when: apparmor_runc_file_exists.stat.exists and not apparmor_runc_file_disabled.stat.exists
-
-    - name: Set correct locale
-      shell: |
-        echo "LANG=en_US.UTF-8
-        LANGUAGE=en_US" > /etc/default/locale
-        localectl set-locale LANG=en_US.UTF-8
-        touch /var/lib/cloud/instance/locale-check.skip
-      args:
-        executable: /bin/bash
-      tags:
-        - set_locale
-
     - name: Set helpful aliases
       shell: |
-        echo "alias k='kubectl'" | tee -a {{ cluster_config.ssh.ssh_home }}/.bashrc
-        echo "alias c='clear'" | tee -a {{ cluster_config.ssh.ssh_home }}/.bashrc
-        echo "alias h='history'" | tee -a {{ cluster_config.ssh.ssh_home }}/.bashrc
+        echo "alias k='kubectl'" | tee -a /home/{{ cluster_config.ssh.ssh_user }}/.bashrc
+        echo "alias c='clear'" | tee -a /home/{{ cluster_config.ssh.ssh_user }}/.bashrc
+        echo "alias h='history'" | tee -a /home/{{ cluster_config.ssh.ssh_user }}/.bashrc
       args:
         executable: /bin/bash
       tags:
         - set_aliases
-
-    - name: Check if any scripts exist in /root directory
-      stat:
-        path: /root/*.sh
-      register: scripts_exist
-
-    - name: Move scripts from root directory to user directory (if any exist)
-      shell: |
-        cp /root/*.sh {{ cluster_config.ssh.ssh_home }}/
-        chmod +x {{ cluster_config.ssh.ssh_home }}/*.sh
-      args:
-        executable: /bin/bash
-      become: true
-      when: scripts_exist.stat.exists
-      tags:
-        - copy_scripts
 
     - name: Add VIP and hostname to /etc/hosts
       ansible.builtin.lineinfile:
@@ -150,7 +103,7 @@
 - name: Configure settings for nodes with NVIDIA GPUs attached
   hosts: all
   become: true
-  gather_facts: no
+  gather_facts: false
   tags: nvidia
   tasks:
     - name: Check for NVIDIA GPU presence

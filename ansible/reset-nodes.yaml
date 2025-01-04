@@ -1,0 +1,86 @@
+---
+- name: Reset Node(s)
+  hosts: all
+  become: true
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+  tasks:
+    - name: Run kubeadm reset
+      ansible.builtin.command:
+        cmd: kubeadm reset -f
+      ignore_errors: yes
+
+    - name: Flush iptables rules
+      ansible.builtin.iptables:
+        flush: yes
+
+    - name: Delete all iptables chains
+      ansible.builtin.shell: iptables -X
+      ignore_errors: yes
+
+    - name: Clear IPVS tables
+      ansible.builtin.shell: ipvsadm --clear
+      ignore_errors: yes
+
+    - name: Delete k8s configurations
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - "/home/{{ cluster_config.ssh.ssh_user }}/.kube/"
+        - "/home/{{ cluster_config.ssh.ssh_user }}/kubeadm-config.yaml"
+        - "/home/{{ cluster_config.ssh.ssh_user }}/kubeadmcfg.yaml"
+        - /etc/kubernetes
+        - /etc/default/kubelet
+        - /etc/ceph
+        - /etc/cni/net.d/05-cilium.conf
+        - /etc/cni/net.d/.kubernetes-cni-keep
+        - /etc/systemd/system/kubelet.service.d/kubelet.conf
+        - /etc/systemd/system/kubelet.service.d/20-etcd-service-manager.conf
+        - /var/lib/etcd
+        - /var/lib/kubelet
+        - /var/backups/etcd
+        - /var/lib/rook
+        - /var/log/containers
+        - /var/log/pods
+        - /opt/local-path-provisioner
+        - /opt/secrets/kubernetes.io
+        - /run/lib/etcd
+        - /root/.bootstrap
+
+    - name: Delete all containers
+      shell: "ctr -n k8s.io c rm $(ctr -n k8s.io c ls -q) 2>/dev/null || true"
+      ignore_errors: true
+
+    - name: Delete all container images
+      shell: "ctr -n k8s.io i rm $(ctr -n k8s.io i ls -q) 2>/dev/null || true"
+      ignore_errors: true
+
+    - name: Unmount all mounts
+      shell: "for mount in $(mount | grep tmpfs | grep '/var/lib/kubelet' | awk '{ print $3 }') /var/lib/kubelet /var/lib/rancher; do umount $mount 2>/dev/null || true; done"
+      ignore_errors: true
+
+    - name: Find external storage disks to Zap
+      # Zap all vd.* disks except for vda, which is the OS disk. All virtio disks start with vd.
+      shell: "lsblk -lno NAME | grep -v vda | grep -E '^(vd.*)$' || true"
+      register: disk_list
+
+    - name: Show external disks that will be zapped
+      ansible.builtin.debug:
+        msg: "{{ disk_list.stdout_lines }}"
+      when: disk_list.stdout_lines | length > 0
+
+    - name: Zap external storage disks
+      command: "sgdisk --zap-all /dev/{{ item }}"
+      loop: "{{ disk_list.stdout_lines }}"
+      when: disk_list.stdout_lines | length > 0
+      ignore_errors: yes
+
+    - name: Reboot nodes
+      ansible.builtin.reboot:
+        msg: "Rebooting to clean up after kubeadm reset"
+        connect_timeout: 5
+        reboot_timeout: 600
+        pre_reboot_delay: 0
+        post_reboot_delay: 30
+        test_command: uptime

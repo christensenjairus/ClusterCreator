@@ -1,66 +1,37 @@
 ---
-- name: Apply metrics-server manifest and patch deployment
-  hosts: kube_api_servers[0]
-  gather_facts: no
+- name: Apply metrics-server manifest
+  hosts: controlplane[0]
+  gather_facts: false
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
   tasks:
 
     - name: Calculate the count of non-API/ETCD servers
       set_fact:
-        non_api_etcd_server_count: "{{ groups['all'] | length - (groups['kube_api_servers'] | default([]) | length + groups['kube_etcd_servers'] | default([]) | length) }}"
+        non_api_etcd_server_count: "{{ groups['all'] | length - (groups['controlplane'] | default([]) | length + groups['etcd'] | default([]) | length) }}"
 
     - name: Determine if needing HA based on non-API/ETCD server count
       set_fact:
         metrics_server_replica_count: "{{ 1 if non_api_etcd_server_count <= \"1\" else 2 }}"
 
-    - name: Apply standard metrics-server manifest
-      kubernetes.core.k8s:
-        state: present
-        src: "https://github.com/kubernetes-sigs/metrics-server/releases/download/v{{ cluster_config.metrics_server.metrics_server_version }}/components.yaml"
-      when: metrics_server_replica_count == "1"
+    - name: Add Metrics-Server Helm repository
+      ansible.builtin.shell:
+        cmd: helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
+      args:
+        executable: /bin/bash
 
-    - name: Apply HA metrics-server manifest
-      kubernetes.core.k8s:
-        state: present
-        src: "https://github.com/kubernetes-sigs/metrics-server/releases/download/v{{ cluster_config.metrics_server.metrics_server_version }}/high-availability-1.21+.yaml"
-      when: metrics_server_replica_count == "2"
+    - name: Update Helm repositories
+      ansible.builtin.shell:
+        cmd: helm repo update
+      args:
+        executable: /bin/bash
 
-    - name: Scale down metrics-server deployment to zero replicas
-      kubernetes.core.k8s:
-        kind: Deployment
-        name: metrics-server
-        namespace: kube-system
-        definition:
-          spec:
-            replicas: 0
-
-    - name: Patch metrics-server deployment to ignore self-signed kubelet certificate
-      kubernetes.core.k8s_json_patch:
-        kind: Deployment
-        name: metrics-server
-        namespace: kube-system
-        patch:
-          - op: add
-            path: /spec/template/spec/containers/0/args/-
-            value: "--kubelet-insecure-tls=true"
-
-    - name: Scale metrics-server deployment back up
-      kubernetes.core.k8s:
-        kind: Deployment
-        name: metrics-server
-        namespace: kube-system
-        definition:
-          spec:
-            replicas: 1
-      when: metrics_server_replica_count == "1"
-
-    - name: Scale metrics-server deployment back up to HA mode
-      kubernetes.core.k8s:
-        kind: Deployment
-        name: metrics-server
-        namespace: kube-system
-        definition:
-          spec:
-            replicas: 2
-      when: metrics_server_replica_count == "2"
+    - name: Install Metrics-Server
+      ansible.builtin.shell:
+        cmd: >
+          helm upgrade --install metrics-server metrics-server/metrics-server
+          --namespace kube-system
+          --set replicas={{ metrics_server_replica_count }}
+          --version {{ metrics_server_version }}
+      args:
+        executable: /bin/bash

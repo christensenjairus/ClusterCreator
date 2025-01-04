@@ -1,0 +1,52 @@
+---
+- name: Apply kubelet-serving-cert-approver manifest
+  hosts: controlplane[0]
+  gather_facts: false
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+  tasks:
+
+    - name: Calculate the count of non-API/ETCD servers
+      set_fact:
+        non_api_etcd_server_count: "{{ groups['all'] | length - (groups['controlplane'] | default([]) | length + groups['etcd'] | default([]) | length) }}"
+
+    - name: Determine if needing HA based on non-API/ETCD server count
+      set_fact:
+        kubelet_csr_approver_replica_count: "{{ 1 if non_api_etcd_server_count <= \"1\" else 2 }}"
+
+    - name: Download the kubelet-serving-cert-approver manifest
+      ansible.builtin.get_url:
+        url: "https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/refs/tags/v{{ kubelet_serving_cert_approver_version }}/deploy/{{ 'standalone' if kubelet_csr_approver_replica_count == '1' else 'ha' }}-install.yaml"
+        dest: "/tmp/kubelet-approver-install.yaml"
+
+    - name: Edit the manifest to run pods in kube-system namespace
+      become: true
+      ansible.builtin.command:
+        cmd: >
+          bash -c "
+          awk '
+            BEGIN {skip=0}
+            /^apiVersion: v1$/ {
+              getline next_line
+              if (next_line ~ /^kind: Namespace$/) {
+                skip=1
+                next
+              }
+              print
+              print next_line
+              next
+            }
+            /^---$/ {
+              if (skip) {
+                skip=0
+                next
+              }
+            }
+            {if (!skip) gsub(\"namespace: kubelet-serving-cert-approver\", \"namespace: kube-system\"); print}
+          ' /tmp/kubelet-approver-install.yaml > /tmp/kubelet-approver-install-edited.yaml
+          "
+
+    - name: Apply the kubelet-serving-cert-approver manifest
+      kubernetes.core.k8s:
+        state: present
+        src: "/tmp/kubelet-approver-install-edited.yaml"

@@ -1,13 +1,14 @@
 ---
 - name: Join worker nodes to the cluster
   hosts: all
+  gather_facts: false
   any_errors_fatal: true
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
     control_plane_host: null
   tasks:
-    # finding a control plane node is necessary because we can't use kube_api_servers[0] because it could be a new node.
-    - name: Find a control-plane node to query for the list of nodes
+    # finding an controlplane node is necessary because we can't use controlplane[0] because it could be a new node.
+    - name: Find an controlplane node to query for the list of nodes
       ansible.builtin.shell:
         cmd: >
           kubectl get node "{{ item }}" -o jsonpath='{.metadata.labels.node-role\.kubernetes\.io\/control-plane}'
@@ -16,10 +17,10 @@
       changed_when: false
       no_log: true
       failed_when: false
-      loop: "{{ groups['kube_api_servers'] }}"
+      loop: "{{ groups['controlplane'] }}"
       when: control_plane_host is none
 
-    - name: Set control plane host
+    - name: Set controlplane host
       set_fact:
         control_plane_host: "{{ item.item }}"
       loop: "{{ node_status.results }}"
@@ -29,15 +30,19 @@
         - item.stderr == ""
         - control_plane_host is none
 
-    - name: Show selected control plane host
-      debug:
-        msg: "Selected control plane host: {{ control_plane_host }}"
-      when: control_plane_host is not none
-
-    - name: Ensure a control plane host has been set
+    - name: Check if control_plane_host was set
+      set_fact:
+        control_plane_found: "{{ control_plane_host is defined and control_plane_host is not none }}"
+          
+    - name: Fail if no control_plane_host was found
       fail:
-        msg: "Failed to identify a control plane host. None of the nodes met the criteria."
-      when: control_plane_host is none
+        msg: "No active controlplane found. Has the cluster been bootstrapped?"
+      when: control_plane_found == false
+
+    - name: Show selected controlplane host
+      debug:
+        msg: "Selected controlplane host: {{ control_plane_host }}"
+      when: control_plane_host is not none
 
     - name: Get list of nodes from the Kubernetes cluster
       ansible.builtin.shell: kubectl get nodes -o jsonpath='{.items[*].metadata.name}'
@@ -53,68 +58,36 @@
     - name: Check if current host's hostname is in the Kubernetes node list
       set_fact:
         is_in_cluster: "{{ inventory_hostname in k8s_node_names }}"
-      when: "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
+      when: "'controlplane' not in group_names and 'etcd' not in group_names"
 
     - name: Check host status if in cluster
       ansible.builtin.debug:
         msg: "Host {{ inventory_hostname }} is already in the cluster"
       when:
-        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
+        - "'controlplane' not in group_names and 'etcd' not in group_names"
         - is_in_cluster
 
     - name: Check host status if not in cluster
       ansible.builtin.debug:
         msg: "Host {{ inventory_hostname }} is not in the cluster and will join"
       when:
-        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
+        - "'controlplane' not in group_names and 'etcd' not in group_names"
         - not is_in_cluster
 
-    - name: Update apt cache on worker nodes to be added to cluster
-      become: true
-      ansible.builtin.apt:
-        update_cache: yes
-        cache_valid_time: 3600  # Cache is considered valid for 1 hour
-      register: upgrade_result
-      until: upgrade_result is succeeded
-      retries: 30
-      delay: 10
-      when:
-        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
-        - not is_in_cluster
     - name: Upgrade all packages to the latest version on worker nodes to be added to cluster
       become: true
       ansible.builtin.apt:
         upgrade: 'dist'  # Use 'dist' for distribution upgrade, or 'full' for full upgrade
         force_apt_get: yes  # Optionally force using apt-get instead of aptitude
-      register: upgrade_result
-      until: upgrade_result is succeeded
-      retries: 30
-      delay: 10
-      when:
-        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
-        - not is_in_cluster
-    - name: Remove unused packages and dependencies on worker nodes to be added to cluster
-      become: true
-      ansible.builtin.apt:
+        update_cache: yes
         autoremove: yes
-        purge: yes
-      register: upgrade_result
-      until: upgrade_result is succeeded
-      retries: 30
-      delay: 10
-      when:
-        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
-        - not is_in_cluster
-    - name: Clean up apt cache on worker nodes to be added to cluster
-      become: true
-      ansible.builtin.apt:
         autoclean: yes
       register: upgrade_result
       until: upgrade_result is succeeded
       retries: 30
       delay: 10
       when:
-        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
+        - "'controlplane' not in group_names and 'etcd' not in group_names"
         - not is_in_cluster
     - name: Check if reboot is required on worker nodes to be added to cluster
       become: true
@@ -122,7 +95,7 @@
         path: /var/run/reboot-required
       register: reboot_required
       when:
-        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
+        - "'controlplane' not in group_names and 'etcd' not in group_names"
         - not is_in_cluster
     - name: Reboot the worker nodes to be added to cluster (if necessary)
       become: true
@@ -134,16 +107,16 @@
         post_reboot_delay: 30
         test_command: uptime
       when:
-        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
+        - "'controlplane' not in group_names and 'etcd' not in group_names"
         - not is_in_cluster
         - reboot_required.stat.exists
 
     - name: Wait for new worker nodes to be reachable again
       ansible.builtin.wait_for_connection:
         delay: 5
-        timeout: 300
+        timeout: 600
       when:
-        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
+        - "'controlplane' not in group_names and 'etcd' not in group_names"
         - not is_in_cluster
         - reboot_required.stat.exists
 
@@ -151,7 +124,7 @@
       set_fact:
         join_command_local: "{{ lookup('file', 'tmp/{{ cluster_name }}/worker_join_command.sh') }}"
       when:
-        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
+        - "'controlplane' not in group_names and 'etcd' not in group_names"
         - not is_in_cluster
       tags:
         - kubeadm_join_wrkrs
@@ -161,7 +134,7 @@
       command: "{{ join_command_local }}"
       become: true
       when:
-        - "'kube_api_servers' not in group_names and 'kube_etcd_servers' not in group_names"
+        - "'controlplane' not in group_names and 'etcd' not in group_names"
         - not is_in_cluster
       tags:
         - kubeadm_join_wrkrs

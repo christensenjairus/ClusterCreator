@@ -1,0 +1,30 @@
+
+- name: Delete node from Kubernetes Cluster
+  hosts: controlplane
+  gather_facts: false
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+
+  tasks:
+    - name: Fetch active controlplane nodes
+      command: >
+        kubectl get nodes
+        --selector='node-role.kubernetes.io/control-plane'
+        --field-selector='metadata.name!={{ node_name }}'
+        -o json
+      register: active_nodes
+      run_once: true
+      when: node_name and ansible_host != node_name
+
+    - name: Set fact for active API server names
+      set_fact:
+        active_api_server_name: "{{ active_nodes.stdout | from_json | json_query('items[].metadata.name') | first }}"
+      when: node_name and ansible_host != node_name
+      run_once: true
+
+    - name: Delete the node from the cluster (if single node is being removed)
+      command: kubectl delete node {{ node_name }}
+      delegate_to: "{{ hostvars[active_api_server_name].ansible_host }}"
+      when: node_name
+      run_once: true
+      ignore_errors: true

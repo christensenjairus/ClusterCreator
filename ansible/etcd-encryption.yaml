@@ -1,0 +1,134 @@
+---
+- name: Deploy etcd encryption configuration
+  hosts: controlplane
+  gather_facts: false
+  become: true
+  vars:
+    enc_key_path: /etc/kubernetes/enc/enc.key
+    enc_file_path: /etc/kubernetes/enc/enc.yaml
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+  tasks:
+    - name: Check if the encryption key file exists on each node
+      ansible.builtin.stat:
+        path: "{{ enc_key_path }}"
+      register: enc_key_stat
+
+    - name: Find the first node with the encryption key
+      set_fact:
+        key_source_node: "{{ item }}"
+      when: hostvars[item].enc_key_stat.stat.exists | default(false)
+      loop: "{{ groups['controlplane'] }}"
+      loop_control:
+        label: "{{ item }}"
+      run_once: true
+
+    - name: Load the existing encryption key from the source node
+      ansible.builtin.slurp:
+        src: "{{ enc_key_path }}"
+      register: slurped_key
+      when: key_source_node is defined
+      delegate_to: "{{ key_source_node }}"
+      run_once: true
+
+    - name: Set encryption key fact from existing key
+      set_fact:
+        encryption_key: "{{ slurped_key.content | b64decode }}"
+      when: slurped_key is defined and slurped_key.content is defined
+
+    - name: Generate a random base64 secret key (only if no nodes have the key)
+      ansible.builtin.shell: "head -c 32 /dev/urandom | base64"
+      register: random_key
+      when: encryption_key is not defined
+      run_once: true
+
+    - name: Save the new encryption key to a fact
+      set_fact:
+        encryption_key: "{{ random_key.stdout }}"
+      when: encryption_key is not defined and random_key is defined
+
+    - name: Ensure /etc/kubernetes/enc directory exists
+      ansible.builtin.file:
+        path: /etc/kubernetes/enc
+        state: directory
+        mode: "0700"
+        owner: root
+        group: root
+
+    - name: Save the encryption key to the key file on all nodes
+      ansible.builtin.copy:
+        content: "{{ encryption_key }}"
+        dest: "{{ enc_key_path }}"
+        mode: "0600"
+        owner: root
+        group: root
+
+    - name: "Display encryption key"
+      debug:
+        msg: "Encryption key: {{ encryption_key }}"
+      run_once: true
+
+    - name: Ensure the directory for the encryption config exists
+      ansible.builtin.file:
+        path: "{{ enc_file_path | dirname }}"
+        state: directory
+        mode: "0750"
+        owner: root
+        group: root
+
+    - name: Generate the etcd encryption configuration file on each node
+      ansible.builtin.template:
+        src: helpers/etcd_encryption_configuration.yaml.j2
+        dest: "{{ enc_file_path }}"
+        mode: "0640"
+        owner: root
+        group: root
+
+    - name: Check if controlplane manifest already has encryption
+      ansible.builtin.shell: >
+        grep -- '--encryption-provider-config=/etc/kubernetes/enc/enc.yaml' /etc/kubernetes/manifests/kube-apiserver.yaml
+      register: config_check
+      failed_when: false
+
+    - name: Add encryption to controlplane manifests (if necessary)
+      ansible.builtin.command: >
+        yq eval '
+          .spec.containers[0].command |=
+            (select(.) | map(select(. != "--encryption-provider-config=/etc/kubernetes/enc/enc.yaml")) + ["--encryption-provider-config=/etc/kubernetes/enc/enc.yaml"]) |
+          .spec.containers[0].volumeMounts |=
+            (select(.) | map(select(.name != "enc")) + [{"name": "enc", "mountPath": "/etc/kubernetes/enc", "readOnly": true}]) |
+          .spec.volumes |=
+            (select(.) | map(select(.name != "enc")) + [{"name": "enc", "hostPath": {"path": "/etc/kubernetes/enc", "type": "DirectoryOrCreate"}}])
+        ' -i /etc/kubernetes/manifests/kube-apiserver.yaml
+      become: true
+      when: config_check.rc != 0
+
+    - name: Restart kubelet service (if necessary)
+      ansible.builtin.service:
+        name: kubelet
+        state: restarted
+      when: config_check.rc != 0
+
+    - name: Pause for 10s to give pods time to start (if necessary)
+      ansible.builtin.pause:
+        seconds: 10
+      when: config_check.rc != 0
+
+    - name: Wait for API to be reachable (if necessary)
+      ansible.builtin.wait_for:
+        host: "{{ cluster_config.networking.kube_vip.vip }}"
+        timeout: 600
+        delay: 5
+        state: started
+        port: 6443
+      when: config_check.rc != 0
+
+    - name: Encrypt existing configmaps and secrets (if necessary)
+      ansible.builtin.shell: >
+        kubectl get secrets,configmaps --all-namespaces -o json | kubectl replace -f -
+      delegate_to: localhost
+      become: false
+      run_once: true
+      environment:
+        KUBECONFIG: "{{ lookup('env', 'HOME') }}/.kube/{{ cluster_config.kubeconfig_file_name }}"
+      when: config_check.rc != 0
+

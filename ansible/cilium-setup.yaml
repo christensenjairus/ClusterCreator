@@ -1,5 +1,6 @@
 - name: Install Cilium on Kubernetes Cluster
-  hosts: kube_api_servers[0]
+  hosts: controlplane[0]
+  gather_facts: false
   tags:
     - cilium_basic_install
   vars:
@@ -7,9 +8,9 @@
   tasks:
     - name: Calculate the count of non-API/ETCD servers
       set_fact:
-        non_api_etcd_server_count: "{{ groups['all'] | length - (groups['kube_api_servers'] | default([]) | length + groups['kube_etcd_servers'] | default([]) | length) }}"
+        non_api_etcd_server_count: "{{ groups['all'] | length - (groups['controlplane'] | default([]) | length + groups['etcd'] | default([]) | length) }}"
 
-    - name: Determine if needing replicated longhorn volumes based on non-API/ETCD server count
+    - name: Determine non-API/ETCD server count
       set_fact:
         replica_count: "{{ 1 if non_api_etcd_server_count <= \"1\" else 2 }}"
 
@@ -42,13 +43,6 @@
           helm upgrade --install cilium cilium/cilium
           --namespace kube-system
           --values /tmp/cilium.yaml
-          --version v{{ cluster_config.networking.cilium.cilium_version }}
-      args:
-        executable: /bin/bash
-
-    - name: Wait for nodes to be ready
-      ansible.builtin.shell:
-        cmd: >
-          cilium status --wait
+          --version v{{ cilium_version }}
       args:
         executable: /bin/bash
