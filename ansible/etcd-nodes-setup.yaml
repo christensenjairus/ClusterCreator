@@ -166,13 +166,13 @@
     - name: Generate certificates for etcd-0
       block:
         - name: Generate etcd-server certificates for etcd-0
-          command: kubeadm init phase certs etcd-server --config=/tmp/{{ hostvars[groups['etcd'][0]].ansible_host }}/kubeadmcfg.yaml
+          command: kubeadm init phase certs etcd-server #--config=/tmp/{{ hostvars[groups['etcd'][0]].ansible_host }}/kubeadmcfg.yaml
         - name: Generate etcd-peer certificates for etcd-0
-          command: kubeadm init phase certs etcd-peer --config=/tmp/{{ hostvars[groups['etcd'][0]].ansible_host }}/kubeadmcfg.yaml
+          command: kubeadm init phase certs etcd-peer #--config=/tmp/{{ hostvars[groups['etcd'][0]].ansible_host }}/kubeadmcfg.yaml
         - name: Generate etcd-healthcheck-client certificates for etcd-0
-          command: kubeadm init phase certs etcd-healthcheck-client --config=/tmp/{{ hostvars[groups['etcd'][0]].ansible_host }}/kubeadmcfg.yaml
+          command: kubeadm init phase certs etcd-healthcheck-client #--config=/tmp/{{ hostvars[groups['etcd'][0]].ansible_host }}/kubeadmcfg.yaml
         - name: Generate controlplane-etcd-client certificates for etcd-0
-          command: kubeadm init phase certs controlplane-etcd-client --config=/tmp/{{ hostvars[groups['etcd'][0]].ansible_host }}/kubeadmcfg.yaml
+          command: kubeadm init phase certs apiserver-etcd-client #--config=/tmp/{{ hostvars[groups['etcd'][0]].ansible_host }}/kubeadmcfg.yaml
       tags:
         - etcd_cert_generation
 
