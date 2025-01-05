@@ -44,7 +44,12 @@
         allow_change_held_packages: true
         allow_downgrade: true
         update_cache: true
-        upgrade: dist # take the opportunity to upgrade the node
+
+    - name: Upgrade all other apt packages
+      ansible.builtin.apt:
+        state: present
+        update_cache: false # done above
+        upgrade: dist
 
     - name: Kubeadm Upgrade Plan
       ansible.builtin.shell:
