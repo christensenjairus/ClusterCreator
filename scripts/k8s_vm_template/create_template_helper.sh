@@ -125,7 +125,7 @@ elapsed_time_packages=$(( end_time_packages - start_time_packages ))
 echo -e "${GREEN}Elapsed time installing packages: $((elapsed_time_packages / 60)) minutes and $((elapsed_time_packages % 60)) seconds.${ENDCOLOR}"
 
 echo -e "${GREEN}Print out disk space stats...${ENDCOLOR}"
-log_output=$(qm guest exec "$TEMPLATE_VM_ID" -- /bin/sh -c "cat /var/log/watch-disk-space.txt" | jq -r '.["out-data"]')
+log_output=$(sudo qm guest exec "$TEMPLATE_VM_ID" -- /bin/sh -c "cat /var/log/watch-disk-space.txt" | jq -r '.["out-data"]')
 if echo "$log_output" | grep -q "critically low"; then
     echo -e "${RED}Disk space reached a critically low value during package installation. Please increase TEMPLATE_DISK_SIZE and try again.${ENDCOLOR}"
     exit 1
