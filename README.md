@@ -149,6 +149,7 @@ ccr configure-variables
 This will open the files for you to set
 - **Template VM settings**: Temporary settings for the Template VM while it is installing packages.
 - **Proxmox Information**: Information like the Proxmox url, ISO path, datastore names, etc.
+  - `PROXMOX_USERNAME` can be `root` or a user that can run `sudo` commands ***without a password***.
 - **Unifi Information**: (optional, needs to be toggled on first) The Unifi API url.
 - **Minio Bucket, Region, and URL**: (optional, needs to be toggled on first) The minio bucket, region, and URL for storing Tofu state.
 

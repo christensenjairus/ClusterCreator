@@ -63,22 +63,22 @@ perform_action_with_retry() {
 
     until [ $RETRY_COUNT -ge $MAX_RETRIES ]; do
         if [[ "$ACTION" == "start" ]]; then
-            ${SSH_CMD} "pvesh create /nodes/$NODE/qemu/$VMID/status/start --timeout $TIMEOUT"
+            ${SSH_CMD} "sudo pvesh create /nodes/$NODE/qemu/$VMID/status/start --timeout $TIMEOUT"
         elif [[ "$ACTION" == "shutdown" ]]; then
-            ${SSH_CMD} "pvesh create /nodes/$NODE/qemu/$VMID/status/shutdown --timeout $TIMEOUT"
+            ${SSH_CMD} "sudo pvesh create /nodes/$NODE/qemu/$VMID/status/shutdown --timeout $TIMEOUT"
         elif [[ "$ACTION" == "stop" ]]; then
-            ${SSH_CMD} "pvesh create /nodes/$NODE/qemu/$VMID/status/stop --skiplock --timeout $TIMEOUT"
+            ${SSH_CMD} "sudo pvesh create /nodes/$NODE/qemu/$VMID/status/stop --skiplock --timeout $TIMEOUT"
         elif [[ "$ACTION" == "resume" ]]; then
-            ${SSH_CMD} "pvesh create /nodes/$NODE/qemu/$VMID/status/resume"
+            ${SSH_CMD} "sudo pvesh create /nodes/$NODE/qemu/$VMID/status/resume"
         elif [[ "$ACTION" == "pause" ]]; then
-            ${SSH_CMD} "pvesh create /nodes/$NODE/qemu/$VMID/status/suspend --todisk=0"
+            ${SSH_CMD} "sudo pvesh create /nodes/$NODE/qemu/$VMID/status/suspend --todisk=0"
         elif [[ "$ACTION" == "hibernate" ]]; then
-            ${SSH_CMD} "pvesh create /nodes/$NODE/qemu/$VMID/status/suspend --todisk=1"
+            ${SSH_CMD} "sudo pvesh create /nodes/$NODE/qemu/$VMID/status/suspend --todisk=1"
         elif [[ "$ACTION" == "snapshot" ]]; then
             SNAPSHOT_NAME="snapshot-$(date +%Y%m%d%H%M%S)"
-            ${SSH_CMD} "pvesh create /nodes/$NODE/qemu/$VMID/snapshot --snapname=$SNAPSHOT_NAME --vmstate=1"
+            ${SSH_CMD} "sudo pvesh create /nodes/$NODE/qemu/$VMID/snapshot --snapname=$SNAPSHOT_NAME --vmstate=1"
         elif [[ "$ACTION" == "backup" ]]; then
-            ${SSH_CMD} "pvesh create /nodes/$NODE/vzdump --vmid $VMID --mode snapshot --compress zstd --quiet 1 --storage $PROXMOX_BACKUPS_DATASTORE"
+            ${SSH_CMD} "sudo pvesh create /nodes/$NODE/vzdump --vmid $VMID --mode snapshot --compress zstd --quiet 1 --storage $PROXMOX_BACKUPS_DATASTORE"
         fi
 
         # Check if the command succeeded
@@ -99,7 +99,7 @@ perform_action_with_retry() {
 }
 
 # Get the list of nodes and VM IDs in the pool
-VM_NODES=$(${SSH_CMD} pvesh get "/pools/$POOL_ID" --output-format json | jq -r '.members[] | select(.type == "qemu") | "\(.node) \(.vmid)"')
+VM_NODES=$(${SSH_CMD} sudo pvesh get "/pools/$POOL_ID" --output-format json | jq -r '.members[] | select(.type == "qemu") | "\(.node) \(.vmid)"')
 
 # Loop through each node and VM ID and execute the specified action with retry logic
 while read -r NODE VMID; do

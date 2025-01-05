@@ -8,7 +8,7 @@ RED='\033[31m'
 ENDCOLOR='\033[0m'
 
 echo -e "${GREEN}Ensuring libguestfs-tools and jq are installed...${ENDCOLOR}"
-apt install jq libguestfs-tools -y
+sudo apt install jq libguestfs-tools -y
 
 echo ""
 echo -e "${GREEN}Loading the environment variables from the .env files...${ENDCOLOR}"
@@ -24,14 +24,14 @@ set +a # stop automatically exporting
 set -e
 
 echo -e "${GREEN}Removing old image if it exists...${ENDCOLOR}"
-rm -f "${PROXMOX_ISO_PATH:?PROXMOX_ISO_PATH is not set}/${IMAGE_NAME:?IMAGE_NAME is not set}"* 2>/dev/null || true
+sudo rm -f "${PROXMOX_ISO_PATH:?PROXMOX_ISO_PATH is not set}/${IMAGE_NAME:?IMAGE_NAME is not set}"* 2>/dev/null || true
 
 echo -e "${GREEN}Downloading the image to get new updates...${ENDCOLOR}"
-wget -qO "$PROXMOX_ISO_PATH"/"$IMAGE_NAME" "$IMAGE_LINK"
+sudo wget -qO "$PROXMOX_ISO_PATH"/"$IMAGE_NAME" "$IMAGE_LINK"
 echo ""
 
 echo -e "${GREEN}Update, add packages, enable services, edit multipath config, set timezone, set firstboot scripts...${ENDCOLOR}"
-virt-customize -a "$PROXMOX_ISO_PATH"/"$IMAGE_NAME" \
+sudo virt-customize -a "$PROXMOX_ISO_PATH"/"$IMAGE_NAME" \
      --mkdir /etc/systemd/system/containerd.service.d/ \
      --copy-in ./FilesToPlace/override.conf:/etc/systemd/system/containerd.service.d/ \
      --copy-in ./FilesToPlace/multipath.conf:/etc/ \
@@ -50,8 +50,8 @@ virt-customize -a "$PROXMOX_ISO_PATH"/"$IMAGE_NAME" \
      # firstboot script creates /tmp/.firstboot when finished
 
 echo -e "${GREEN}Deleting the old template vm if it exists...${ENDCOLOR}"
-qm stop "$TEMPLATE_VM_ID" --skiplock 1 || true
-qm destroy "$TEMPLATE_VM_ID" --purge 1 --skiplock 1 --destroy-unreferenced-disks 1 || true
+sudo qm stop "$TEMPLATE_VM_ID" --skiplock 1 || true
+sudo qm destroy "$TEMPLATE_VM_ID" --purge 1 --skiplock 1 --destroy-unreferenced-disks 1 || true
 
 # Check if TEMPLATE_VLAN_TAG is valid
 if [[ -z "$TEMPLATE_VLAN_TAG" || "$TEMPLATE_VLAN_TAG" == "0" || "$TEMPLATE_VLAN_TAG" =~ ^(none|null|None)$ ]]; then
@@ -61,7 +61,7 @@ else
 fi
 
 echo -e "${GREEN}Creating the VM...${ENDCOLOR}"
-qm create "$TEMPLATE_VM_ID" \
+sudo qm create "$TEMPLATE_VM_ID" \
   --name "$TEMPLATE_VM_NAME" \
   --machine "type=q35" \
   --cores "$TEMPLATE_VM_CPU" \
@@ -76,7 +76,7 @@ qm create "$TEMPLATE_VM_ID" \
   --numa 1
 
 echo -e "${GREEN}Setting the VM options...${ENDCOLOR}"
-qm set "$TEMPLATE_VM_ID" \
+sudo qm set "$TEMPLATE_VM_ID" \
   --scsihw virtio-scsi-pci \
   --virtio0 "${PROXMOX_DISK_DATASTORE}:0,iothread=1,import-from=$PROXMOX_ISO_PATH/$IMAGE_NAME" \
   --ide2 "${PROXMOX_DISK_DATASTORE}:cloudinit" \
@@ -95,10 +95,10 @@ qm set "$TEMPLATE_VM_ID" \
   --tags "$EXTRA_TEMPLATE_TAGS ${KUBERNETES_MEDIUM_VERSION}"
 
 echo -e "${GREEN}Expanding disk to $TEMPLATE_DISK_SIZE...${ENDCOLOR}"
-qm resize "$TEMPLATE_VM_ID" virtio0 "$TEMPLATE_DISK_SIZE"
+sudo qm resize "$TEMPLATE_VM_ID" virtio0 "$TEMPLATE_DISK_SIZE"
 
 echo -e "${GREEN}Starting the VM, allowing firstboot script to install packages...${ENDCOLOR}"
-qm start "$TEMPLATE_VM_ID"
+sudo qm start "$TEMPLATE_VM_ID"
 
 start_time_packages=$(date +%s)
 
@@ -107,7 +107,7 @@ sleep 60s
 
 echo -e -n "${GREEN}Waiting for all packages to be installed${ENDCOLOR}"
 while true; do
-  output=$(qm guest exec "$TEMPLATE_VM_ID" cat /tmp/.firstboot 2>/dev/null)
+  output=$(sudo qm guest exec "$TEMPLATE_VM_ID" cat /tmp/.firstboot 2>/dev/null)
   success=$?
   if [[ $success -eq 0 ]]; then
     exit_code=$(echo "$output" | jq '.exitcode')
@@ -134,7 +134,7 @@ else
 fi
 
 echo -e "${GREEN}Checking for 'No space left' logs...${ENDCOLOR}"
-log_output=$(qm guest exec "$TEMPLATE_VM_ID" -- /bin/sh -c "cat /var/log/template-firstboot-*" | jq -r '.["out-data"]')
+log_output=$(sudo qm guest exec "$TEMPLATE_VM_ID" -- /bin/sh -c "cat /var/log/template-firstboot-*" | jq -r '.["out-data"]')
 if grep -q "No space left" /var/log/template-firstboot-* 2>/dev/null; then
     echo -e "${RED}'No space left' logs found. Please increase TEMPLATE_DISK_SIZE and try again.${ENDCOLOR}"
     exit 1
@@ -143,16 +143,16 @@ else
 fi
 
 echo -e "${GREEN}Clean out cloudconfig configuration...${ENDCOLOR}"
-qm guest exec "$TEMPLATE_VM_ID" -- /bin/sh -c  "rm -f /etc/cloud/clean.d/README && cloud-init clean --logs" >/dev/null
+sudo qm guest exec "$TEMPLATE_VM_ID" -- /bin/sh -c  "rm -f /etc/cloud/clean.d/README && cloud-init clean --logs" >/dev/null
 
 echo -e "${GREEN}Shutting down the VM gracefully...${ENDCOLOR}"
-qm shutdown "$TEMPLATE_VM_ID"
+sudo qm shutdown "$TEMPLATE_VM_ID"
 
 echo -e "${GREEN}Converting the shut-down VM into a template...${ENDCOLOR}"
-qm template "$TEMPLATE_VM_ID"
+sudo qm template "$TEMPLATE_VM_ID"
 
 echo -e "${GREEN}Deleting the downloaded image...${ENDCOLOR}"
-rm -f "${PROXMOX_ISO_PATH:?PROXMOX_ISO_PATH is not set}/${IMAGE_NAME:?IMAGE_NAME is not set}"*
+sudo rm -f "${PROXMOX_ISO_PATH:?PROXMOX_ISO_PATH is not set}/${IMAGE_NAME:?IMAGE_NAME is not set}"*
 
 echo -e "${GREEN}Template created successfully${ENDCOLOR}"
 
