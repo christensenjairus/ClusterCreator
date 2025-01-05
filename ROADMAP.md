@@ -1,3 +1,4 @@
+Vmctl snapshot needs retries upon failures (bug)
 No SSH needed between external etcd and controlplanes
 ETCDCTL command aliased with all the tls options in the .bashrc. So the controlplane nodes can query it easily
 Add a connectivity check to the template script before trying to install packages
