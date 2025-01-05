@@ -51,6 +51,7 @@ echo -e "${GREEN}Upgrading control-plane API to $KUBERNETES_MEDIUM_VERSION on cl
 playbooks=(
   "trust-hosts.yaml"
   "upgrade-k8s-cluster.yaml"
+  "etcd-encryption.yaml"
 )
 run_playbooks "${playbooks[@]}"
 

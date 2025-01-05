@@ -45,12 +45,6 @@
         allow_downgrade: true
         update_cache: true
 
-    - name: Upgrade all other apt packages
-      ansible.builtin.apt:
-        state: present
-        update_cache: false # done above
-        upgrade: dist
-
     # Upgrade external ETCD
     - name: Ensure /etc/kubernetes/manifests/etcd.yaml exists
       ansible.builtin.stat:
@@ -70,7 +64,7 @@
       ansible.builtin.meta: end_host
       when: "'etcd' in groups and 'etcd' in group_names"
 
-    - name: Upgrade Kubeadm
+    - name: Kubeadm Upgrade Node
       ansible.builtin.shell:
         cmd: >
           kubeadm upgrade node
