@@ -52,6 +52,7 @@ playbooks=(
   "trust-hosts.yaml"
   "upgrade-k8s-cluster.yaml"
   "etcd-encryption.yaml"
+  "upgrade-apt.yaml"
 )
 run_playbooks "${playbooks[@]}"
 
