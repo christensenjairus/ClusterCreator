@@ -67,7 +67,7 @@ sudo qm create "$TEMPLATE_VM_ID" \
   --cores "$TEMPLATE_VM_CPU" \
   --sockets 1 \
   --memory "$TEMPLATE_VM_MEM" \
-  --net0 "virtio,bridge=vmbr0,$TAG_ARG" \
+  --net0 "virtio,bridge=$TEMPLATE_VM_BRIDGE,$TAG_ARG" \
   --agent "enabled=1,freeze-fs-on-backup=1,fstrim_cloned_disks=1" \
   --onboot 1 \
   --balloon 0 \
