@@ -23,7 +23,7 @@ locals {
           vlan_id            = cluster.networking.vlan_id == null ? "${cluster.cluster_id}00" : cluster.networking.vlan_id
           ipv4               : {
             vm_ip            = "${cluster.networking.ipv4.subnet_prefix}.${specs.start_ip + i}"
-            gateway          = "${cluster.networking.ipv4.subnet_prefix}.1"
+            gateway          = "${cluster.networking.ipv4.gateway}"
             dns1             = cluster.networking.ipv4.dns1
             dns2             = cluster.networking.ipv4.dns2
             lb_cidrs         = cluster.networking.ipv4.lb_cidrs 
