@@ -23,7 +23,7 @@ locals {
           vlan_id            = cluster.networking.vlan_id == null ? "${cluster.cluster_id}00" : cluster.networking.vlan_id
           ipv4               : {
             vm_ip            = "${cluster.networking.ipv4.subnet_prefix}.${specs.start_ip + i}"
-            gateway          = "${cluster.networking.ipv4.gateway}"
+            gateway          = cluster.networking.ipv4.gateway
             dns1             = cluster.networking.ipv4.dns1
             dns2             = cluster.networking.ipv4.dns2
             lb_cidrs         = cluster.networking.ipv4.lb_cidrs 
@@ -32,7 +32,7 @@ locals {
             enabled          = cluster.networking.ipv6.enabled
             dual_stack       = cluster.networking.ipv6.enabled ? cluster.networking.ipv6.dual_stack: false
             vm_ip            = cluster.networking.ipv6.enabled ? "${cluster.networking.ipv6.subnet_prefix}::${specs.start_ip + i}" : null
-            gateway          = cluster.networking.ipv6.enabled ? "${cluster.networking.ipv6.subnet_prefix}::1" : null
+            gateway          = cluster.networking.ipv6.enabled ? cluster.networking.ipv6.gateway : null
             dns1             = cluster.networking.ipv6.enabled ? cluster.networking.ipv6.dns1: null
             dns2             = cluster.networking.ipv6.enabled ? cluster.networking.ipv6.dns2: null
             lb_cidrs         = cluster.networking.ipv6.enabled ? cluster.networking.ipv6.lb_cidrs : null
