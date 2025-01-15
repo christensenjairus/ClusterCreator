@@ -26,7 +26,7 @@ variable "clusters" {
         svc_cidr             : optional(string, "10.43.0.0/16")                           # Optional. Cidr range for service networking internal to cluster. Shouldn't overlap with ipv4 lan network.
         dns1                 : optional(string, "1.1.1.1")                                # Optional. Primary dns server for vm hosts
         dns2                 : optional(string, "1.0.0.1")                                # Optional. Secondary dns server for vm hosts
-        gateway              : optional(string, "1.0.0.1")                                # Optional. Gateway for vm hosts
+        gateway              : string                                                     # Required. Gateway for vm hosts
         management_cidrs     : optional(string, "")                                       # Optional. Proxmox list of ipv4 IPs or cidrs that you want to be able to reach the K8s api and ssh into the hosts. Only used if use_pve_firewall is true.
         lb_cidrs             : optional(string, "")                                       # Optional. IPv4 cidrs to use for MetalLB.
       })
@@ -89,6 +89,7 @@ variable "clusters" {
           subnet_prefix        = "10.0.1"
           management_cidrs     = "10.0.0.0/30,10.0.60.2,10.0.50.5,10.0.50.6"
           lb_cidrs             = "10.0.1.200/29,10.0.1.208/28,10.0.1.224/28,10.0.1.240/29,10.0.1.248/30,10.0.1.252/31"
+          gateway              = "10.0.1.1"
         }
         ipv6 = {}
         kube_vip = {
@@ -124,6 +125,7 @@ variable "clusters" {
           subnet_prefix        = "10.0.2"
           management_cidrs     = "10.0.0.0/30,10.0.60.2,10.0.50.5,10.0.50.6"
           lb_cidrs             = "10.0.2.200/29,10.0.2.208/28,10.0.2.224/28,10.0.2.240/29,10.0.2.248/30,10.0.2.252/31"
+          gateway              = "10.0.2.1"
         }
         ipv6 = {}
         kube_vip = {
@@ -171,6 +173,7 @@ variable "clusters" {
           subnet_prefix        = "10.0.3"
           management_cidrs     = "10.0.0.0/30,10.0.60.2,10.0.50.5,10.0.50.6"
           lb_cidrs             = "10.0.3.200/29,10.0.3.208/28,10.0.3.224/28,10.0.3.240/29,10.0.3.248/30,10.0.3.252/31"
+          gateway              = "10.0.3.1"
         }
         ipv6 = {}
         kube_vip = {
