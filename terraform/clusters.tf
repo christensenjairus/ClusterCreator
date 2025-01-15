@@ -21,12 +21,12 @@ variable "clusters" {
       vlan_id                : optional(number, null)                                     # Optional. The vlan id to assign to the network interfaces of the VMs. Defaults to <cluster_id>00 (e.e. 100, 200, 300, etc.)
       vlan_name              : optional(string, null)                                     # Optional. The name of the VLAN in Unifi. Defaults to the cluster name in all caps.
       ipv4                   : object({
-        subnet_prefix        : string                                                     # Required. First three octets of the host IPv4 network's subnet (assuming its a /24)
+        subnet_prefix        : optional(string, "10.0.0")                                 # Optional. First three octets of the host IPv4 network's subnet (assuming its a /24)
+        gateway              : optional(string, "10.0.0.1")                               # Optional. Gateway for vm hosts
         pod_cidr             : optional(string, "10.42.0.0/16")                           # Optional. Cidr range for pod networking internal to cluster. Shouldn't overlap with ipv4 lan network. These must differ cluster to cluster if using clustermesh.
         svc_cidr             : optional(string, "10.43.0.0/16")                           # Optional. Cidr range for service networking internal to cluster. Shouldn't overlap with ipv4 lan network.
         dns1                 : optional(string, "1.1.1.1")                                # Optional. Primary dns server for vm hosts
         dns2                 : optional(string, "1.0.0.1")                                # Optional. Secondary dns server for vm hosts
-        gateway              : string                                                     # Required. Gateway for vm hosts
         management_cidrs     : optional(string, "")                                       # Optional. Proxmox list of ipv4 IPs or cidrs that you want to be able to reach the K8s api and ssh into the hosts. Only used if use_pve_firewall is true.
         lb_cidrs             : optional(string, "")                                       # Optional. IPv4 cidrs to use for MetalLB.
       })
@@ -34,6 +34,7 @@ variable "clusters" {
         enabled              : optional(bool, false)                                      # Optional. Whether or not to enable IPv6 networking for the VMs and network in the cluster.
         dual_stack           : optional(bool, false)                                      # Optional. Whether or not to enable dual stack networking for the cluster. EXPECT COMPLICATIONS IF CHANGED AFTER INITIAL SETUP.
         subnet_prefix        : optional(string, "2001:db8:cafe:0000")                     # Optional. The first four hex sections of the host IPv6 network's subnet (assuming its a /64). Used for a static network configuration.
+        gateway              : optional(string, "2001:db8:cafe:0000::1")                  # Optional. Gateway for vm hosts
         pod_cidr             : optional(string, "2001:db8:cafe:0000:244::/80")            # Optional. Cidr range for pod networking internal to cluster. Should be a subsection of the ipv6 lan network. These must differ cluster to cluster if using clustermesh.
         svc_cidr             : optional(string, "2001:db8:cafe:0000:96::/112")            # Optional. Cidr range for service networking internal to cluster. Should be a subsection of the ipv6 lan network.
         dns1                 : optional(string, "2607:fa18::1")                           # Optional. Primary dns server for vm hosts
@@ -87,9 +88,9 @@ variable "clusters" {
       networking = {
         ipv4 = {
           subnet_prefix        = "10.0.1"
+          gateway              = "10.0.1.1"
           management_cidrs     = "10.0.0.0/30,10.0.60.2,10.0.50.5,10.0.50.6"
           lb_cidrs             = "10.0.1.200/29,10.0.1.208/28,10.0.1.224/28,10.0.1.240/29,10.0.1.248/30,10.0.1.252/31"
-          gateway              = "10.0.1.1"
         }
         ipv6 = {}
         kube_vip = {
@@ -123,9 +124,9 @@ variable "clusters" {
       networking = {
         ipv4 = {
           subnet_prefix        = "10.0.2"
+          gateway              = "10.0.2.1"
           management_cidrs     = "10.0.0.0/30,10.0.60.2,10.0.50.5,10.0.50.6"
           lb_cidrs             = "10.0.2.200/29,10.0.2.208/28,10.0.2.224/28,10.0.2.240/29,10.0.2.248/30,10.0.2.252/31"
-          gateway              = "10.0.2.1"
         }
         ipv6 = {}
         kube_vip = {
@@ -171,9 +172,9 @@ variable "clusters" {
       networking = {
         ipv4 = {
           subnet_prefix        = "10.0.3"
+          gateway              = "10.0.3.1"
           management_cidrs     = "10.0.0.0/30,10.0.60.2,10.0.50.5,10.0.50.6"
           lb_cidrs             = "10.0.3.200/29,10.0.3.208/28,10.0.3.224/28,10.0.3.240/29,10.0.3.248/30,10.0.3.252/31"
-          gateway              = "10.0.3.1"
         }
         ipv6 = {}
         kube_vip = {
