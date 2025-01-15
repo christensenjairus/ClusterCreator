@@ -105,7 +105,7 @@ resource "proxmox_virtual_environment_vm" "node" {
     dns {
       domain = each.value.dns_search_domain
       servers = concat(
-        [each.value.ipv4.dns1, each.value.ipv4.dns2, each.value.ipv4.gateway],
+        [each.value.ipv4.dns1, each.value.ipv4.dns2],
           each.value.ipv6.enabled ? [each.value.ipv6.dns1, each.value.ipv6.dns2] : []
       )
     }
