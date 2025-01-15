@@ -26,6 +26,7 @@ variable "clusters" {
         svc_cidr             : optional(string, "10.43.0.0/16")                           # Optional. Cidr range for service networking internal to cluster. Shouldn't overlap with ipv4 lan network.
         dns1                 : optional(string, "1.1.1.1")                                # Optional. Primary dns server for vm hosts
         dns2                 : optional(string, "1.0.0.1")                                # Optional. Secondary dns server for vm hosts
+        gateway              : optional(string, "1.0.0.1")                                # Optional. Gateway for vm hosts
         management_cidrs     : optional(string, "")                                       # Optional. Proxmox list of ipv4 IPs or cidrs that you want to be able to reach the K8s api and ssh into the hosts. Only used if use_pve_firewall is true.
         lb_cidrs             : optional(string, "")                                       # Optional. IPv4 cidrs to use for MetalLB.
       })
