@@ -9,7 +9,9 @@ export ENDCOLOR='\033[0m'
 CONFIG_DIR="$HOME/.config/clustercreator"
 REPO_PATH_FILE="$CONFIG_DIR/repo_path"
 CLUSTER_FILE="$CONFIG_DIR/current_cluster"
-INSTALL_PATH="/usr/local/bin/ccr"
+BIN_DIR=${BIN_DIR:=/usr/local/bin}
+INSTALL_PATH="${BIN_DIR%/}/ccr"
+RUN_AS="${RUN_AS:=sudo}"
 
 # Function definitions
 check_required_vars() {
@@ -158,8 +160,8 @@ setup-ccr() {
 
     echo -e "${BLUE}Linking clustercreator.sh to ${INSTALL_PATH}${ENDCOLOR}"
     chmod +x "${REPO_PATH}/clustercreator.sh"
-    sudo unlink "${INSTALL_PATH}" 2>/dev/null || true
-    sudo ln -s "${REPO_PATH}/clustercreator.sh" "${INSTALL_PATH}"
+    $RUN_AS unlink "${INSTALL_PATH}" 2>/dev/null || true
+    $RUN_AS ln -s "${REPO_PATH}/clustercreator.sh" "${INSTALL_PATH}"
     echo ""
     echo -e "${BLUE}Installation complete. You can now use 'ccr' as a command.${ENDCOLOR}"
     echo ""
