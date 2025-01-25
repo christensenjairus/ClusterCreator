@@ -72,7 +72,7 @@ sudo qm create "$TEMPLATE_VM_ID" \
   --onboot 1 \
   --balloon 0 \
   --autostart 1 \
-  --cpu cputype=x86-64-v3 \
+  --cpu cputype="$TEMPLATE_VM_CPU_TYPE" \
   --numa 1
 
 echo -e "${GREEN}Setting the VM options...${ENDCOLOR}"
