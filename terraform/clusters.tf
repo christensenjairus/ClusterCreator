@@ -28,7 +28,7 @@ variable "clusters" {
         dns1                 : optional(string, "1.1.1.1")                                # Optional. Primary dns server for vm hosts
         dns2                 : optional(string, "1.0.0.1")                                # Optional. Secondary dns server for vm hosts
         management_cidrs     : optional(string, "")                                       # Optional. Proxmox list of ipv4 IPs or cidrs that you want to be able to reach the K8s api and ssh into the hosts. Only used if use_pve_firewall is true.
-        lb_cidrs             : optional(string, "")                                       # Optional. IPv4 cidrs to use for MetalLB.
+        lb_cidrs             : string                                                     # Required. IPv4 cidrs to use for MetalLB.
       })
       ipv6                   : object({
         enabled              : optional(bool, false)                                      # Optional. Whether or not to enable IPv6 networking for the VMs and network in the cluster.
@@ -40,7 +40,7 @@ variable "clusters" {
         dns1                 : optional(string, "2607:fa18::1")                           # Optional. Primary dns server for vm hosts
         dns2                 : optional(string, "2607:fa18::2")                           # Optional. Secondary dns server for vm hosts
         management_cidrs     : optional(string, "")                                       # Optional. Proxmox list of ipv6 IPs or cidrs that you want to be able to reach the K8s api and ssh into the hosts. Only used if use_pve_firewall is true.
-        lb_cidrs             : optional(string, "")                                       # Optional. IPv6 cidrs to use for MetalLB.
+        lb_cidrs             : optional(string, "")                                       # Optional. IPv6 cidrs to use for MetalLB. Required if IPv6 is enabled.
       })
       kube_vip               : object({
         kube_vip_version     : optional(string, "0.8.4")                                  # Optional. Kube-vip version to use. Needs to be their ghcr.io docker image version
