@@ -9,7 +9,7 @@ export ENDCOLOR='\033[0m'
 CONFIG_DIR="$HOME/.config/clustercreator"
 REPO_PATH_FILE="$CONFIG_DIR/repo_path"
 CLUSTER_FILE="$CONFIG_DIR/current_cluster"
-INSTALL_PATH="/usr/local/bin/ccr"
+INSTALL_PATH="${HOME}/.local/bin/ccr"
 
 # Function definitions
 check_required_vars() {
