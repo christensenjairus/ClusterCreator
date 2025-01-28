@@ -149,7 +149,7 @@ setup-ccr() {
 
     # Set up the repository path
     REPO_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    if [ "$REPO_PATH" == "/usr/local/bin" ]; then
+    if [ "$REPO_PATH" == "${HOME}/.local/bin" ]; then
       echo -e "${RED}You should only run this using the original clustercreator.sh script${ENDCOLOR}"
       exit 1
     fi
