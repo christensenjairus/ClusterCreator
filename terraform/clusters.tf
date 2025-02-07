@@ -236,4 +236,3 @@ variable "clusters" {
     }
   }
 }
-
