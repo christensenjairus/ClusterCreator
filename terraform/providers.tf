@@ -8,10 +8,10 @@ terraform {
       source  = "bpg/proxmox"
       version = "0.64.0"
     }
-    unifi = {
-      source  = "paultyng/unifi"
-      version = "0.41.0"
-    }
+#     unifi = {
+#       source  = "paultyng/unifi"
+#       version = "0.41.0"
+#     }
   }
 
 #   backend "s3" {

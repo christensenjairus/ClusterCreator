@@ -80,6 +80,7 @@ unifi_file="$REPO_PATH/terraform/unifi.tf"
 
 # Toggle specific blocks in providers.tf based on user input
 toggle_tf_block "aws =" "$use_minio" "$providers_file"
+toggle_tf_block "unifi =" "$use_unifi" "$providers_file"
 toggle_tf_block 'backend "s3"' "$use_minio" "$providers_file"
 toggle_tf_block 'provider "aws"' "$use_minio" "$providers_file"
 toggle_tf_block 'provider "unifi"' "$use_unifi" "$providers_file"
