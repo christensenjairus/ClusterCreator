@@ -20,7 +20,7 @@ locals {
           cpu_type           = specs.cpu_type
           bridge             = cluster.networking.bridge
           use_unifi          = cluster.networking.use_unifi
-          vlan_id            = cluster.networking.vlan_id == null ? "${cluster.cluster_id}00" : cluster.networking.vlan_id
+          vlan_id            = cluster.networking.assign_vlan ? (cluster.networking.vlan_id == null ? "${cluster.cluster_id}00" : cluster.networking.vlan_id) : null
           ipv4               : {
             vm_ip            = "${cluster.networking.ipv4.subnet_prefix}.${specs.start_ip + i}"
             gateway          = cluster.networking.ipv4.gateway
