@@ -157,11 +157,12 @@ setup-ccr() {
     echo "$REPO_PATH" > "$REPO_PATH_FILE"
 
     echo -e "${BLUE}Linking clustercreator.sh to ${INSTALL_PATH}${ENDCOLOR}"
+    sudo mkdir -p "${INSTALL_PATH%/*}"
     chmod +x "${REPO_PATH}/clustercreator.sh"
     sudo unlink "${INSTALL_PATH}" 2>/dev/null || true
     sudo ln -s "${REPO_PATH}/clustercreator.sh" "${INSTALL_PATH}"
     echo ""
-    echo -e "${BLUE}Installation complete. You can now use 'ccr' as a command.${ENDCOLOR}"
+    echo -e "${BLUE}Installation complete.\nYou can now use 'ccr' as a command.\nEnsure that ${INSTALL_PATH%/*} is in your \$PATH.${ENDCOLOR}"
     echo ""
     ccr ctx alpha
     echo ""
