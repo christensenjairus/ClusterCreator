@@ -12,7 +12,7 @@
       register: log_files
     - name: Check firstboot log files for failures to ensure all packages were installed correctly (excluding specific patterns)
       shell: |
-        grep -iE 'Error|Fatal' {{ item.path }} | grep -vE 'mysql/error.log|errors = false|liberror|No error reported|Failed to open terminal.debconf|errorcode.md'
+        grep -iE 'Error|Fatal' {{ item.path }} | grep -vE 'mysql/error.log|errors = false|liberror|No error reported|Failed to open terminal.debconf|errorcode.md|libgpg-error'
       # ADD EXCLUSIONS HERE^
       register: grep_output
       failed_when: grep_output.rc == 0
