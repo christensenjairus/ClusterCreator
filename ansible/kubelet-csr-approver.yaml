@@ -18,6 +18,7 @@
       ansible.builtin.get_url:
         url: "https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/refs/tags/v{{ kubelet_serving_cert_approver_version }}/deploy/{{ 'standalone' if kubelet_csr_approver_replica_count == '1' else 'ha' }}-install.yaml"
         dest: "/tmp/kubelet-approver-install.yaml"
+        validate_certs: no # sometimes older ansible packages have a problem with ssl
 
     - name: Edit the manifest to run pods in kube-system namespace
       become: true
