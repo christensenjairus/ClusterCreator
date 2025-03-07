@@ -2,11 +2,11 @@ terraform {
   required_providers {
 #     aws = {
 #       source  = "hashicorp/aws"
-#       version = ">= 5.69.0"
+#       version = "5.90.0"
 #     }
     proxmox = {
       source  = "bpg/proxmox"
-      version = "0.64.0"
+      version = "0.73.0"
     }
 #     unifi = {
 #       source  = "paultyng/unifi"
