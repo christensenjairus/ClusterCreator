@@ -36,6 +36,7 @@ sudo virt-customize -a "$PROXMOX_ISO_PATH"/"$IMAGE_NAME" \
      --copy-in ./FilesToPlace/override.conf:/etc/systemd/system/containerd.service.d/ \
      --copy-in ./FilesToPlace/multipath.conf:/etc/ \
      --copy-in ./FilesToPlace/k8s_mods.conf:/etc/modules-load.d/ \
+     --copy-in ./FilesToPlace/storage_mods.conf:/etc/modules-load.d/ \
      --copy-in ./FilesToPlace/k8s_sysctl.conf:/etc/sysctl.d/ \
      --copy-in ./FilesToPlace/99-inotify-limits.conf:/etc/sysctl.d/ \
      --copy-in ./FilesToPlace/80-hotplug-cpu.rules:/lib/udev/rules.d/ \
