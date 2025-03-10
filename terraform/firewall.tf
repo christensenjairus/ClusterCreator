@@ -67,6 +67,7 @@ resource "proxmox_virtual_environment_firewall_alias" "management_ipv6" {
 
 # create an alias for kube-vip
 resource "proxmox_virtual_environment_firewall_alias" "kube_vip" {
+  count   = local.cluster_config.networking.use_pve_firewall ? 1 : 0
   name    = "${local.cluster_config.cluster_name}-kube-vip"
   cidr    = local.cluster_config.networking.kube_vip.vip
   comment = "Managed by Terraform"
@@ -192,8 +193,8 @@ resource "proxmox_virtual_environment_firewall_ipset" "kube_vip" {
   comment = "Managed by Terraform"
 
   cidr {
-    name    = "dc/${proxmox_virtual_environment_firewall_alias.kube_vip.name}"
-    comment = proxmox_virtual_environment_firewall_alias.kube_vip.name
+    name    = "dc/${proxmox_virtual_environment_firewall_alias.kube_vip[0].name}"
+    comment = proxmox_virtual_environment_firewall_alias.kube_vip[0].name
   }
 }
 

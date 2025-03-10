@@ -4,34 +4,44 @@
 
 ## Table of Contents
 
-1. [Introduction](#introduction)
-2. [Features](#features)
-3. [Prerequisites](#prerequisites)
-4. [Installation](#installation)
+- [ClusterCreator: Terraform \& Ansible K8s on Proxmox](#clustercreator-terraform--ansible-k8s-on-proxmox)
+  - [Table of Contents](#table-of-contents)
+  - [Introduction](#introduction)
+  - [Features](#features)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
     - [1. Add Proxmox Cluster User](#1-add-proxmox-cluster-user)
+      - [1. Add a Proxmox User:](#1-add-a-proxmox-user)
+      - [2. Add a Custom Role for Tofu with Required Permissions:](#2-add-a-custom-role-for-tofu-with-required-permissions)
+      - [3. Assign the Role to the User at the Datacenter Level:](#3-assign-the-role-to-the-user-at-the-datacenter-level)
+      - [4. Create an API Token for the User:](#4-create-an-api-token-for-the-user)
     - [2. Add a KUBECONFIG line to your .bashrc or .zshrc](#2-add-a-kubeconfig-line-to-your-bashrc-or-zshrc)
     - [3. Setup a `ccr` alias](#3-setup-a-ccr-alias)
     - [4. Configure Additional Providers (optional)](#4-configure-additional-providers-optional)
     - [5. Configure Variables](#5-configure-variables)
     - [6. Configure Secrets](#6-configure-secrets)
     - [7. Configure Clusters](#7-configure-clusters)
-5. [Usage](#usage)
+  - [Usage](#usage)
     - [1. Create a VM Template](#1-create-a-vm-template)
     - [2. Initialize Tofu](#2-initialize-tofu)
     - [3. Set Cluster Context](#3-set-cluster-context)
     - [4. Create VMs with Tofu](#4-create-vms-with-tofu)
     - [5. Bootstrap Kubernetes](#5-bootstrap-kubernetes)
     - [6. Manage Kubernetes Clusters](#6-manage-kubernetes-clusters)
-6. [Examples](#examples)
+  - [Examples](#examples)
     - [Alpha Cluster: Single Node](#alpha-cluster-single-node)
     - [Beta Cluster: Multiple General Workers](#beta-cluster-multiple-general-workers)
     - [Gamma Cluster: Highly Available Control Plane with Decoupled etcd](#gamma-cluster-highly-available-control-plane-with-decoupled-etcd)
-7. [Advanced Configurations](#advanced-configurations)
+  - [Advanced Configurations](#advanced-configurations)
     - [Dynamic Configurations](#dynamic-configurations)
     - [Dual Stack Networking](#dual-stack-networking)
     - [Custom Worker Types](#custom-worker-types)
-8. [Troubleshooting](#troubleshooting)
-9. [Final Product](#final-product)
+  - [Troubleshooting](#troubleshooting)
+    - [Installation Errors](#installation-errors)
+  - [Final Product](#final-product)
+    - [Proxmox Pools with VMs Managed by Tofu](#proxmox-pools-with-vms-managed-by-tofu)
+    - [Unifi Network with VLAN Managed by Tofu](#unifi-network-with-vlan-managed-by-tofu)
+    - [Gamma Cluster Example in K9s](#gamma-cluster-example-in-k9s)
 
 ---
 
@@ -40,8 +50,6 @@
 **ClusterCreator** automates the creation and maintenance of fully functional Kubernetes (K8S) clusters of any size on Proxmox. Leveraging Terraform/OpenTofu and Ansible, it facilitates complex setups, including decoupled etcd clusters, diverse worker node configurations, and optional integration with Unifi networks and VLANs.
 
 Having a virtualized K8S cluster allows you to not only simulate a cloud environment but also scale and customize your cluster to your needs—adding or removing nodes and disks, managing backups and snapshots of the virtual machine disks, customizing node class types, and controlling state.
-
-[Watch a step-by-step demo on my blog](https://cyber-engine.com/blog/2024/06/25/k8s-on-proxmox-using-clustercreator/). Be aware the commands are outdated.
 
 ---
 
@@ -73,6 +81,8 @@ Before proceeding, ensure you have the following:
 ---
 
 ## Installation
+
+This tool was designed to run from your own computer (laptop, pc, etc). Though it can be installed on a Proxmox host, it is not recommended.
 
 ### 1. Add Proxmox Cluster User
 
