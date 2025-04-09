@@ -78,9 +78,9 @@ resource "proxmox_virtual_environment_vm" "node" {
   initialization {
     interface = "ide2"
     user_account {
-      keys = [local.vm_ssh_key]
-      password = local.vm_password
-      username = local.vm_username
+      keys = var.vm_ssh_key
+      password = var.vm_password
+      username = var.vm_username
     }
     datastore_id = each.value.disks[0].datastore
     dynamic "ip_config" {
