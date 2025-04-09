@@ -7,6 +7,7 @@ variable "clusters" {
     kubeconfig_file_name     : string                                                     # Required. Name of the local kubeconfig file to be created. Assumed this will be in $HOME/.kube/
     start_on_proxmox_boot    : optional(bool, true)                                       # Optional. Whether or not to start the cluster's vms on proxmox boot
     max_pods_per_node        : optional(number, 512)                                      # Optional. Max pods per node. This should be a function of the quantity of IPs in you pod_cidr and number of nodes.
+    reboot_after_update      : optional(bool, false)                                      # Optional. Whether or not to immediately reboot the nodes after an update using Tofu. False is recommended so you have time to cordon and drain the node(s).
     use_pve_ha               : optional(bool, false)                                      # Optional. Whether to setup PVE High Availability for the VMs.
     ssh                      : object({
       ssh_user               : string                                                     # Required. username for the remote server

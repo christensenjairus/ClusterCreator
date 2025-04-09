@@ -40,7 +40,7 @@ env_variables=(
     "VM_PASSWORD|Enter the desired password for your VMs"
 )
 
-# Define secrets.tf variables and descriptions (excluding VM_USERNAME and VM_PASSWORD as they’ll be auto-filled)
+# Define secrets.tf variables and descriptions (excluding VM_USERNAME and VM_PASSWORD as they'll be auto-filled)
 tf_variables=(
     "vm_ssh_key|Paste the contents of your SSH key's .pub file, for VM access"
     "proxmox_username|Enter the Proxmox username. The README guides you to use 'terraform'"
@@ -92,19 +92,76 @@ prompt_and_save_secrets "$ENV_FILE" "$TMP_ENV_FILE" "${env_variables[@]}"
 
 # Write secrets.tf header
 cat << EOF > "$TMP_TF_FILE"
-# Secrets for Tofu
-locals {
-  vm_username = "$(grep -m 1 "^VM_USERNAME=" "$TMP_ENV_FILE" | sed -E 's/^[^=]+=\s*"([^"]*)".*$/\1/')"
-  vm_password = "$(grep -m 1 "^VM_PASSWORD=" "$TMP_ENV_FILE" | sed -E 's/^[^=]+=\s*"([^"]*)".*$/\1/')"
+variable "vm_username" {
+  default = "$(grep -m 1 "^VM_USERNAME=" "$TMP_ENV_FILE" | sed -E 's/^[^=]+=\s*"([^"]*)".*$/\1/')" # change me to your username
+}
+variable "vm_password" {
+  default = "$(grep -m 1 "^VM_PASSWORD=" "$TMP_ENV_FILE" | sed -E 's/^[^=]+=\s*"([^"]*)".*$/\1/')"
+}
+variable "vm_ssh_key" {
+  type = list(string)
+  default = [
 EOF
 
-# Loop through each Terraform variable, prompt user, and save to secrets.tf
+# Get current SSH keys from secrets.tf if they exist
+current_keys=$(awk '/vm_ssh_key/,/^}/' "$TF_FILE" | awk '/default = \[/,/\]/' | grep -v "default = \[" | grep -v "^}" | grep -v "variable" | grep -v "^[[:space:]]*\]" | sed 's/^[[:space:]]*//' | sed 's/,$//' | sed 's/^"//' | sed 's/"$//')
+
+# Display prompt with existing keys as default
+if [[ -n "$current_keys" ]]; then
+    echo -e "\nCurrent SSH keys:"
+    echo "$current_keys"
+    echo -e "\nEnter new SSH keys (one per line, press Ctrl+D when done, or just press Ctrl+D to keep current keys):"
+else
+    echo -e "\nEnter SSH keys (one per line, press Ctrl+D when done):"
+fi
+
+# Read SSH keys into an array
+declare -a ssh_keys
+while true; do
+    if ! read -r key; then
+        break  # Exit the loop on EOF (Ctrl+D)
+    fi
+    if [[ -n "$key" ]]; then
+        ssh_keys+=("$key")
+    fi
+done
+
+# If no new keys were entered, use the current keys
+if [[ ${#ssh_keys[@]} -eq 0 && -n "$current_keys" ]]; then
+    while IFS= read -r key; do
+        if [[ -n "$key" ]]; then
+            ssh_keys+=("$key")
+        fi
+    done <<< "$current_keys"
+fi
+
+# Write SSH keys to the temporary file
+for i in "${!ssh_keys[@]}"; do
+    if [[ $i -eq $((${#ssh_keys[@]}-1)) ]]; then
+        # Last key - no comma
+        echo "    \"${ssh_keys[$i]}\"" >> "$TMP_TF_FILE"
+    else
+        # Not the last key - add comma
+        echo "    \"${ssh_keys[$i]}\"," >> "$TMP_TF_FILE"
+    fi
+done
+
+# Close the vm_ssh_key block with proper indentation
+echo "  ]" >> "$TMP_TF_FILE"
+echo "}" >> "$TMP_TF_FILE"
+
+# Loop through remaining Terraform variables, prompt user, and save to secrets.tf
 for entry in "${tf_variables[@]}"; do
     var_name="${entry%%|*}"
     var_description="${entry#*|}"
+    
+    # Skip vm_ssh_key as we've already handled it
+    if [[ "$var_name" == "vm_ssh_key" ]]; then
+        continue
+    fi
 
     # Get current value from secrets.tf if it exists, capturing only the value between quotes
-    current_value=$(grep -m 1 "$var_name" "$TF_FILE" | sed -n 's/.*"\(.*\)".*/\1/p')
+    current_value=$(awk -v var="$var_name" '$0 ~ "variable \"" var "\" {" {p=1; next} p && /default = "/ {gsub(/^[^"]*"/,"",$0); gsub(/"$/, "", $0); print; p=0}' "$TF_FILE")
 
     # Display prompt with existing value as default
     if [[ -n "$current_value" ]]; then
@@ -119,12 +176,13 @@ for entry in "${tf_variables[@]}"; do
     fi
     new_value="${input_value:-$current_value}"
 
-    # Write formatted variable line to the temporary file
-    echo "  $var_name = \"$new_value\"" >> "$TMP_TF_FILE"
+    # Write formatted variable block to the temporary file
+    cat << EOF >> "$TMP_TF_FILE"
+variable "$var_name" {
+  default = "$new_value"
+}
+EOF
 done
-
-# Close the locals block in secrets.tf
-echo "}" >> "$TMP_TF_FILE"
 
 # Display the contents of the temporary files to the user for confirmation
 echo -e "\n${YELLOW}Please review the contents of the updated files:${ENDCOLOR}\n"
