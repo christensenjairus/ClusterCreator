@@ -130,6 +130,9 @@ resource "proxmox_virtual_environment_vm" "node" {
       machine,
       operating_system,
       hostpci, # pci devices using database level mapping re-set the mapping once it's booted
+
+      # Changes to this block will recreate the VM!
+      initialization,
       
       # You can comment "disk" out if no production data is present or if you're expanding the disk size and carefully read the Tofu plan.
       # This is here to protect against disks being accidentally recreated, which would cause data loss.
