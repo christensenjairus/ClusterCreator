@@ -115,11 +115,13 @@ resource "proxmox_virtual_environment_vm" "node" {
     bridge  = each.value.bridge
     firewall = true # we'll toggle the firewall at the node level so it can be toggled w/ terraform without restarting the node
   }
-  reboot = false # reboot is performed during the ./install_k8s.sh script, but only when needed, and only on nodes not part of the cluster already.
-  migrate = true
-  on_boot = each.value.on_boot
-  started = true
-  pool_id = upper(each.value.cluster_name)
+  reboot              = false # reboot is performed during the ./install_k8s.sh script, but only when needed, and only on nodes not part of the cluster already.
+  stop_on_destroy     = true  # stop the node when the terraform resource is destroyed. We don't care about data loss because it's being destroyed.
+  migrate             = true
+  on_boot             = each.value.on_boot
+  reboot_after_update = each.value.reboot_after_update
+  started             = true
+  pool_id             = upper(each.value.cluster_name)
   lifecycle {
     ignore_changes = [
       tags,
@@ -128,7 +130,10 @@ resource "proxmox_virtual_environment_vm" "node" {
       machine,
       operating_system,
       hostpci, # pci devices using database level mapping re-set the mapping once it's booted
-      disk, # don't remake disks, could cause data loss! Can comment this out if no production data is present
+      
+      # You can comment "disk" out if no production data is present or if you're expanding the disk size and carefully read the Tofu plan.
+      # This is here to protect against disks being accidentally recreated, which would cause data loss.
+      disk,
     ]
   }
 }
