@@ -9,6 +9,10 @@
         path: /root/.bootstrap
       register: bootstrap_marker_check
 
+    - name: Display the value of bootstrap_marker_check
+      ansible.builtin.debug:
+        var: bootstrap_marker_check
+
     - name: Display warning and ask for confirmation
       ansible.builtin.pause:
         prompt: "This etcd cluster may have already been bootstrapped. Press Enter to continue anyway or Ctrl+C to abort."
@@ -23,8 +27,8 @@
     - name: Upgrade all packages to the latest version on etcd nodes
       become: true
       ansible.builtin.apt:
-        upgrade: 'dist'  # Use 'dist' for distribution upgrade, or 'full' for full upgrade
-        force_apt_get: yes  # Optionally force using apt-get instead of aptitude
+        upgrade: 'dist'
+        force_apt_get: yes
         update_cache: yes
         autoremove: yes
         autoclean: yes
@@ -32,11 +36,21 @@
       until: upgrade_result is succeeded
       retries: 30
       delay: 10
+
+    - name: Display the value of upgrade_result
+      ansible.builtin.debug:
+        var: upgrade_result
+
     - name: Check if reboot is required on etcd nodes
       become: true
       ansible.builtin.stat:
         path: /var/run/reboot-required
       register: reboot_required
+
+    - name: Display the value of reboot_required
+      ansible.builtin.debug:
+        var: reboot_required
+
     - name: Reboot etcd nodes
       become: true
       ansible.builtin.reboot:
@@ -47,6 +61,7 @@
         post_reboot_delay: 30
         test_command: uptime
       when: reboot_required.stat.exists
+
     - name: Wait for systems to become reachable again
       ansible.builtin.wait_for_connection:
         delay: 5
@@ -60,6 +75,11 @@
         mode: '0755'
       tags:
         - etcd_kubelet_config
+
+    - name: Display the path for kubelet service directory
+      ansible.builtin.debug:
+        msg: "Kubelet service directory path: /etc/systemd/system/kubelet.service.d/"
+
     - name: Create kubelet configuration file
       ansible.builtin.copy:
         dest: /etc/systemd/system/kubelet.service.d/kubelet.conf
@@ -80,6 +100,11 @@
         mode: '0644'
       tags:
         - etcd_kubelet_config
+
+    - name: Display the path for kubelet configuration file
+      ansible.builtin.debug:
+        msg: "Kubelet configuration file path: /etc/systemd/system/kubelet.service.d/kubelet.conf"
+
     - name: Create kubelet service override configuration
       ansible.builtin.copy:
         dest: /etc/systemd/system/kubelet.service.d/20-etcd-service-manager.conf
@@ -91,11 +116,17 @@
         mode: '0644'
       tags:
         - etcd_kubelet_config
+
+    - name: Display the path for kubelet service override configuration
+      ansible.builtin.debug:
+        msg: "Kubelet service override configuration path: /etc/systemd/system/kubelet.service.d/20-etcd-service-manager.conf"
+
     - name: Reload systemd daemon to apply changes
       ansible.builtin.systemd:
         daemon_reload: yes
       tags:
         - etcd_kubelet_config
+
     - name: Restart kubelet service
       ansible.builtin.systemd:
         name: kubelet
@@ -115,6 +146,11 @@
         initial_cluster: "{% for host in groups['etcd'] %}{{ host }}=https://{{ hostvars[host].ansible_host }}:2380{% if not loop.last %},{% endif %}{% endfor %}"
       run_once: true
       tags: etcd_cluster_config
+
+    - name: Display the value of initial_cluster
+      ansible.builtin.debug:
+        var: initial_cluster
+
     - name: Create temporary directories to store config files
       file:
         path: "/tmp/{{ hostvars[host].ansible_host }}/"
@@ -124,6 +160,14 @@
         loop_var: host
       tags:
         - etcd_cluster_config
+
+    - name: Display the path for temporary directories
+      ansible.builtin.debug:
+        msg: "Temporary directory path: /tmp/{{ hostvars[host].ansible_host }}/"
+      loop: "{{ groups['etcd'] }}"
+      loop_control:
+        loop_var: host
+
     - name: Generate kubeadmcfg.yaml for each etcd host
       template:
         src: helpers/kubeadm_etcd_config.yaml.j2
@@ -132,11 +176,22 @@
       tags:
         - etcd_cluster_config
 
+    - name: Display the path for kubeadmcfg.yaml
+      ansible.builtin.debug:
+        msg: "kubeadmcfg.yaml path: /tmp/{{ hostvars[item].ansible_host }}/kubeadmcfg.yaml"
+      loop: "{{ groups['etcd'] }}"
+      loop_control:
+        loop_var: item
+
     - name: Generate etcd certificate authority
       command: kubeadm init phase certs etcd-ca
       run_once: true
       tags:
         - etcd_cert_generation
+
+    - name: Display the path for etcd certificate authority
+      ansible.builtin.debug:
+        msg: "etcd certificate authority path: /etc/kubernetes/pki/etcd/ca.crt"
 
 - name: Setup configs for remaining etcd nodes
   become: true
@@ -151,12 +206,21 @@
       include_tasks: helpers/ansible_etcd_cert_creation.yaml
       tags:
         - etcd_cert_generation
+
+    - name: Display the path for certificate generation
+      ansible.builtin.debug:
+        msg: "Certificate generation path: /tmp/{{ hostvars[host].ansible_host }}/"
+      loop: "{{ groups['etcd'] | difference([groups['etcd'][0]]) }}"
+      loop_control:
+        loop_var: host
+
     - name: Cleanup non-reusable certificates in /etc/kubernetes/pki after generation for remaining etcd nodes
       become: true
       command: find /etc/kubernetes/pki -not -name ca.crt -not -name ca.key -type f -delete
       run_once: true
       tags:
         - etcd_cert_generation
+
 - name: Setup config for etcd-0
   become: true
   gather_facts: false
@@ -166,15 +230,19 @@
     - name: Generate certificates for etcd-0
       block:
         - name: Generate etcd-server certificates for etcd-0
-          command: kubeadm init phase certs etcd-server #--config=/tmp/{{ hostvars[groups['etcd'][0]].ansible_host }}/kubeadmcfg.yaml
+          command: kubeadm init phase certs etcd-server
         - name: Generate etcd-peer certificates for etcd-0
-          command: kubeadm init phase certs etcd-peer #--config=/tmp/{{ hostvars[groups['etcd'][0]].ansible_host }}/kubeadmcfg.yaml
+          command: kubeadm init phase certs etcd-peer
         - name: Generate etcd-healthcheck-client certificates for etcd-0
-          command: kubeadm init phase certs etcd-healthcheck-client #--config=/tmp/{{ hostvars[groups['etcd'][0]].ansible_host }}/kubeadmcfg.yaml
+          command: kubeadm init phase certs etcd-healthcheck-client
         - name: Generate controlplane-etcd-client certificates for etcd-0
-          command: kubeadm init phase certs apiserver-etcd-client #--config=/tmp/{{ hostvars[groups['etcd'][0]].ansible_host }}/kubeadmcfg.yaml
+          command: kubeadm init phase certs apiserver-etcd-client
       tags:
         - etcd_cert_generation
+
+    - name: Display the path for etcd-0 certificates
+      ansible.builtin.debug:
+        msg: "etcd-0 certificates path: /etc/kubernetes/pki/"
 
 - name: Copy root SSH key to etcd-0
   hosts: etcd[0]
@@ -193,6 +261,11 @@
         mode: '0700'
         owner: root
         group: root
+
+    - name: Display the path for .ssh directory
+      ansible.builtin.debug:
+        msg: ".ssh directory path: /root/.ssh"
+
     - name: Copy root SSH key to target node
       ansible.builtin.copy:
         src: "{{ root_ssh_key_local_path }}"
@@ -200,6 +273,10 @@
         owner: root
         group: root
         mode: '0600'
+
+    - name: Display the path for copied SSH key
+      ansible.builtin.debug:
+        msg: "Copied SSH key path: /root/.ssh/ssh_key"
 
 - name: Ensure specific directories and files do not exist on remaining etcd nodes
   hosts: etcd[1:]
@@ -215,6 +292,11 @@
       become: true
       tags:
         - etcd_cert_copy
+
+    - name: Display the path for removed PKI directory
+      ansible.builtin.debug:
+        msg: "Removed PKI directory path: /home/{{ cluster_config.ssh.ssh_user }}/pki"
+
     - name: Remove the kubeadmcfg.yaml file if it exists
       ansible.builtin.file:
         path: "/home/{{ cluster_config.ssh.ssh_user }}/kubeadmcfg.yaml"
@@ -222,6 +304,11 @@
       become: true
       tags:
         - etcd_cert_copy
+
+    - name: Display the path for removed kubeadmcfg.yaml
+      ansible.builtin.debug:
+        msg: "Removed kubeadmcfg.yaml path: /home/{{ cluster_config.ssh.ssh_user }}/kubeadmcfg.yaml"
+
     - name: Remove /etc/kubernetes/pki dir if it exists
       ansible.builtin.file:
         path: "/etc/kubernetes/pki"
@@ -229,6 +316,11 @@
       become: true
       tags:
         - etcd_cert_copy
+
+    - name: Display the path for removed /etc/kubernetes/pki directory
+      ansible.builtin.debug:
+        msg: "Removed /etc/kubernetes/pki directory path: /etc/kubernetes/pki"
+
     - name: Ensure /etc/kubernetes dir exists
       ansible.builtin.file:
         path: "/etc/kubernetes"
@@ -236,6 +328,11 @@
       become: true
       tags:
         - etcd_cert_copy
+
+    - name: Display the path for /etc/kubernetes directory
+      ansible.builtin.debug:
+        msg: "/etc/kubernetes directory path: /etc/kubernetes"
+
 - name: Synchronize PKI directories from etcd-0 to remaining etcd nodes
   hosts: etcd[0]  # Running tasks from etcd-0
   gather_facts: false
@@ -252,6 +349,23 @@
       become: true
       tags:
         - etcd_cert_copy
+
+    - name: Display the path for adjusted PKI files
+      ansible.builtin.debug:
+        msg: "Adjusted PKI files path: /tmp/{{ hostvars[item].ansible_host }}/pki"
+      loop: "{{ groups['etcd'][1:] }}"
+      loop_control:
+        loop_var: item
+
+    - name: Display the command for copying PKI directory
+      ansible.builtin.debug:
+        msg: "Copying PKI directory path: scp -i /root/.ssh/ssh_key -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /tmp/{{ hostvars[item].ansible_host }}/* {{ cluster_config.ssh.ssh_user }}@{{ hostvars[item].ansible_host }}:~/"
+      loop: "{{ groups['etcd'][1:] }}"
+      loop_control:
+        loop_var: item
+      tags:
+        - etcd_cert_copy
+
     - name: Copy PKI directory to each etcd node
       ansible.builtin.shell:
         cmd: "scp -i /root/.ssh/ssh_key -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /tmp/{{ hostvars[item].ansible_host }}/* {{ cluster_config.ssh.ssh_user }}@{{ hostvars[item].ansible_host }}:~/"
@@ -259,6 +373,7 @@
       become: true
       tags:
         - etcd_cert_copy
+
 - name: Correct ownership and relocate PKI directories on remaining etcd nodes
   hosts: etcd[1:]
   gather_facts: false
@@ -272,6 +387,11 @@
         find /home/{{ cluster_config.ssh.ssh_user }}/pki -type f -exec chmod 600 {} \;
       tags:
         - etcd_cert_copy
+
+    - name: Display the path for PKI files with corrected permissions
+      ansible.builtin.debug:
+        msg: "PKI files with corrected permissions path: /home/{{ cluster_config.ssh.ssh_user }}/pki"
+
     - name: Ensure root ownership of the PKI directory
       ansible.builtin.file:
         path: "/home/{{ cluster_config.ssh.ssh_user }}/pki"
@@ -280,11 +400,20 @@
         recurse: true
       tags:
         - etcd_cert_copy
+
+    - name: Display the path for PKI directory with root ownership
+      ansible.builtin.debug:
+        msg: "PKI directory with root ownership path: /home/{{ cluster_config.ssh.ssh_user }}/pki"
+
     - name: Move PKI directory to /etc/kubernetes
       ansible.builtin.command: "mv -f /home/{{ cluster_config.ssh.ssh_user }}/pki /etc/kubernetes/"
       become: true
       tags:
         - etcd_cert_copy
+
+    - name: Display the path for moved PKI directory
+      ansible.builtin.debug:
+        msg: "Moved PKI directory path: /etc/kubernetes/pki"
 
 - name: Initialize etcd on etcd-0
   hosts: etcd[0]
@@ -296,6 +425,11 @@
       become: true
       tags:
         - etcd_init
+
+    - name: Display the path for etcd configuration file
+      ansible.builtin.debug:
+        msg: "etcd configuration file path: /tmp/{{ hostvars[groups['etcd'][0]].ansible_host }}/kubeadmcfg.yaml"
+
 - name: Create static pod manifests on remaining etcd nodes
   hosts: etcd[1:]
   gather_facts: false
@@ -308,6 +442,10 @@
       become: true
       tags:
         - etcd_init
+
+    - name: Display the path for etcd configuration file
+      ansible.builtin.debug:
+        msg: "etcd configuration file path: /home/{{ cluster_config.ssh.ssh_user }}/kubeadmcfg.yaml"
 
 - name: Transfer PKI files to controlplane-0 and organize them
   hosts: etcd[0]  # Assuming this playbook runs on etcd-0
@@ -323,6 +461,11 @@
       when: groups['etcd'] | default([]) | length > 0
       tags:
         - kubeadm_config_copy
+
+    - name: Display the path for copied ca.crt
+      ansible.builtin.debug:
+        msg: "Copied ca.crt path: /etc/kubernetes/pki/etcd/ca.crt"
+
     - name: Copy apiserver-etcd-client.crt to controlplane-0
       ansible.builtin.shell:
         cmd: "scp -i /root/.ssh/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /etc/kubernetes/pki/apiserver-etcd-client.crt {{ cluster_config.ssh.ssh_user }}@{{ hostvars[groups['controlplane'][0]].ansible_host }}:/home/{{ cluster_config.ssh.ssh_user }}/apiserver-etcd-client.crt"
@@ -330,6 +473,11 @@
       when: groups['etcd'] | default([]) | length > 0
       tags:
         - kubeadm_config_copy
+
+    - name: Display the path for copied apiserver-etcd-client.crt
+      ansible.builtin.debug:
+        msg: "Copied apiserver-etcd-client.crt path: /etc/kubernetes/pki/apiserver-etcd-client.crt"
+
     - name: Copy apiserver-etcd-client.key to controlplane-0
       ansible.builtin.shell:
         cmd: "scp -i /root/.ssh/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /etc/kubernetes/pki/apiserver-etcd-client.key {{ cluster_config.ssh.ssh_user }}@{{ hostvars[groups['controlplane'][0]].ansible_host }}:/home/{{ cluster_config.ssh.ssh_user }}/apiserver-etcd-client.key"
@@ -337,6 +485,11 @@
       when: groups['etcd'] | default([]) | length > 0
       tags:
         - kubeadm_config_copy
+
+    - name: Display the path for copied apiserver-etcd-client.key
+      ansible.builtin.debug:
+        msg: "Copied apiserver-etcd-client.key path: /etc/kubernetes/pki/apiserver-etcd-client.key"
+
 - name: Prepare and organize PKI files on controlplane-0
   hosts: controlplane[0]  # Targeting controlplane-0
   gather_facts: false
@@ -356,6 +509,14 @@
       when: groups['etcd'] | default([]) | length > 0
       tags:
         - kubeadm_config_copy
+
+    - name: Display the path for PKI directories
+      ansible.builtin.debug:
+        msg: "PKI directories path: {{ item }}"
+      loop:
+        - "/etc/kubernetes/pki"
+        - "/etc/kubernetes/pki/etcd"
+
     - name: Move apiserver-etcd-client.crt and apiserver-etcd-client.key to /etc/kubernetes/pki
       ansible.builtin.shell:
         cmd: sudo mv /home/{{ cluster_config.ssh.ssh_user }}/apiserver-etcd-client.crt /home/{{ cluster_config.ssh.ssh_user }}/apiserver-etcd-client.key /etc/kubernetes/pki/
@@ -363,6 +524,11 @@
       when: groups['etcd'] | default([]) | length > 0
       tags:
         - kubeadm_config_copy
+
+    - name: Display the path for moved apiserver-etcd-client.crt and apiserver-etcd-client.key
+      ansible.builtin.debug:
+        msg: "Moved apiserver-etcd-client.crt and apiserver-etcd-client.key path: /etc/kubernetes/pki/"
+
     - name: Move ca.crt to /etc/kubernetes/pki/etcd
       ansible.builtin.shell:
         cmd: sudo mv /home/{{ cluster_config.ssh.ssh_user }}/ca.crt /etc/kubernetes/pki/etcd/
@@ -370,6 +536,11 @@
       when: groups['etcd'] | default([]) | length > 0
       tags:
         - kubeadm_config_copy
+
+    - name: Display the path for moved ca.crt
+      ansible.builtin.debug:
+        msg: "Moved ca.crt path: /etc/kubernetes/pki/etcd/ca.crt"
+
     - name: Clean up etcd folder
       ansible.builtin.file:
         path: "/home/{{ cluster_config.ssh.ssh_user }}/etcd"
@@ -378,6 +549,10 @@
       when: groups['etcd'] | default([]) | length > 0
       tags:
         - kubeadm_config_copy
+
+    - name: Display the path for cleaned up etcd folder
+      ansible.builtin.debug:
+        msg: "Cleaned up etcd folder path: /home/{{ cluster_config.ssh.ssh_user }}/etcd"
 
 - name: Remove SSH private key from root's .ssh directory
   hosts: etcd[0]
@@ -392,6 +567,10 @@
       tags:
         - remove_ssh_key
 
+    - name: Display the path for removed SSH private key
+      ansible.builtin.debug:
+        msg: "Removed SSH private key path: /root/.ssh/ssh_key"
+
 - name: Add heartbeat-interval and election-timeout to etcd container command if not present
   hosts: etcd
   gather_facts: false
@@ -402,15 +581,29 @@
   tasks:
     - name: Backup the etcd YAML file to ~/.etcd.bak
       ansible.builtin.command: "cp {{ etcd_yaml_path }} /home/{{ cluster_config.ssh.ssh_user }}/.etcd.bak"
+
+    - name: Display the path for etcd YAML backup
+      ansible.builtin.debug:
+        msg: "etcd YAML backup path: /home/{{ cluster_config.ssh.ssh_user }}/.etcd.bak"
+
     - name: Check if heartbeat-interval and election-timeout are already present
       ansible.builtin.shell: |
         grep -q -- '--heartbeat-interval=50' {{ etcd_yaml_path }} && grep -q -- '--election-timeout=5000' {{ etcd_yaml_path }}
       register: etcd_args_present
       failed_when: false
+
+    - name: Display the result of etcd_args_present check
+      ansible.builtin.debug:
+        var: etcd_args_present
+
     - name: Add heartbeat-interval and election-timeout to etcd container command using sed
       ansible.builtin.command: |
         sed -i '/- etcd/a \    - --heartbeat-interval=500\n    - --election-timeout=2500' {{ etcd_yaml_path }}
       when: etcd_args_present.rc != 0
+
+    - name: Display the path for modified etcd YAML file
+      ansible.builtin.debug:
+        msg: "Modified etcd YAML file path: {{ etcd_yaml_path }}"
 
 - name: Ensure etcd backup cronjobs are present
   hosts: etcd
@@ -431,6 +624,11 @@
         owner: root
         group: root
         mode: '0755'
+
+    - name: Display the path for hourly etcd backup directory
+      ansible.builtin.debug:
+        msg: "Hourly etcd backup directory path: /var/backups/etcd/hourly"
+
     - name: Ensure /var/backups/etcd/daily directory exists
       file:
         path: /var/backups/etcd/daily
@@ -438,24 +636,36 @@
         owner: root
         group: root
         mode: '0755'
+
+    - name: Display the path for daily etcd backup directory
+      ansible.builtin.debug:
+        msg: "Daily etcd backup directory path: /var/backups/etcd/daily"
+
     - name: Add cronjob for hourly etcdctl snapshot
       cron:
         name: "etcdctl hourly snapshot backup"
         user: root
         minute: "0"
         hour: "*"
-        # run every hour. Delete snapshots older than 24 hours.
         job: >
-          ETCDCTL_API=3 etcdctl --cert {{ etcd_cert }} --key {{ etcd_key }} --cacert {{ etcd_cacert }} --endpoints {{ etcd_endpoint }} snapshot save /var/backups/etcd/hourly/snapshot_$(date +\%Y\%m\%d\%H\%M).db && find /var/backups/etcd/hourly/ -type f -name 'snapshot_*.db' -mtime +1 -exec rm {} \;
+          ETCDCTL_API=3 etcdctl --cert {{ etcd_cert }} --key {{ etcd_key }} --cacert {{ etcd_cacert }} --endpoints {{ etcd_endpoint }} snapshot save /var/backups/etcd/hourly/snapshot_$(date +\\%Y\\%m\\%d\\%H\\%M).db && find /var/backups/etcd/hourly/ -type f -name 'snapshot_*.db' -mtime +1 -exec rm {} \;
+
+    - name: Display the path for hourly etcd snapshot
+      ansible.builtin.debug:
+        msg: "Hourly etcd snapshot path: /var/backups/etcd/hourly/snapshot_$(date +\\%Y\\%m\\%d\\%H\\%M).db"
+
     - name: Add cronjob for daily etcdctl snapshot
       cron:
         name: "etcdctl daily snapshot backup"
         user: root
         minute: "30"
         hour: "0"
-        # run at 12:30am to avoid snapshotting during backup. Delete snapshots older than 7 days.
         job: >
-          ETCDCTL_API=3 etcdctl --cert {{ etcd_cert }} --key {{ etcd_key }} --cacert {{ etcd_cacert }} --endpoints {{ etcd_endpoint }} snapshot save /var/backups/etcd/daily/snapshot_$(date +\%Y\%m\%d).db && find /var/backups/etcd/daily/ -type f -name 'snapshot_*.db' -mtime +7 -exec rm {} \;
+          ETCDCTL_API=3 etcdctl --cert {{ etcd_cert }} --key {{ etcd_key }} --cacert {{ etcd_cacert }} --endpoints {{ etcd_endpoint }} snapshot save /var/backups/etcd/daily/snapshot_$(date +\\%Y\\%m\\%d).db && find /var/backups/etcd/daily/ -type f -name 'snapshot_*.db' -mtime +7 -exec rm {} \;
+
+    - name: Display the path for daily etcd snapshot
+      ansible.builtin.debug:
+        msg: "Daily etcd snapshot path: /var/backups/etcd/daily/snapshot_$(date +\\%Y\\%m\\%d).db"
 
 - name: Apply ionice and traffic control settings for etcd (performance tuning)
   hosts: etcd
@@ -466,30 +676,65 @@
   tags:
     - etcd_performance_tuning
   tasks:
-
     - name: Set ionice for etcd process
       ansible.builtin.shell: "ionice -c2 -n0 -p $(pgrep etcd) || true"
+
+    - name: Display the ionice settings for etcd process
+      ansible.builtin.debug:
+        msg: "ionice settings for etcd process: ionice -c2 -n0 -p $(pgrep etcd)"
 
     - name: Ensure ionice settings persist on reboot for etcd
       cron:
         name: "Set ionice for etcd process"
         user: root
         special_time: "reboot"
-        # needs to sleep until the etcd process is running so that pgrep works
         job: sleep 60 && ionice -c2 -n0 -p $(pgrep etcd)
+
+    - name: Display the cron job for ionice settings
+      ansible.builtin.debug:
+        msg: "Cron job for ionice settings: sleep 60 && ionice -c2 -n0 -p $(pgrep etcd)"
 
     - name: Disable existing traffic control settings on eth0
       ansible.builtin.shell: "tc qdisc del dev eth0 root || true"
+
+    - name: Display the command to disable traffic control settings
+      ansible.builtin.debug:
+        msg: "Command to disable traffic control settings: tc qdisc del dev eth0 root"
+
     - name: Add root qdisc for traffic control on eth0
       ansible.builtin.shell: "tc qdisc add dev eth0 root handle 1: prio bands 3"
+
+    - name: Display the command to add root qdisc
+      ansible.builtin.debug:
+        msg: "Command to add root qdisc: tc qdisc add dev eth0 root handle 1: prio bands 3"
+
     - name: Add traffic control filter for etcd port 2380 (source)
       ansible.builtin.shell: "tc filter add dev eth0 parent 1: protocol ip prio 1 u32 match ip sport 2380 0xffff flowid 1:1"
+
+    - name: Display the command to add traffic control filter for etcd port 2380 (source)
+      ansible.builtin.debug:
+        msg: "Command to add traffic control filter for etcd port 2380 (source): tc filter add dev eth0 parent 1: protocol ip prio 1 u32 match ip sport 2380 0xffff flowid 1:1"
+
     - name: Add traffic control filter for etcd port 2380 (destination)
       ansible.builtin.shell: "tc filter add dev eth0 parent 1: protocol ip prio 1 u32 match ip dport 2380 0xffff flowid 1:1"
+
+    - name: Display the command to add traffic control filter for etcd port 2380 (destination)
+      ansible.builtin.debug:
+        msg: "Command to add traffic control filter for etcd port 2380 (destination): tc filter add dev eth0 parent 1: protocol ip prio 1 u32 match ip dport 2380 0xffff flowid 1:1"
+
     - name: Add traffic control filter for etcd port 2379 (source)
       ansible.builtin.shell: "tc filter add dev eth0 parent 1: protocol ip prio 2 u32 match ip sport 2379 0xffff flowid 1:1"
+
+    - name: Display the command to add traffic control filter for etcd port 2379 (source)
+      ansible.builtin.debug:
+        msg: "Command to add traffic control filter for etcd port 2379 (source): tc filter add dev eth0 parent 1: protocol ip prio 2 u32 match ip sport 2379 0xffff flowid 1:1"
+
     - name: Add traffic control filter for etcd port 2379 (destination)
       ansible.builtin.shell: "tc filter add dev eth0 parent 1: protocol ip prio 2 u32 match ip dport 2379 0xffff flowid 1:1"
+
+    - name: Display the command to add traffic control filter for etcd port 2379 (destination)
+      ansible.builtin.debug:
+        msg: "Command to add traffic control filter for etcd port 2379 (destination): tc filter add dev eth0 parent 1: protocol ip prio 2 u32 match ip dport 2379 0xffff flowid 1:1"
 
     - name: Ensure tc settings persist on reboot for etcd
       cron:
@@ -497,6 +742,10 @@
         user: root
         special_time: "reboot"
         job: "tc qdisc del dev eth0 root && tc qdisc add dev eth0 root handle 1: prio bands 3 && tc filter add dev eth0 parent 1: protocol ip prio 1 u32 match ip sport 2380 0xffff flowid 1:1 && tc filter add dev eth0 parent 1: protocol ip prio 1 u32 match ip dport 2380 0xffff flowid 1:1 && tc filter add dev eth0 parent 1: protocol ip prio 2 u32 match ip sport 2379 0xffff flowid 1:1 && tc filter add dev eth0 parent 1: protocol ip prio 2 u32 match ip dport 2379 0xffff flowid 1:1"
+
+    - name: Display the cron job for tc settings
+      ansible.builtin.debug:
+        msg: "Cron job for tc settings: tc qdisc del dev eth0 root && tc qdisc add dev eth0 root handle 1: prio bands 3 && tc filter add dev eth0 parent 1: protocol ip prio 1 u32 match ip sport 2380 0xffff flowid 1:1 && tc filter add dev eth0 parent 1: protocol ip prio 1 u32 match ip dport 2380 0xffff flowid 1:1 && tc filter add dev eth0 parent 1: protocol ip prio 2 u32 match ip sport 2379 0xffff flowid 1:1 && tc filter add dev eth0 parent 1: protocol ip prio 2 u32 match ip dport 2379 0xffff flowid 1:1"
 
 - name: Create an alias for 'etcd-health'
   hosts: etcd
@@ -511,11 +760,19 @@
       set_fact:
         etcd_health_command: "watch -n 1 \"echo -------------------------- {{ inventory_hostname }} -------------------------- && sudo ETCDCTL_API=3 etcdctl --cert /etc/kubernetes/pki/etcd/peer.crt --key /etc/kubernetes/pki/etcd/peer.key --cacert /etc/kubernetes/pki/etcd/ca.crt --endpoints https://{{ ansible_host }}:2379 endpoint health || true && echo\""
 
+    - name: Display the etcd health check command
+      ansible.builtin.debug:
+        msg: "etcd health check command: {{ etcd_health_command }}"
+
     - name: Add alias to .bashrc for monitoring etcd health
       lineinfile:
         path: "/home/{{ cluster_config.ssh.ssh_user }}/.bashrc"
         create: yes
         line: "alias etcd-health='{{ etcd_health_command }}'"
+
+    - name: Display the path for .bashrc
+      ansible.builtin.debug:
+        msg: ".bashrc path: /home/{{ cluster_config.ssh.ssh_user }}/.bashrc"
 
 - name: Create an alias for 'etcd-health-all'
   hosts: etcd
@@ -531,11 +788,19 @@
         etcd_health_all_command: "{{ etcd_health_all_command | default('') }}{{ 'watch -n 1 \"' if item == groups['etcd'][0] else ' && ' }}echo -------------------------- {{ item }} -------------------------- && sudo ETCDCTL_API=3 etcdctl --cert /etc/kubernetes/pki/etcd/peer.crt --key /etc/kubernetes/pki/etcd/peer.key --cacert /etc/kubernetes/pki/etcd/ca.crt --endpoints https://{{ item }}:2379 endpoint health || true && echo {{ '\"' if item == groups['etcd'][-1] else '' }}"
       loop: "{{ groups['etcd'] }}"
 
-    - name: Add alias to .bashrc for monitoring etcd health
+    - name: Display the etcd health check command for all nodes
+      ansible.builtin.debug:
+        msg: "etcd health check command for all nodes: {{ etcd_health_all_command }}"
+
+    - name: Add alias to .bashrc for monitoring etcd health for all nodes
       lineinfile:
         path: "/home/{{ cluster_config.ssh.ssh_user }}/.bashrc"
         create: yes
         line: "alias etcd-health-all='{{ etcd_health_all_command }}'"
+
+    - name: Display the path for .bashrc
+      ansible.builtin.debug:
+        msg: ".bashrc path: /home/{{ cluster_config.ssh.ssh_user }}/.bashrc"
 
 - name: Etcdctl healthcheck
   hosts: etcd[0]
@@ -548,6 +813,7 @@
     - name: Pause for 10s to give decoupled etcd cluster ample time to start
       ansible.builtin.pause:
         seconds: 10
+
     - name: Wait until majority of etcd endpoints are healthy
       ansible.builtin.shell: |
         ETCDCTL_API=3 etcdctl \
@@ -564,6 +830,7 @@
         (etcd_health_check.stdout | from_json | selectattr('health', 'equalto', true) | list | length) >= ((groups['etcd'] | length) // 2 + 1)
       ignore_errors: false
       become: true
+
     - name: Debug etcd health check output
       ansible.builtin.debug:
         var: etcd_health_check.stdout | from_json
@@ -579,3 +846,7 @@
         state: touch
       tags:
         - etcd_init
+
+    - name: Display the path for bootstrap marker file
+      ansible.builtin.debug:
+        msg: "Bootstrap marker file path: /root/.bootstrap"

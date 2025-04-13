@@ -5,6 +5,7 @@
   any_errors_fatal: true
   vars:
     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    ssh_hosts_file: "{{ lookup('env', 'HOME') }}/.ssh/known_hosts"
 
   tasks:
     - name: Iterate through all inventory hosts to update SSH keys
@@ -34,3 +35,37 @@
             state: present
           loop: "{{ ssh_key.results }}"
           when: item.stdout != "" and item.rc == 0
+
+- name: Copy SSH public key to all nodes and add to authorized_keys
+  hosts: all
+  become: yes
+  gather_facts: false
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    ssh_public_key: "{{ lookup('file', '/root/.ssh/ssh_key.pub') }}"  # Assign var from a public key content
+
+  tasks:
+    - name: Ensure .ssh directory exists
+      ansible.builtin.file:
+        path: /home/{{ cluster_config.ssh.ssh_user }}/.ssh
+        state: directory
+        mode: '0700'
+        owner: "{{ cluster_config.ssh.ssh_user }}"
+        group: "{{ cluster_config.ssh.ssh_user }}"
+
+    - name: Copy public key to remote host
+      ansible.builtin.copy:
+        src: /root/.ssh/ssh_key.pub  # A public key path on the ansible host
+        dest: /home/{{ cluster_config.ssh.ssh_user }}/.ssh/ssh_key.pub
+        owner: "{{ cluster_config.ssh.ssh_user }}"
+        group: "{{ cluster_config.ssh.ssh_user }}"
+        mode: '0644'
+
+    - name: Add public key to authorized_keys
+      ansible.builtin.lineinfile:
+        path: /home/{{ cluster_config.ssh.ssh_user }}/.ssh/authorized_keys
+        line: "{{ ssh_public_key }}"  # Using var with a public key content
+        create: yes
+        mode: '0600'
+        owner: "{{ cluster_config.ssh.ssh_user }}"
+        group: "{{ cluster_config.ssh.ssh_user }}"
