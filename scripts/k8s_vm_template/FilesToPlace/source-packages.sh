@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Install packages from source
 # MIRRORS ansible/reinstall-source-packages.yaml

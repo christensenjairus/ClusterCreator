@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Define the package for the current kernel
 current_kernel_version=$(uname -r)

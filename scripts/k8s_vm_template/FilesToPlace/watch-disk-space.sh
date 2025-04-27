@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Check if the script is running under watch; if not, rerun it with watch -n 1
 if [[ "$1" != "--watched" ]]; then
