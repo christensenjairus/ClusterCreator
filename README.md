@@ -6,6 +6,7 @@
 
 - [ClusterCreator: Terraform \& Ansible K8s on Proxmox](#clustercreator-terraform--ansible-k8s-on-proxmox)
   - [Table of Contents](#table-of-contents)
+  - [Star History](#star-history)
   - [Introduction](#introduction)
   - [Features](#features)
   - [Prerequisites](#prerequisites)
@@ -44,6 +45,16 @@
     - [Gamma Cluster Example in K9s](#gamma-cluster-example-in-k9s)
 
 ---
+
+## Star History
+
+<a href="https://www.star-history.com/#christensenjairus/clustercreator&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=christensenjairus/clustercreator&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=christensenjairus/clustercreator&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=christensenjairus/clustercreator&type=Date" />
+ </picture>
+</a>
 
 ## Introduction
 
