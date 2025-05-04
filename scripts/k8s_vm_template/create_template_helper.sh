@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Record the start time
 start_time_total=$(date +%s)

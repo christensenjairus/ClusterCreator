@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 usage() {
     echo "Usage: ccr vmctl [start|shutdown|pause|resume|hibernate|stop|snapshot|backup] [--timeout <seconds>]"

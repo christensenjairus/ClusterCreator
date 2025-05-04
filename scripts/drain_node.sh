@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 usage() {
   echo "Usage: ccr drain-node <hostname> [-t/--timeout <seconds>]"

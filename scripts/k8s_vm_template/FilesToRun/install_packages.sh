@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -a # automatically export all variables
 source /etc/k8s.env

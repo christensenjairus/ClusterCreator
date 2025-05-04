@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 usage() {
     echo "Usage: ccr command 'command_to_run' [<hostname_or_node_class>]"
