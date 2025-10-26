@@ -11,20 +11,20 @@ apiServer:
   - "{{ hostvars[host].ansible_host }}"
 {% endfor %}
   - "{{ cluster_config.cluster_name }}"
-  - "{{ cluster_config.cluster_name }}.{{ cluster_config.networking.dns_search_domain }}"
+  - "{{ cluster_config.cluster_name }}.{{ cluster_config.networking.search_domain }}"
   - "{{ cluster_config.networking.kube_vip.vip_hostname }}"
-  - "{{ cluster_config.networking.kube_vip.vip_hostname }}.{{ cluster_config.networking.dns_search_domain }}"
+  - "{{ cluster_config.networking.kube_vip.vip_hostname }}.{{ cluster_config.networking.search_domain }}"
 networking:
   dnsDomain: cluster.local
-  serviceSubnet: {{ cluster_config.networking.ipv4.svc_cidr }}{% if cluster_config.networking.ipv6.enabled and cluster_config.networking.ipv6.dual_stack %},{{ cluster_config.networking.ipv6.svc_cidr }}{% endif %}
+  serviceSubnet: {{ cluster_config.networking.ipv4.svc_cidr }}{% if cluster_config.networking.nics[0].ipv6.subnet_prefix is defined and cluster_config.networking.nics[0].ipv6.subnet_prefix %},{{ cluster_config.networking.ipv6.svc_cidr }}{% endif %}
 
-  podSubnet: {{ cluster_config.networking.ipv4.pod_cidr }}{% if cluster_config.networking.ipv6.enabled and cluster_config.networking.ipv6.dual_stack %},{{ cluster_config.networking.ipv6.pod_cidr }}{% endif %}
+  podSubnet: {{ cluster_config.networking.ipv4.pod_cidr }}{% if cluster_config.networking.nics[0].ipv6.subnet_prefix is defined and cluster_config.networking.nics[0].ipv6.subnet_prefix %},{{ cluster_config.networking.ipv6.pod_cidr }}{% endif %}
 
 controllerManager:
   extraArgs:
     - name: node-cidr-mask-size-ipv4
       value: "24"
-{% if cluster_config.networking.ipv6.enabled and cluster_config.networking.ipv6.dual_stack %}
+{% if cluster_config.networking.nics[0].ipv6.subnet_prefix is defined and cluster_config.networking.nics[0].ipv6.subnet_prefix %}
     - name: node-cidr-mask-size-ipv6
       value: "96"
 {% endif %}

@@ -13,15 +13,18 @@
     - name: Create Non-Auto-Provisioning Local StorageClass
       ansible.builtin.command:
         cmd: kubectl apply -f /tmp/local_storageclass.yaml
+      retries: 3
 
     - name: Create Auto-Provisioning Local StorageClass
       ansible.builtin.command:
         cmd: kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v{{ local_path_provisioner_version }}/deploy/local-path-storage.yaml
+      retries: 3
 
     - name: Check if a default storage class exists by parsing kubectl output
       ansible.builtin.command:
         cmd: kubectl get storageclass
       register: storageclass_output
+      retries: 3
 
     - name: Set default_storage_class_exists based on storageclass output
       set_fact:

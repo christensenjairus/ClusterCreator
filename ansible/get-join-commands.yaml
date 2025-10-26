@@ -13,6 +13,7 @@
         cmd: >
           kubectl get node {{ item }} -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}{.metadata.labels.node-role.kubernetes.io/control-plane}'
       register: node_status
+      retries: 3
       delegate_to: "{{ item }}"
       changed_when: false
       no_log: true

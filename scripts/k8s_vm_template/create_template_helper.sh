@@ -27,7 +27,7 @@ echo -e "${GREEN}Removing old image if it exists...${ENDCOLOR}"
 sudo rm -f "${PROXMOX_ISO_PATH:?PROXMOX_ISO_PATH is not set}/${IMAGE_NAME:?IMAGE_NAME is not set}"* 2>/dev/null || true
 
 echo -e "${GREEN}Downloading the image to get new updates...${ENDCOLOR}"
-sudo wget --no-check-certificate -qO "$PROXMOX_ISO_PATH"/"$IMAGE_NAME" "$IMAGE_LINK"
+sudo wget --no-check-certificate -O "$PROXMOX_ISO_PATH"/"$IMAGE_NAME" "$IMAGE_LINK"
 echo ""
 
 echo -e "${GREEN}Update, add packages, enable services, edit multipath config, set timezone, set firstboot scripts...${ENDCOLOR}"
@@ -37,6 +37,7 @@ sudo virt-customize -a "$PROXMOX_ISO_PATH"/"$IMAGE_NAME" \
      --copy-in ./FilesToPlace/multipath.conf:/etc/ \
      --copy-in ./FilesToPlace/k8s_mods.conf:/etc/modules-load.d/ \
      --copy-in ./FilesToPlace/storage_mods.conf:/etc/modules-load.d/ \
+     --copy-in ./FilesToPlace/network_mods.conf:/etc/modules-load.d/ \
      --copy-in ./FilesToPlace/k8s_sysctl.conf:/etc/sysctl.d/ \
      --copy-in ./FilesToPlace/99-inotify-limits.conf:/etc/sysctl.d/ \
      --copy-in ./FilesToPlace/80-hotplug-cpu.rules:/lib/udev/rules.d/ \
@@ -44,10 +45,12 @@ sudo virt-customize -a "$PROXMOX_ISO_PATH"/"$IMAGE_NAME" \
      --copy-in ./FilesToPlace/source-packages.sh:/root/ \
      --copy-in ./FilesToPlace/watch-disk-space.sh:/root/ \
      --copy-in ./FilesToPlace/extra-kernel-modules.sh:/root/ \
+     --copy-in ./FilesToPlace/encryption-manifest-edit.sh:/usr/local/bin/ \
      --copy-in k8s.env:/etc/ \
      --install qemu-guest-agent,cloud-init \
      --timezone "$TIMEZONE" \
-     --firstboot ./FilesToRun/install_packages.sh
+     --firstboot ./FilesToRun/install_packages.sh \
+     --root-password "password:$VM_PASSWORD"
      # firstboot script creates /tmp/.firstboot when finished
 
 echo -e "${GREEN}Deleting the old template vm if it exists...${ENDCOLOR}"
@@ -86,7 +89,9 @@ sudo qm set "$TEMPLATE_VM_ID" \
   --serial0 socket \
   --vga serial0 \
   --ciuser "$VM_USERNAME" \
-  --cipassword "$VM_PASSWORD" \
+  --cipassword $(openssl passwd -6 "$VM_PASSWORD") \
+  --citype nocloud \
+  --ciupgrade 1 \
   --ipconfig0 gw="$TEMPLATE_VM_GATEWAY",ip="$TEMPLATE_VM_IP" \
   --nameserver "$TWO_DNS_SERVERS $TEMPLATE_VM_GATEWAY" \
   --searchdomain "$TEMPLATE_VM_SEARCH_DOMAIN" \
@@ -144,7 +149,7 @@ else
 fi
 
 echo -e "${GREEN}Clean out cloudconfig configuration...${ENDCOLOR}"
-sudo qm guest exec "$TEMPLATE_VM_ID" -- /bin/sh -c  "rm -f /etc/cloud/clean.d/README && cloud-init clean --logs" >/dev/null
+sudo qm guest exec "$TEMPLATE_VM_ID" -- /bin/sh -c  "rm -f /etc/cloud/clean.d/README && cloud-init clean --logs --machine-id" >/dev/null
 
 echo -e "${GREEN}Shutting down the VM gracefully...${ENDCOLOR}"
 sudo qm shutdown "$TEMPLATE_VM_ID"

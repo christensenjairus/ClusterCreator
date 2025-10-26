@@ -2,7 +2,6 @@
 
 set -a # automatically export all variables
 source /etc/k8s.env
-source /etc/.env
 set +a # stop automatically exporting
 
 # Set non-interactive mode for apt commands
@@ -12,7 +11,8 @@ export DEBIAN_FRONTEND=noninteractive
 apt install -y \
   locales-all \
   gpg \
-  bc
+  bc \
+  apt-transport-https
 
 # generate locales
 echo -e "export LANGUAGE=en_US\nexport LANG=en_US.UTF-8\nexport LC_ALL=en_US.UTF-8\nexport LC_CTYPE=en_US.UTF-8" >> /etc/environment
@@ -33,10 +33,6 @@ mkdir -m 755 /etc/apt/keyrings
 curl -fsSL "https://pkgs.k8s.io/core:/stable:/v${KUBERNETES_SHORT_VERSION}/deb/Release.key" | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v${KUBERNETES_SHORT_VERSION}/deb/ /" | tee /etc/apt/sources.list.d/kubernetes.list
 
-# add helm apt repository
-curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | tee /usr/share/keyrings/helm.gpg > /dev/null
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | tee /etc/apt/sources.list.d/helm-stable-debian.list
-
 # update apt cache
 apt-get update
 apt upgrade -y
@@ -56,7 +52,6 @@ sg3-utils jq \
 apparmor \
 apparmor-utils \
 iperf \
-apt-transport-https \
 ca-certificates \
 gnupg-agent \
 software-properties-common \
@@ -66,12 +61,11 @@ python3-kubernetes \
 python3-pip \
 conntrack \
 unzip \
-ceph \
+ceph-common \
 cron \
 iproute2 \
 intel-gpu-tools \
 intel-opencl-icd \
-helm \
 etcd-client \
 kubelet="$KUBERNETES_LONG_VERSION" \
 kubeadm="$KUBERNETES_LONG_VERSION" \
@@ -91,9 +85,9 @@ if [[ "$distro" = *"Debian"* ]]; then
     echo \
       "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
       $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-      sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-    sudo apt update
-    sudo apt install -y containerd.io
+      tee /etc/apt/sources.list.d/docker.list > /dev/null
+    apt update
+    apt install -y containerd.io
 
     # remove the extra kernel modules script, it's not needed on Debian
     rm -f /root/extra-kernel-modules.sh
@@ -101,7 +95,19 @@ if [[ "$distro" = *"Debian"* ]]; then
 elif [[ "$distro" = *"Ubuntu"* ]]; then
 
     echo "Installing containerd on Ubuntu..."
-    sudo apt install -y containerd
+    # add docker apt repository
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+    chmod a+r /etc/apt/keyrings/docker.asc
+    echo \
+      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+      $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
+      tee /etc/apt/sources.list.d/docker.list > /dev/null
+    apt update
+    apt install -y containerd.io
+
+    echo "Installing most recent kernel on Ubuntu..."
+    # update this as needed. This works for both 24.04 and 25.04 as of 05/2025
+    apt install -y linux-firmware linux-generic-hwe-24.04
 
     # ----------------- Disable Runc AppArmor Profile -----------------
 
@@ -232,10 +238,10 @@ if [[ -n "$NVIDIA_DRIVER_VERSION" && "$NVIDIA_DRIVER_VERSION" != "none" ]]; then
   fi
 
   # add nvidia-container-toolkit apt repository
-  curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
+  curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
     && curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
       sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
-      sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+      tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
 
   apt-get update
 

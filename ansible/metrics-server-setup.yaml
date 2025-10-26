@@ -27,6 +27,7 @@
         executable: /bin/bash
 
     - name: Install Metrics-Server
+      timeout: 180
       ansible.builtin.shell:
         cmd: >
           helm upgrade --install metrics-server metrics-server/metrics-server

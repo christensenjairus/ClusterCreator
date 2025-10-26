@@ -22,6 +22,7 @@
     - [5. Configure Variables](#5-configure-variables)
     - [6. Configure Secrets](#6-configure-secrets)
     - [7. Configure Clusters](#7-configure-clusters)
+    - [8. Configure Networks](#8-configure-networks)
   - [Usage](#usage)
     - [1. Create a VM Template](#1-create-a-vm-template)
     - [2. Initialize Tofu](#2-initialize-tofu)
@@ -35,7 +36,6 @@
     - [Gamma Cluster: Highly Available Control Plane with Decoupled etcd](#gamma-cluster-highly-available-control-plane-with-decoupled-etcd)
   - [Advanced Configurations](#advanced-configurations)
     - [Dynamic Configurations](#dynamic-configurations)
-    - [Dual Stack Networking](#dual-stack-networking)
     - [Custom Worker Types](#custom-worker-types)
   - [Troubleshooting](#troubleshooting)
     - [Installation Errors](#installation-errors)
@@ -73,7 +73,7 @@ Having a virtualized K8S cluster allows you to not only simulate a cloud environ
 - **Highly Available Control Plane**: Implement HA control planes using Kube-VIP.
 - **Customizable Networking**: Support for dual-stack networking (IPv4 & IPv6).
 - **Dynamic Worker Classes**: Define worker nodes with varying CPU, memory, disk, and networking specifications.
-- **Firewall and HA Settings**: Automatically set up firewall and high availability settings using Proxmox datacenter features.
+- **HA Settings**: Automatically set up high availability settings using Proxmox datacenter features.
 - **Optional Minio Integration**: Configure your tofu state to be stored in S3-compatible storage.
 
 ---
@@ -108,7 +108,7 @@ pveum user add terraform@pve -comment "Terraform User"
 #### 2. Add a Custom Role for Tofu with Required Permissions:
 
 ```shell
-pveum role add TerraformRole -privs "Datastore.Allocate Datastore.AllocateSpace Datastore.AllocateTemplate Datastore.Audit Pool.Allocate Pool.Audit Sys.Audit Sys.Console Sys.Modify SDN.Use VM.Allocate VM.Audit VM.Clone VM.Config.CDROM VM.Config.Cloudinit VM.Config.CPU VM.Config.Disk VM.Config.HWType VM.Config.Memory VM.Config.Network VM.Config.Options VM.Migrate VM.Monitor VM.PowerMgmt User.Modify Mapping.Use"
+pveum role add TerraformRole -privs "Datastore.Allocate Datastore.AllocateSpace Datastore.AllocateTemplate Datastore.Audit Pool.Allocate Pool.Audit Sys.Audit Sys.Console Sys.Modify SDN.Use VM.Allocate VM.Audit VM.Clone VM.Config.CDROM VM.Config.Cloudinit VM.Config.CPU VM.Config.Disk VM.Config.HWType VM.Config.Memory VM.Config.Network VM.Config.Options VM.Migrate VM.PowerMgmt User.Modify Mapping.Use VM.GuestAgent.Unrestricted"
 ```
 
 #### 3. Assign the Role to the User at the Datacenter Level:
@@ -198,7 +198,23 @@ Remember to set the username to be your own.
 ccr configure-clusters
 ```
 
-**NOTE: Make sure you understand the cluster object definined at the top of `terraform/clusters.tf`. It has many options with set defaults, and many features like the PVE firewall, HA, boot on PVE startup, which are all *disabled by default***.
+**NOTE: Make sure you understand the cluster object definined at the top of `terraform/clusters.tf`. It has many options with set defaults, and many features like the HA, boot on PVE startup, which are all *disabled by default***.
+
+### 8. Configure Networks
+
+**This is only used when the Unifi provider is enabled with `ccr toggle-providers`**
+
+The following command will show you where to configure your network configurations for the optional Unifi provider. This file is found in tofu's (`terraform/networks.tf`).
+
+The key of the network must match the key of the cluster to be applied by Tofu.
+
+Set the Nics to use the proxmox bridge interface, and set a matching VLAN id in `clusters.tf`.
+
+```bash
+ccr configure-networks
+```
+
+**NOTE: Make sure you understand the network object definined at the top of `terraform/networks.tf`.
 
 ---
 
@@ -350,31 +366,6 @@ Leverage OpenTofu and Ansible to create highly dynamic cluster configurations:
 - **Control Plane Nodes**: 1 to ∞
 - **etcd Nodes**: 0 to ∞
 - **Worker Nodes**: 0 to ∞, with varying classes (defined by name, CPU, memory, disk, networking, labels)
-
-### Dual Stack Networking
-
-Configure IPv4 and IPv6 support:
-
-1. **IPv6 Disabled**:
-
-- `ipv6.enabled = false`
-- Cluster operates with IPv4 only.
-
-2. **IPv6 Enabled, Single Stack**:
-
-- `ipv6.enabled = true`
-- `ipv6.dual_stack = false`
-- Host and VLAN have IPv6, but the cluster uses IPv4.
-
-3. **IPv6 Enabled, Dual Stack**:
-
-- `ipv6.enabled = true`
-- `ipv6.dual_stack = true`
-- Both IPv4 and IPv6 are active within the cluster.
-
-**Note**: IPv6-only clusters are not supported due to complexity and external dependencies (e.g., GitHub Container Registry lacks IPv6).
-
-**Tip**: The HA kube-vip API server can utilize an IPv6 address without enabling dual-stack.
 
 ### Custom Worker Types
 

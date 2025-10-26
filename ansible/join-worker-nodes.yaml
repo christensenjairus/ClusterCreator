@@ -13,6 +13,7 @@
         cmd: >
           kubectl get node "{{ item }}" -o jsonpath='{.metadata.labels.node-role\.kubernetes\.io\/control-plane}'
       register: node_status
+      retries: 3
       delegate_to: "{{ item }}"
       changed_when: false
       no_log: true
@@ -47,6 +48,7 @@
     - name: Get list of nodes from the Kubernetes cluster
       ansible.builtin.shell: kubectl get nodes -o jsonpath='{.items[*].metadata.name}'
       delegate_to: "{{ control_plane_host }}"
+      retries: 3
       run_once: true
       register: k8s_nodes
 

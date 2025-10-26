@@ -3,10 +3,15 @@ apiVersion: apiserver.config.k8s.io/v1
 kind: EncryptionConfiguration
 resources:
   - resources:
-      - '*.*'  # all resources, even custom ones
+      # Resources to encrypt - remember this only works for new objects, not existing ones, so you'll need to replace your existing objects with new ones.
+      #   For that reason, you may not want to put a "*" in here if you ever need to decrypt existing objects.
+      - secrets
+      - configmaps
     providers:
+      # Encrypt with this key for all new objects
       - aescbc:
           keys:
             - name: key1
               secret: "{{ encryption_key }}"
+      # Use this key (no key) for existing objects if above key doesn't work
       - identity: {}

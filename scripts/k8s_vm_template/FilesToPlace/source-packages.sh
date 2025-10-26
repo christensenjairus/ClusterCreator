@@ -5,7 +5,6 @@
 
 set -a # automatically export all variables
 source /etc/k8s.env
-source /etc/.env
 set +a # stop automatically exporting
 
 export ARCH="amd64"
@@ -16,6 +15,9 @@ mkdir -p /opt/cni/bin
 tar Cxzvf /opt/cni/bin "cni-plugins-linux-amd64-v$CNI_PLUGINS_VERSION.tgz"
 rm "cni-plugins-linux-amd64-v$CNI_PLUGINS_VERSION.tgz"
 chown -R root:root /opt/cni/bin # https://github.com/cilium/cilium/issues/23838
+
+### install helm
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
 ### install yq
 wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq

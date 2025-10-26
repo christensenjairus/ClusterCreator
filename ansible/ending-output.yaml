@@ -44,6 +44,7 @@
     - name: Get connected k8s nodes
       ansible.builtin.command:
         cmd: kubectl get nodes
+      retries: 3
       register: kubectl_output
     - name: Display connected k8s nodes
       ansible.builtin.debug:

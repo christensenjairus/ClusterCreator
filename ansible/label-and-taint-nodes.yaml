@@ -31,6 +31,7 @@
     - name: Apply Labels to Nodes
       ansible.builtin.command:
         cmd: "kubectl label nodes {{ item.0.hostname }} {{ item.1 }} --overwrite"
+      retries: 3
       with_subelements:
         - "{{ nodes_labels_and_taints }}"
         - labels
@@ -46,6 +47,7 @@
     - name: Apply Taints to Nodes
       ansible.builtin.command:
         cmd: "kubectl taint nodes {{ item.0.hostname }} {{ item.1 }} --overwrite"
+      retries: 3
       with_subelements:
         - "{{ nodes_labels_and_taints }}"
         - taints

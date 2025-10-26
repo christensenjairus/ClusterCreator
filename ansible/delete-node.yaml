@@ -12,6 +12,7 @@
         --selector='node-role.kubernetes.io/control-plane'
         --field-selector='metadata.name!={{ node_name }}'
         -o json
+      retries: 3
       register: active_nodes
       run_once: true
       when: node_name and ansible_host != node_name
@@ -24,6 +25,7 @@
 
     - name: Delete the node from the cluster (if single node is being removed)
       command: kubectl delete node {{ node_name }}
+      retries: 3
       delegate_to: "{{ hostvars[active_api_server_name].ansible_host }}"
       when: node_name
       run_once: true

@@ -23,6 +23,7 @@
 
     - name: Fetch current nodes and taint information
       ansible.builtin.command: kubectl get nodes -o json
+      retries: 3
       register: nodes_json
 
     - name: Set fact for nodes with control-plane NoSchedule taint
@@ -37,12 +38,14 @@
     - name: Check for control-plane NoSchedule taint on nodes
       ansible.builtin.command: >
         kubectl get node {{ item }} -o jsonpath='{.spec.taints[?(@.key=="node-role.kubernetes.io/control-plane")].key}'
+      retries: 3
       register: taint_check
       loop: "{{ nodes_needing_taint }}"
       ignore_errors: true
 
     - name: Untaint nodes with control-plane NoSchedule taint when no workers present
       ansible.builtin.command: kubectl taint nodes {{ item }} node-role.kubernetes.io/control-plane:NoSchedule-
+      retries: 3
       loop: "{{ nodes_needing_taint }}"
       when:
         - worker_node_count | int < 1
@@ -60,6 +63,7 @@
 
     - name: Taint nodes with control-plane NoSchedule taint when workers present
       ansible.builtin.command: kubectl taint nodes {{ item }} node-role.kubernetes.io/control-plane:NoSchedule --overwrite
+      retries: 3
       loop: "{{ nodes_needing_taint | default([]) }}"
       when:
         - worker_node_count | int > 0

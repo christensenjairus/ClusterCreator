@@ -5,12 +5,13 @@ locals {
         for i in range(specs.count) : {
           cluster_name        = cluster.cluster_name
           cluster_id          = cluster.cluster_id
+          region              = cluster.region
           node_class          = node_class
           index               = i
           vm_id               = tonumber("${cluster.cluster_id}${specs.start_ip + i}")
           on_boot             = cluster.start_on_proxmox_boot
           reboot_after_update = cluster.reboot_after_update
-          use_pve_ha          = cluster.use_pve_ha
+          use_pve_ha          = cluster.use_pve_ha && specs.cpu_type != "host"
           cores               = specs.cores
           sockets             = specs.sockets
           memory              = specs.memory
@@ -19,26 +20,22 @@ locals {
           pve_nodes           = specs.pve_nodes
           machine             = specs.machine
           cpu_type            = specs.cpu_type
-          bridge              = cluster.networking.bridge
-          use_unifi           = cluster.networking.use_unifi
-          vlan_id             = cluster.networking.assign_vlan ? (cluster.networking.vlan_id == null ? "${cluster.cluster_id}00" : cluster.networking.vlan_id) : null
-          ipv4                : {
-            vm_ip             = "${cluster.networking.ipv4.subnet_prefix}.${specs.start_ip + i}"
-            gateway           = cluster.networking.ipv4.gateway
-            dns1              = cluster.networking.ipv4.dns1
-            dns2              = cluster.networking.ipv4.dns2
-            lb_cidrs          = cluster.networking.ipv4.lb_cidrs 
+          disabled_nics       = lookup(specs, "disabled_nics", [])
+          gateway_nic         = specs.gateway_nic
+          
+          # Pass through networking configuration
+          networking         = cluster.networking
+          
+          # Calculate IP addresses for each node
+          node_ips = {
+            # For each NIC, add the node-specific IP addresses based on subnet_prefix
+            nics = [
+              for nic in lookup(cluster.networking, "nics", []) : merge(nic, {
+                node_ipv4_address = lookup(nic, "ipv4", null) != null ? "${nic.ipv4.subnet_prefix}.${specs.start_ip + i}" : null
+                node_ipv6_address = lookup(nic, "ipv6", null) != null && lookup(nic.ipv6, "subnet_prefix", null) != null ? "${nic.ipv6.subnet_prefix}::${specs.start_ip + i}" : null
+              })
+            ]
           }
-          ipv6                : {
-            enabled           = cluster.networking.ipv6.enabled
-            dual_stack        = cluster.networking.ipv6.enabled ? cluster.networking.ipv6.dual_stack: false
-            vm_ip             = cluster.networking.ipv6.enabled ? "${cluster.networking.ipv6.subnet_prefix}::${specs.start_ip + i}" : null
-            gateway           = cluster.networking.ipv6.enabled ? cluster.networking.ipv6.gateway : null
-            dns1              = cluster.networking.ipv6.enabled ? cluster.networking.ipv6.dns1: null
-            dns2              = cluster.networking.ipv6.enabled ? cluster.networking.ipv6.dns2: null
-            lb_cidrs          = cluster.networking.ipv6.enabled ? cluster.networking.ipv6.lb_cidrs : null
-          }
-          dns_search_domain   = cluster.networking.dns_search_domain
         }
       ]
     ]
@@ -46,8 +43,15 @@ locals {
 
   cluster_config = var.clusters[terraform.workspace]
 
-  management_cidrs_ipv4_list = split(",", local.cluster_config.networking.ipv4.management_cidrs)
-  management_cidrs_ipv6_list = split(",", local.cluster_config.networking.ipv6.management_cidrs)
+  # Extract potential gateway IPs from NICs to use as DNS servers
+  gateway_ips = distinct(flatten([
+    for nic in lookup(local.cluster_config.networking, "nics", []) :
+      lookup(nic, "ipv4", null) != null && lookup(nic.ipv4, "gateway", null) != null && nic.ipv4.gateway != "" ?
+        [nic.ipv4.gateway] : []
+  ]))
+
+  # Default DNS servers for VMs - use gateways as DNS if available, otherwise fallback to Cloudflare DNS
+  default_dns_servers = length(local.gateway_ips) > 0 ? local.gateway_ips : ["1.1.1.1", "1.0.0.1"]
 
   # Now filter all_nodes to only include those from the specified cluster
   nodes = [for node in local.all_nodes : node if node.cluster_name == terraform.workspace]

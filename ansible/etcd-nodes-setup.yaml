@@ -392,25 +392,26 @@
       tags:
         - remove_ssh_key
 
-- name: Add heartbeat-interval and election-timeout to etcd container command if not present
-  hosts: etcd
-  gather_facts: false
-  become: true
-  vars:
-    etcd_yaml_path: "/etc/kubernetes/manifests/etcd.yaml"
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
-  tasks:
-    - name: Backup the etcd YAML file to ~/.etcd.bak
-      ansible.builtin.command: "cp {{ etcd_yaml_path }} /home/{{ cluster_config.ssh.ssh_user }}/.etcd.bak"
-    - name: Check if heartbeat-interval and election-timeout are already present
-      ansible.builtin.shell: |
-        grep -q -- '--heartbeat-interval=50' {{ etcd_yaml_path }} && grep -q -- '--election-timeout=5000' {{ etcd_yaml_path }}
-      register: etcd_args_present
-      failed_when: false
-    - name: Add heartbeat-interval and election-timeout to etcd container command using sed
-      ansible.builtin.command: |
-        sed -i '/- etcd/a \    - --heartbeat-interval=500\n    - --election-timeout=2500' {{ etcd_yaml_path }}
-      when: etcd_args_present.rc != 0
+# # Adjust as needed - this is 10% of the default values, allowing for faster failover.
+# - name: Add heartbeat-interval and election-timeout to etcd container command if not present
+#   hosts: etcd
+#   gather_facts: false
+#   become: true
+#   vars:
+#     etcd_yaml_path: "/etc/kubernetes/manifests/etcd.yaml"
+#     cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+#   tasks:
+#     - name: Backup the etcd YAML file to ~/.etcd.bak
+#       ansible.builtin.command: "cp {{ etcd_yaml_path }} /home/{{ cluster_config.ssh.ssh_user }}/.etcd.bak"
+#     - name: Check if heartbeat-interval and election-timeout are already present
+#       ansible.builtin.shell: |
+#         grep -q -- '--heartbeat-interval=10' {{ etcd_yaml_path }} && grep -q -- '--election-timeout=100' {{ etcd_yaml_path }}
+#       register: etcd_args_present
+#       failed_when: false
+#     - name: Add heartbeat-interval and election-timeout to etcd container command using sed
+#       ansible.builtin.command: |
+#         sed -i '/- etcd/a \    - --heartbeat-interval=10\n    - --election-timeout=100' {{ etcd_yaml_path }}
+#       when: etcd_args_present.rc != 0
 
 - name: Ensure etcd backup cronjobs are present
   hosts: etcd
@@ -442,7 +443,7 @@
       cron:
         name: "etcdctl hourly snapshot backup"
         user: root
-        minute: "0"
+        minute: "{{ ansible_play_hosts.index(inventory_hostname) }}" # stagger the backups between nodes
         hour: "*"
         # run every hour. Delete snapshots older than 24 hours.
         job: >
@@ -451,7 +452,7 @@
       cron:
         name: "etcdctl daily snapshot backup"
         user: root
-        minute: "30"
+        minute: "{{ 30 + ansible_play_hosts.index(inventory_hostname) }}" # stagger the backups between nodes
         hour: "0"
         # run at 12:30am to avoid snapshotting during backup. Delete snapshots older than 7 days.
         job: >
@@ -497,6 +498,25 @@
         user: root
         special_time: "reboot"
         job: "tc qdisc del dev eth0 root && tc qdisc add dev eth0 root handle 1: prio bands 3 && tc filter add dev eth0 parent 1: protocol ip prio 1 u32 match ip sport 2380 0xffff flowid 1:1 && tc filter add dev eth0 parent 1: protocol ip prio 1 u32 match ip dport 2380 0xffff flowid 1:1 && tc filter add dev eth0 parent 1: protocol ip prio 2 u32 match ip sport 2379 0xffff flowid 1:1 && tc filter add dev eth0 parent 1: protocol ip prio 2 u32 match ip dport 2379 0xffff flowid 1:1"
+
+- name: Create an alias for 'etcdctl'
+  hosts: etcd
+  gather_facts: false
+  become: true
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+  tags:
+    - etcdctl_alias
+  tasks:
+    - name: Build the etcdctl command with all etcd endpoints
+      set_fact:
+        etcdctl_command: "ETCDCTL_API=3 sudo etcdctl --endpoints {{ groups['etcd'] | map('extract', hostvars, 'ansible_host') | map('regex_replace', '$', ':2379') | join(',') }} --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key --cacert=/etc/kubernetes/pki/etcd/ca.crt"
+
+    - name: Add alias to .bashrc for etcdctl
+      lineinfile:
+        path: "/home/{{ cluster_config.ssh.ssh_user }}/.bashrc"
+        create: yes
+        line: "alias etcdctl='{{ etcdctl_command }}'"
 
 - name: Create an alias for 'etcd-health'
   hosts: etcd

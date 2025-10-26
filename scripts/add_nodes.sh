@@ -33,11 +33,11 @@ playbooks=(
   "prepare-nodes.yaml"
   "kubevip-setup.yaml"
   "get-join-commands.yaml"
+  "etcd-encryption.yaml"
   "join-controlplane-nodes.yaml"
   "join-worker-nodes.yaml"
   "move-kubeconfig-remote.yaml"
   "conditionally-taint-controlplane.yaml"
-  "etcd-encryption.yaml"
   "label-and-taint-nodes.yaml"
   "ending-output.yaml"
 )

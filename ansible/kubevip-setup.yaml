@@ -12,7 +12,9 @@
         path: /etc/kubernetes/manifests/kube-vip.yaml
       register: kube_vip_manifest
       become: true
+    # These are double the default values, allowing for a 15s hiccup in etcd, which may occur during etcd backups.
     - name: Pull Kube-Vip image and generate manifest
+      timeout: 180
       ansible.builtin.shell: |
         ctr image pull ghcr.io/kube-vip/kube-vip:v{{ cluster_config.networking.kube_vip.kube_vip_version }}
         ctr run --rm --net-host ghcr.io/kube-vip/kube-vip:v{{ cluster_config.networking.kube_vip.kube_vip_version }} vip /kube-vip manifest pod \
@@ -20,9 +22,9 @@
             --address {{ cluster_config.networking.kube_vip.vip }} \
             --controlplane \
             --arp \
-            --leaseDuration 30 \
-            --leaseRenewDuration 15 \
-            --leaseRetry 2 \
+            --leaseDuration 60 \
+            --leaseRenewDuration 40 \
+            --leaseRetry 4 \
             --leaderElection > /tmp/kube-vip.yaml
 # add --services above to get kube-vip to publish load balancers for all services that are of type LoadBalancer
 # if you do this, you'll need to add ONE of the following to new LB services

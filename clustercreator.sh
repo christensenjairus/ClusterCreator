@@ -128,6 +128,8 @@ run_playbooks() {
 
   cd "$REPO_PATH/ansible" || exit 1
 
+  export ANSIBLE_CONFIG="./helpers/ansible.cfg"
+
   for playbook in "${playbooks[@]}"; do
     echo -e "${BLUE}Running playbook: $playbook${ENDCOLOR}"
     # Run ansible-playbook with options, extra vars, and playbook path
@@ -204,6 +206,7 @@ display_usage() {
     echo "  configure-variables  Opens files with variables to be used by bash, ansible, and tofu"
     echo "  configure-secrets    Guides you though setting secrets to be used by bash, ansible, and tofu"
     echo "  configure-clusters   Opens your clusters configuration file"
+    echo "  configure-networks   Opens your networks configuration file"
     echo "  template             Creates a VM template for Kubernetes"
     echo "  tofu                 Executes tofu commands directly"
     echo "  bootstrap            Bootstraps Kubernetes to create a cluster"
@@ -339,6 +342,9 @@ case "$COMMAND" in
         ;;
     configure-clusters)
         ( "$REPO_PATH/scripts/configure_clusters.sh" "$@" )
+        ;;
+    configure-networks)
+        ( "$REPO_PATH/scripts/configure_networks.sh" "$@" )
         ;;
     template)
         ( "$REPO_PATH/scripts/template.sh" "$@" )

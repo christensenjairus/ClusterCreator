@@ -7,6 +7,7 @@
     cluster_name: "{{ cluster_config.cluster_name }}"
     node_classes: "{{ cluster_config.node_classes }}"
     networking: "{{ cluster_config.networking }}"
+    region_name: "{{ cluster_config.region }}"
 
   tasks:
     - name: "Template Ansible Hosts File"

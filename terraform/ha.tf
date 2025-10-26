@@ -7,7 +7,12 @@ resource "proxmox_virtual_environment_hagroup" "ha_group" {
   group   = "vm-${each.value.vm_id}"
   comment = "Managed by Terraform"
 
-  nodes = {
+  nodes = each.value.cpu_type == "host" ? {
+    # For host CPU type, only include the specific node this VM is assigned to
+    for node in [each.value.pve_nodes[each.value.index % length(each.value.pve_nodes)]] :
+    node => 2
+  } : {
+    # For non-host CPU types, use all nodes with priority as before
     for node in each.value.pve_nodes :
     node => node == each.value.pve_nodes[each.value.index % length(each.value.pve_nodes)] ? 2 : 1
   }
@@ -32,6 +37,6 @@ resource "proxmox_virtual_environment_haresource" "ha_resource" {
   group       = proxmox_virtual_environment_hagroup.ha_group[each.key].group
   comment     = "Managed by Terraform"
 
-  max_relocate = length(proxmox_virtual_environment_hagroup.ha_group[each.key].nodes) - 1
+  max_relocate = each.value.cpu_type == "host" ? 0 : length(proxmox_virtual_environment_hagroup.ha_group[each.key].nodes) - 1
   max_restart  = length(proxmox_virtual_environment_hagroup.ha_group[each.key].nodes) - 1
 }

@@ -35,6 +35,8 @@
         - /etc/ceph
         - /etc/cni/net.d/05-cilium.conf
         - /etc/cni/net.d/.kubernetes-cni-keep
+        - /etc/cni/net.d/05-cilium.conflist
+        - /opt/cni/bin/cilium-cni
         - /etc/systemd/system/kubelet.service.d/kubelet.conf
         - /etc/systemd/system/kubelet.service.d/20-etcd-service-manager.conf
         - /var/lib/etcd

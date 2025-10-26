@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 usage() {
-  echo "Usage: ccr upgrade-k8s"
+  echo "Usage: ccr upgrade-k8s <name_of_first_controlplane_node>"
   echo ""
   echo "Upgrades the kubernetes control-plane api to the version specified in your environment settings."
   echo "This upgrades the k8s packages on Controlplane-0. Afterward, you'll want to upgrade all the other k8s nodes using 'upgrade-node'"
@@ -15,18 +15,31 @@ usage() {
   echo "See K8s documentation about Kubeadm Upgrade: https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade"
 }
 
+TARGETED_NODE=""
+
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         -h|--help) usage; exit 0 ;;
         *)
-          echo "Unknown parameter passed: $1"
-          usage
-          exit 1
+          # treat the first positional argument as the TARGETED_NODE
+          if [[ -z "$TARGETED_NODE" ]]; then
+              TARGETED_NODE="$1"
+          else
+              echo "Unknown parameter passed: $1"
+              usage
+              exit 1
+          fi
           ;;
     esac
     shift
 done
+
+if [[ "$TARGETED_NODE" != *"-controlplane-0" ]]; then
+  echo -e "${RED}Error: The first controlplane node must be specified.${ENDCOLOR}"
+  usage
+  exit 1
+fi
 
 echo -e "${GREEN}Upgrading control-plane api to $KUBERNETES_MEDIUM_VERSION on cluster: $CLUSTER_NAME.${ENDCOLOR}"
 
@@ -54,7 +67,7 @@ playbooks=(
   "etcd-encryption.yaml"
   "upgrade-apt.yaml"
 )
-run_playbooks "${playbooks[@]}"
+run_playbooks "--limit=${TARGETED_NODE}" "${playbooks[@]}"
 
 # ---------------------------- Script End ----------------------------
 

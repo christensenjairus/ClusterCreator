@@ -3,7 +3,7 @@
 usage() {
     echo "Usage: ccr command 'command_to_run' [<hostname_or_node_class>]"
     echo ""
-    echo "Runs a command with elevated permissions on the host or node class specified. The default node class is 'all'."
+    echo "Runs a command on the host or node class specified. The default node class is 'all'. 'sudo' may be added for elevated privileges."
 }
 
 GROUP_NAME="all"
@@ -55,10 +55,9 @@ cat << EOF > "$PLAYBOOK_FILE"
 - name: Execute command on specified hosts
   hosts: $GROUP_NAME
   gather_facts: false
-  become: true
   tasks:
     - name: Execute the command
-      command: $COMMAND
+      command: bash -c '$COMMAND'
       register: cmd_output
     - name: Print command output (skips when command has no output)
       debug:

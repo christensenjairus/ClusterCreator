@@ -13,8 +13,8 @@
         src: helpers/metallb_configs.yaml.j2
         dest: "/tmp/metallb_configs.yaml"
       vars:
-        ipv4_lb_cidrs: "{{ cluster_config.networking.ipv4.lb_cidrs }}"
-        ipv6_lb_cidrs: "{{ cluster_config.networking.ipv6.lb_cidrs }}"
+        ipv4_lb_cidrs: "{{ cluster_config.networking.nics | selectattr('ipv4.lb_cidrs', 'defined') | map(attribute='ipv4.lb_cidrs') | join(',') }}"
+        ipv6_lb_cidrs: "{{ cluster_config.networking.nics | selectattr('ipv6.lb_cidrs', 'defined') | map(attribute='ipv6.lb_cidrs') | join(',') }}"
       tags:
         - metallb_configs
 
@@ -31,6 +31,8 @@
         executable: /bin/bash
 
     - name: Install MetalLB
+      timeout: 180
+      retries: 3
       ansible.builtin.shell:
         cmd: >
           helm upgrade --install metallb metallb/metallb
@@ -43,6 +45,7 @@
     - name: Wait for MetalLB controller deployment to be ready
       ansible.builtin.shell:
         cmd: kubectl rollout status deployment/metallb-controller --namespace metallb-system --timeout=600s
+      retries: 3
       args:
         executable: /bin/bash
       tags:
@@ -51,6 +54,7 @@
     - name: Apply MetalLB configuration files
       ansible.builtin.shell:
         cmd: kubectl apply -f /tmp/metallb_configs.yaml
+      retries: 3
       args:
         executable: /bin/bash
       tags:
@@ -76,6 +80,7 @@
               "value": "--ignore-exclude-lb"
             }
           ]'
+      retries: 3
       when: worker_node_count | int == 0
       args:
         executable: /bin/bash
@@ -85,6 +90,7 @@
     - name: Check current MetalLB speaker DaemonSet args
       ansible.builtin.command: kubectl get daemonset metallb-speaker -n metallb-system -o json
       register: metallb_speaker_ds
+      retries: 3
 
     - name: Unapply MetalLB patch for control-plane only cluster (workers have been added)
       ansible.builtin.shell:
@@ -100,6 +106,7 @@
             {{ metallb_speaker_ds.stdout | from_json
             | json_query('spec.template.spec.containers[0].args')
             | list | index('--ignore-exclude-lb') }}
+      retries: 3
       when:
         - worker_node_count | int > 0
         - "'--ignore-exclude-lb' in (metallb_speaker_ds.stdout | from_json | json_query('spec.template.spec.containers[0].args'))"

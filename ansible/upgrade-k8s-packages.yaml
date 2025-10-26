@@ -45,7 +45,7 @@
         allow_downgrade: true
         update_cache: true
 
-    # Upgrade external ETCD
+    # Upgrade decoupled ETCD
     - name: Ensure /etc/kubernetes/manifests/etcd.yaml exists
       ansible.builtin.stat:
         path: /etc/kubernetes/manifests/etcd.yaml
@@ -83,4 +83,3 @@
       ansible.builtin.systemd:
         name: kubelet
         state: restarted
-

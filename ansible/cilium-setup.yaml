@@ -38,6 +38,7 @@
         executable: /bin/bash
 
     - name: Install Cilium
+      timeout: 180
       ansible.builtin.shell:
         cmd: >
           helm upgrade --install cilium cilium/cilium

@@ -85,7 +85,7 @@
 
     - name: Check if controlplane manifest already has encryption
       ansible.builtin.shell: >
-        grep -- '--encryption-provider-config=/etc/kubernetes/enc/enc.yaml' /etc/kubernetes/manifests/kube-apiserver.yaml
+        test -f /etc/kubernetes/manifests/kube-apiserver.yaml && grep -q 'encryption-provider-config=/etc/kubernetes/enc/enc.yaml' /etc/kubernetes/manifests/kube-apiserver.yaml || true
       register: config_check
       failed_when: false
 
@@ -101,6 +101,17 @@
         ' -i /etc/kubernetes/manifests/kube-apiserver.yaml
       become: true
       when: config_check.rc != 0
+
+    - name: Find apiserver container ID
+      ansible.builtin.shell: crictl ps -a | grep apiserver | awk '{print $1}'
+      register: apiserver_container_id
+      when: config_check.rc != 0
+      failed_when: false
+
+    - name: Remove apiserver container
+      ansible.builtin.shell: crictl rm -f {{ apiserver_container_id.stdout }}
+      when: config_check.rc != 0 and apiserver_container_id.stdout != ""
+      failed_when: false
 
     - name: Restart kubelet service (if necessary)
       ansible.builtin.service:
@@ -123,12 +134,26 @@
       when: config_check.rc != 0
 
     - name: Encrypt existing configmaps and secrets (if necessary)
+      # need the '|| true' to avoid failing if secrets,configmaps are modified mid-run
       ansible.builtin.shell: >
-        kubectl get secrets,configmaps --all-namespaces -o json | kubectl replace -f -
+        kubectl get secrets,configmaps --all-namespaces -o json | kubectl replace -f - || true
       delegate_to: localhost
       become: false
       run_once: true
       environment:
         KUBECONFIG: "{{ lookup('env', 'HOME') }}/.kube/{{ cluster_config.kubeconfig_file_name }}"
       when: config_check.rc != 0
+      retries: 3
 
+    - name: Make encryption manifest edit script executable
+      ansible.builtin.file:
+        path: /usr/local/bin/encryption-manifest-edit.sh
+        mode: "0755"
+        state: file
+
+    - name: Set up cron job for encryption manifest edit script
+      ansible.builtin.cron:
+        name: "etcd-encryption-manifest-edit"
+        minute: "*"
+        job: "/usr/local/bin/encryption-manifest-edit.sh >> /dev/null 2>&1"
+        user: root

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 
 usage() {
-  echo "Usage: ccr configure-clusters"
+  echo "Usage: ccr configure-networks"
   echo ""
-  echo "Opens your clusters configuration file found in:"
-  echo " * terraform/clusters.tf"
+  echo "Opens your networks configuration file found in:"
+  echo " * terraform/networks.tf"
 }
 
 # Parse command-line arguments
@@ -22,16 +22,16 @@ if [[ -z "$REPO_PATH" ]]; then
   exit 1
 fi
 
-CLUSTERS_FILE="$REPO_PATH/terraform/clusters.tf"
+NETWORKS_FILE="$REPO_PATH/terraform/networks.tf"
 
-echo -e "${GREEN}Configuring your clusters file${ENDCOLOR}"
+echo -e "${GREEN}Configuring your networks file${ENDCOLOR}"
 
-read -p "Open terraform/clusters.tf for editing? (y/n): " answer
+read -p "Open terraform/networks.tf for editing? (y/n): " answer
 if [[ "$answer" =~ ^[Yy]$ ]]; then
-  if [[ -f "$CLUSTERS_FILE" ]]; then
-    vim "$CLUSTERS_FILE"
+  if [[ -f "$NETWORKS_FILE" ]]; then
+    vim "$NETWORKS_FILE"
   else
-    echo -e "${RED}Error: $CLUSTERS_FILE not found.${ENDCOLOR}"
+    echo -e "${RED}Error: $NETWORKS_FILE not found.${ENDCOLOR}"
     exit 1
   fi
 fi

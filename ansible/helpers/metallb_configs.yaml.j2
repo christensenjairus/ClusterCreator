@@ -7,12 +7,12 @@ metadata:
 spec:
   addresses:
 {% if ipv4_lb_cidrs %}
-{% for range in ipv4_lb_cidrs.split(',') if range.strip() %}
+{% for range in ipv4_lb_cidrs.split(',') if range.strip() and range.strip() != "None" %}
   - {{ range.strip() }}
 {% endfor %}
 {% endif %}
 {% if ipv6_lb_cidrs %}
-{% for range in ipv6_lb_cidrs.split(',') if range.strip() %}
+{% for range in ipv6_lb_cidrs.split(',') if range.strip() and range.strip() != "None" %}
   - {{ range.strip() }}
 {% endfor %}
 {% endif %}

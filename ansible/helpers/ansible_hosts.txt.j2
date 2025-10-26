@@ -5,7 +5,7 @@ ansible_python_interpreter=auto_silent
 {% for class_name, class_config in node_classes.items() %}
 [{{ class_name }}]
 {% for i in range(class_config.count) %}
-{{ cluster_name }}-{{ class_name }}-{{ i }} ansible_host={{ networking.ipv4.subnet_prefix }}.{{ class_config.start_ip + i }} ipv4={{ networking.ipv4.subnet_prefix }}.{{ class_config.start_ip + i }} ipv6={{ networking.ipv6.subnet_prefix }}::{{ class_config.start_ip + i }} labels="{% for label in class_config.labels %}{{ label }}{% if not loop.last %},{% endif %}{% endfor %}" taints="{% for taint in class_config.taints %}{{ taint }}{% if not loop.last %},{% endif %}{% endfor %}"
+{{ cluster_name }}-{{ class_name }}-{{ i }} ansible_host={{ networking.nics[0].ipv4.subnet_prefix }}.{{ class_config.start_ip + i }} ipv4={{ networking.nics[0].ipv4.subnet_prefix }}.{{ class_config.start_ip + i }} {% if networking.nics[0].ipv6.subnet_prefix is defined %}ipv6={{ networking.nics[0].ipv6.subnet_prefix }}::{{ class_config.start_ip + i }}{% endif %} labels="{% if region_name is defined and region_name != '' %}topology.kubernetes.io/region={{ region_name }},{% endif %}topology.kubernetes.io/zone={{ class_config.pve_nodes[i % (class_config.pve_nodes | length)] }}{% if class_config.labels | default([]) | length > 0 %},{% endif %}{% for label in class_config.labels | default([]) %}{{ label }}{% if not loop.last %},{% endif %}{% endfor %}" taints="{% for taint in class_config.taints | default([]) %}{{ taint }}{% if not loop.last %},{% endif %}{% endfor %}"
 {% endfor %}
 
 {% endfor %}

@@ -26,6 +26,8 @@
           check_mode: no
           become: no
           ignore_errors: true
+          retries: 3
+          delay: 10
 
         - name: Add new SSH keys to personal known_hosts
           ansible.builtin.lineinfile:
