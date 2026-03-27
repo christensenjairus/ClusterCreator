@@ -29,7 +29,7 @@
   hosts: controlplane[0]
   gather_facts: false
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/' ~ cluster_name ~ '/cluster_config.json') | from_json }}"
     kubeconfig: "{{ lookup('env', 'HOME') }}/.kube/{{ cluster_config.kubeconfig_file_name }}"
   tasks:
     - name: Read etcd encryption secret

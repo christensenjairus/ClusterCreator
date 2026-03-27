@@ -4,7 +4,7 @@
   gather_facts: false
   any_errors_fatal: true
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/' ~ cluster_name ~ '/cluster_config.json') | from_json }}"
 
   tasks:
     - name: Iterate through all inventory hosts to update SSH keys

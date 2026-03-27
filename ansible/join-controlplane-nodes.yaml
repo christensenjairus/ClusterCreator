@@ -4,7 +4,7 @@
   gather_facts: false
   any_errors_fatal: true
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/' ~ cluster_name ~ '/cluster_config.json') | from_json }}"
     control_plane_host: null
   tasks:
     # finding an controlplane node is necessary because we can't use controlplane[0] because it could be a new node.

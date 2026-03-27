@@ -3,7 +3,7 @@
   hosts: all
   become: true
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/' ~ cluster_name ~ '/cluster_config.json') | from_json }}"
   tasks:
     - name: Run kubeadm reset
       ansible.builtin.command:

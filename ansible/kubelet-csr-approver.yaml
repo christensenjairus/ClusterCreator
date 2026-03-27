@@ -3,7 +3,7 @@
   hosts: controlplane[0]
   gather_facts: false
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/' ~ cluster_name ~ '/cluster_config.json') | from_json }}"
   tasks:
 
     - name: Calculate the count of non-API/ETCD servers
@@ -12,11 +12,11 @@
 
     - name: Determine if needing HA based on non-API/ETCD server count
       set_fact:
-        kubelet_csr_approver_replica_count: "{{ 1 if non_api_etcd_server_count <= \"1\" else 2 }}"
+        kubelet_csr_approver_replica_count: "{{ 1 if (non_api_etcd_server_count | int) <= 1 else 2 }}"
 
     - name: Download the kubelet-serving-cert-approver manifest
       ansible.builtin.get_url:
-        url: "https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/refs/tags/v{{ kubelet_serving_cert_approver_version }}/deploy/{{ 'standalone' if kubelet_csr_approver_replica_count == '1' else 'ha' }}-install.yaml"
+        url: "https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/main/deploy/standalone-install.yaml"
         dest: "/tmp/kubelet-approver-install.yaml"
         validate_certs: no # sometimes older ansible packages have a problem with ssl
 

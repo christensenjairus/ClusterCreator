@@ -183,7 +183,7 @@
   tags:
     - ssh_key_copy
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/' ~ cluster_name ~ '/cluster_config.json') | from_json }}"
     root_ssh_key_local_path: "{{ ssh_key_file }}"
   tasks:
     - name: Ensure .ssh directory exists for root
@@ -206,7 +206,7 @@
   gather_facts: false
   any_errors_fatal: true
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/' ~ cluster_name ~ '/cluster_config.json') | from_json }}"
   tasks:
     - name: Remove the PKI directory if it exists
       ansible.builtin.file:
@@ -241,7 +241,7 @@
   gather_facts: false
   any_errors_fatal: true
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/' ~ cluster_name ~ '/cluster_config.json') | from_json }}"
   tasks:
     - name: Adjust permissions on PKI files for synchronization on etcd-0
       ansible.builtin.file:
@@ -265,7 +265,7 @@
   any_errors_fatal: true
   become: true # Execute tasks with elevated privileges
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/' ~ cluster_name ~ '/cluster_config.json') | from_json }}"
   tasks:
     - name: Set correct permissions for PKI files and directories
       ansible.builtin.shell: |
@@ -301,7 +301,7 @@
   gather_facts: false
   any_errors_fatal: true
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/' ~ cluster_name ~ '/cluster_config.json') | from_json }}"
   tasks:
     - name: Initialize etcd with specific configuration
       ansible.builtin.command: sudo kubeadm init phase etcd local --config=/home/{{ cluster_config.ssh.ssh_user }}/kubeadmcfg.yaml
@@ -314,7 +314,7 @@
   gather_facts: false
   any_errors_fatal: true
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/' ~ cluster_name ~ '/cluster_config.json') | from_json }}"
   tasks:
     - name: Copy ca.crt to controlplane-0
       ansible.builtin.shell:
@@ -342,7 +342,7 @@
   gather_facts: false
   any_errors_fatal: true
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/' ~ cluster_name ~ '/cluster_config.json') | from_json }}"
   tasks:
     - name: Ensure PKI directories exist
       ansible.builtin.file:
@@ -398,7 +398,7 @@
   become: true
   vars:
     etcd_yaml_path: "/etc/kubernetes/manifests/etcd.yaml"
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/' ~ cluster_name ~ '/cluster_config.json') | from_json }}"
   tasks:
     - name: Backup the etcd YAML file to ~/.etcd.bak
       ansible.builtin.command: "cp {{ etcd_yaml_path }} /home/{{ cluster_config.ssh.ssh_user }}/.etcd.bak"
@@ -462,7 +462,7 @@
   gather_facts: false
   become: true
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/' ~ cluster_name ~ '/cluster_config.json') | from_json }}"
   tags:
     - etcd_performance_tuning
   tasks:
@@ -503,7 +503,7 @@
   gather_facts: false
   become: true
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/' ~ cluster_name ~ '/cluster_config.json') | from_json }}"
   tags:
     - etcd_health_alias
   tasks:
@@ -522,7 +522,7 @@
   gather_facts: false
   become: true
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/' ~ cluster_name ~ '/cluster_config.json') | from_json }}"
   tags:
     - etcd_health_alias
   tasks:

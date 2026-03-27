@@ -42,6 +42,9 @@ apt-get update
 apt upgrade -y
 
 # Install packages from apt
+#software-properties-common \
+#intel-opencl-icd \
+
 apt install -y \
 bash \
 curl \
@@ -59,7 +62,6 @@ iperf \
 apt-transport-https \
 ca-certificates \
 gnupg-agent \
-software-properties-common \
 ipvsadm \
 apache2-utils \
 python3-kubernetes \
@@ -70,7 +72,6 @@ ceph \
 cron \
 iproute2 \
 intel-gpu-tools \
-intel-opencl-icd \
 helm \
 etcd-client \
 kubelet="$KUBERNETES_LONG_VERSION" \

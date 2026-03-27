@@ -19,7 +19,7 @@
   gather_facts: false
   any_errors_fatal: true
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/' ~ cluster_name ~ '/cluster_config.json') | from_json }}"
   tasks:
     - name: Deploy kubeadm config file
       ansible.builtin.template:
@@ -34,9 +34,9 @@
       register: kube_config_exists
       become: true
 
-    - name: Fail if kubeadm init has already been run
-      fail:
-        msg: "Cluster has already been bootstrapped"
+    - name: Note if kubeadm init has already been run
+      ansible.builtin.debug:
+        msg: "Cluster has already been bootstrapped; skipping kubeadm init tasks"
       when: kube_config_exists.stat.exists
 
     # update and upgrade controlplane-0 node and reboot if necessary - but only if kubeadm init has not been run
@@ -175,9 +175,15 @@
   become: true
   gather_facts: false
   tasks:
+    - name: Check if kubeadm init has already been run
+      ansible.builtin.stat:
+        path: /etc/kubernetes/admin.conf
+      register: kube_config_exists
+
     - name: Create a bootstrap marker file
       ansible.builtin.file:
         path: /root/.bootstrap
         state: touch
+      when: kube_config_exists.stat.exists
       tags:
         - kubeadm_init

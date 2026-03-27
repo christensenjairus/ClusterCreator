@@ -29,7 +29,7 @@
   gather_facts: true # needs to know OS type
   become: true  # This ensures all tasks are run with elevated privileges
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/' ~ cluster_name ~ '/cluster_config.json') | from_json }}"
   tasks:
 
     - name: Add IPv6 forwarding line to sysctl.d file (if IPv6 is enabled)

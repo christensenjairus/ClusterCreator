@@ -4,7 +4,7 @@
   tags:
     - metallb_basic_install
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/' ~ cluster_name ~ '/cluster_config.json') | from_json }}"
   tasks:
 
     - name: Generate MetalLB configuration files

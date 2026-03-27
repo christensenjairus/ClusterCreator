@@ -4,15 +4,15 @@
   tags:
     - cilium_basic_install
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/' ~ cluster_name ~ '/cluster_config.json') | from_json }}"
   tasks:
     - name: Calculate the count of non-API/ETCD servers
       set_fact:
-        non_api_etcd_server_count: "{{ groups['all'] | length - (groups['controlplane'] | default([]) | length + groups['etcd'] | default([]) | length) }}"
+        non_api_etcd_server_count: "{{ (groups['all'] | length) - ((groups['controlplane'] | default([]) | length) + (groups['etcd'] | default([]) | length)) }}"
 
     - name: Determine non-API/ETCD server count
       set_fact:
-        replica_count: "{{ 1 if non_api_etcd_server_count <= \"1\" else 2 }}"
+        replica_count: "{{ 1 if (non_api_etcd_server_count | int) <= 1 else 2 }}"
 
     - name: Generate cilium.yaml configuration file
       become: yes

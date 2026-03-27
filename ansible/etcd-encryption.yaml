@@ -6,7 +6,7 @@
   vars:
     enc_key_path: /etc/kubernetes/enc/enc.key
     enc_file_path: /etc/kubernetes/enc/enc.yaml
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/' ~ cluster_name ~ '/cluster_config.json') | from_json }}"
   tasks:
     - name: Check if the encryption key file exists on each node
       ansible.builtin.stat:
@@ -27,7 +27,7 @@
         src: "{{ enc_key_path }}"
       register: slurped_key
       when: key_source_node is defined
-      delegate_to: "{{ key_source_node }}"
+      delegate_to: "{{ key_source_node | default(inventory_hostname) }}"
       run_once: true
 
     - name: Set encryption key fact from existing key
@@ -62,10 +62,11 @@
         owner: root
         group: root
 
-    - name: "Display encryption key"
-      debug:
-        msg: "Encryption key: {{ encryption_key }}"
+    - name: Confirm encryption key is set
+      ansible.builtin.debug:
+        msg: "Encryption key has been set"
       run_once: true
+      no_log: true
 
     - name: Ensure the directory for the encryption config exists
       ansible.builtin.file:
