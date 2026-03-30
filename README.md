@@ -173,6 +173,7 @@ This will open the files for you to set
   - `PROXMOX_USERNAME` can be `root` or a user that can run `sudo` commands ***without a password***.
 - **Unifi Information**: (optional, needs to be toggled on first) The Unifi API url.
 - **Minio Bucket, Region, and URL**: (optional, needs to be toggled on first) The minio bucket, region, and URL for storing Tofu state.
+- **Custom containerd configuration**: Override containerd configuration with [imports](https://github.com/containerd/containerd/blob/main/docs/man/containerd-config.toml.5.md#:~:text=as%20a%20duration-,imports,-%3A%20Imports%20is%20a).
 
 ### 6. Configure Secrets
 
@@ -307,6 +308,7 @@ Manage your K8s VMs using the other commands:
 * `ccr upgrade-k8s`
 * `ccr vmctl`
 * `ccr run-command`
+* `ccr update-containerd` - Pushes containerd configuration (`config.d/` and `certs.d/`) to cluster nodes. Nodes are updated one at a time.
   Each can be run with `--help` for more information on how they work, their arguments, and their flags.
 
 ---

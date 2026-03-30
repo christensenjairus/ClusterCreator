@@ -201,26 +201,27 @@ display_usage() {
     echo "Usage: clustercreator.sh|ccr <command> [options]"
     echo ""
     echo "Commands:"
-    echo "  setup-ccr            Creates 'ccr' command and tells it where to look for scripts"
-    echo "  ctx                  Sets the current cluster context"
-    echo "  configure-variables  Opens files with variables to be used by bash, ansible, and tofu"
-    echo "  configure-secrets    Guides you though setting secrets to be used by bash, ansible, and tofu"
-    echo "  configure-clusters   Opens your clusters configuration file"
-    echo "  configure-networks   Opens your networks configuration file"
-    echo "  template             Creates a VM template for Kubernetes"
-    echo "  tofu                 Executes tofu commands directly"
-    echo "  bootstrap            Bootstraps Kubernetes to create a cluster"
-    echo "  add-nodes            Adds un-joined nodes to the cluster"
-    echo "  drain-node           Drains a node of workloads"
-    echo "  delete-node          Immediately deletes the node from the Kubernetes cluster"
-    echo "  upgrade-node         Upgrades a node to use the Kubernetes version specified in the environment settings"
-    echo "  reset-node           Resets Kubernetes configurations for one host"
-    echo "  reset-all-nodes      Resets Kubernetes configurations for all hosts"
-    echo "  upgrade-addons       Upgrades the addons to the versions specified in the environment settings"
-    echo "  upgrade-k8s          Upgrades the control-plane api to the version specified in the environment settings"
-    echo "  vmctl                Controls VM state, including power controls and backups"
-    echo "  run-command          Runs a bash command on a host or an Ansible host group"
-    echo "  toggle-providers     Toggles the S3 (Minio) and Unifi providers"
+    echo "  setup-ccr           Creates 'ccr' command and tells it where to look for scripts"
+    echo "  ctx                 Sets the current cluster context"
+    echo "  configure-variables Opens files with variables to be used by bash, ansible, and tofu"
+    echo "  configure-secrets   Guides you though setting secrets to be used by bash, ansible, and tofu"
+    echo "  configure-clusters  Opens your clusters configuration file"
+    echo "  configure-networks  Opens your networks configuration file"
+    echo "  template            Creates a VM template for Kubernetes"
+    echo "  tofu                Executes tofu commands directly"
+    echo "  bootstrap           Bootstraps Kubernetes to create a cluster"
+    echo "  add-nodes           Adds un-joined nodes to the cluster"
+    echo "  drain-node          Drains a node of workloads"
+    echo "  delete-node         Immediately deletes the node from the Kubernetes cluster"
+    echo "  upgrade-node        Upgrades a node to use the Kubernetes version specified in the environment settings"
+    echo "  reset-node          Resets Kubernetes configurations for one host"
+    echo "  reset-all-nodes     Resets Kubernetes configurations for all hosts"
+    echo "  upgrade-addons      Upgrades the addons to the versions specified in the environment settings"
+    echo "  upgrade-k8s         Upgrades the control-plane api to the version specified in the environment settings"
+    echo "  vmctl               Controls VM state, including power controls and backups"
+    echo "  run-command         Runs a bash command on a host or an Ansible host group"
+    echo "  update-containerd   Pushes containerd config.d and certs.d to cluster nodes"
+    echo "  toggle-providers    Toggles the S3 (Minio) and Unifi providers"
     echo ""
     echo "Use the -h/--help flag following a command for more descriptive help output."
 }
@@ -320,7 +321,8 @@ if [[ "$COMMAND" == "template" || \
       "$COMMAND" == "upgrade-addons" || \
       "$COMMAND" == "upgrade-k8s" || \
       "$COMMAND" == "vmctl" || \
-      "$COMMAND" == "run-command" \
+      "$COMMAND" == "run-command" || \
+      "$COMMAND" == "update-containerd" \
     ]]; then
     check_required_vars "${required_vars[@]}"
     print_env_vars "${required_vars[@]}"
@@ -381,6 +383,9 @@ case "$COMMAND" in
         ;;
     run-command)
         ( "$REPO_PATH/scripts/run_command.sh" "$@" )
+        ;;
+    update-containerd)
+        ( "$REPO_PATH/scripts/update_containerd.sh" "$@" )
         ;;
     toggle-providers)
         ( "$REPO_PATH/scripts/toggle_providers.sh" "$@" )

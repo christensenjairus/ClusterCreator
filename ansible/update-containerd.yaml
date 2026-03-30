@@ -1,0 +1,48 @@
+---
+- name: Update containerd configuration
+  hosts: all
+  serial: 1
+  gather_facts: false
+  become: true
+  tasks:
+
+    - name: Ensure containerd config.d directory exists
+      ansible.builtin.file:
+        path: /etc/containerd/config.d
+        state: directory
+        mode: '0755'
+
+    - name: Ensure containerd certs.d directory exists
+      ansible.builtin.file:
+        path: /etc/containerd/certs.d
+        state: directory
+        mode: '0755'
+
+    - name: Enable containerd config.d imports
+      ansible.builtin.replace:
+        path: /etc/containerd/config.toml
+        regexp: '^imports = \[\]'
+        replace: 'imports = ["/etc/containerd/config.d/*.toml"]'
+      notify: Restart containerd
+
+    - name: Synchronize containerd config.d files
+      ansible.builtin.copy:
+        src: ../scripts/k8s_vm_template/FilesToPlace/containerd.config.d/
+        dest: /etc/containerd/config.d/
+        mode: '0644'
+        directory_mode: '0755'
+      notify: Restart containerd
+
+    - name: Synchronize containerd certs.d files
+      ansible.builtin.copy:
+        src: ../scripts/k8s_vm_template/FilesToPlace/containerd.certs.d/
+        dest: /etc/containerd/certs.d/
+        mode: '0600'
+        directory_mode: '0755'
+      notify: Restart containerd
+
+  handlers:
+    - name: Restart containerd
+      ansible.builtin.systemd:
+        name: containerd
+        state: restarted
