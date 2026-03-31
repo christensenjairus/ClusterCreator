@@ -34,12 +34,10 @@
         state: present
         filename: "kubernetes"
 
-    - name: Install specific versions of kubelet, kubeadm, kubectl
+    - name: Install kubeadm
       ansible.builtin.apt:
         name:
-          - "kubelet={{ kubernetes_long_version }}"
           - "kubeadm={{ kubernetes_long_version }}"
-          - "kubectl={{ kubernetes_long_version }}"
         state: present
         allow_change_held_packages: true
         allow_downgrade: true
@@ -64,11 +62,62 @@
       ansible.builtin.meta: end_host
       when: "'etcd' in groups and 'etcd' in group_names"
 
+    - name: Check if etcd encryption is configured in apiserver manifest
+      ansible.builtin.shell: >
+        grep -q 'encryption-provider-config' /etc/kubernetes/manifests/kube-apiserver.yaml
+      register: encryption_check
+      failed_when: false
+      changed_when: false
+
+    - name: Add encryption config to kubeadm-config ConfigMap
+      when: encryption_check.rc == 0
+      delegate_to: localhost
+      become: false
+      block:
+        - name: Check if kubeadm-config already has encryption config
+          ansible.builtin.shell: >
+            kubectl get configmap kubeadm-config -n kube-system
+            -o jsonpath='{.data.ClusterConfiguration}' | grep -q 'encryption-provider-config'
+          register: configmap_encryption_check
+          failed_when: false
+          changed_when: false
+
+        - name: Patch kubeadm-config with encryption extraArgs and extraVolumes
+          when: configmap_encryption_check.rc != 0
+          ansible.builtin.shell: |
+            # Get current config YAML, add encryption args/volumes, output as YAML
+            PATCHED=$(kubectl get configmap kubeadm-config -n kube-system \
+              -o jsonpath='{.data.ClusterConfiguration}' | yq -y '
+                .apiServer.extraArgs = (.apiServer.extraArgs // []) +
+                  [{"name": "encryption-provider-config", "value": "/etc/kubernetes/enc/enc.yaml"}] |
+                .apiServer.extraVolumes = (.apiServer.extraVolumes // []) +
+                  [{"name": "enc", "hostPath": "/etc/kubernetes/enc", "mountPath": "/etc/kubernetes/enc",
+                    "readOnly": true, "pathType": "DirectoryOrCreate"}]
+              ')
+
+            # Update the ConfigMap
+            kubectl get configmap kubeadm-config -n kube-system -o json | \
+              jq --arg config "$PATCHED" '.data.ClusterConfiguration = $config' | \
+              kubectl replace -f -
+          register: patch_result
+
+        - name: Show kubeadm-config patch result
+          ansible.builtin.debug:
+            msg: "{{ patch_result.stdout | default('Encryption config already present in kubeadm-config ConfigMap') }}"
+
     - name: Kubeadm Upgrade Node
       ansible.builtin.shell:
         cmd: >
           kubeadm upgrade node
-      ignore_errors: true
+
+    - name: Install kubelet and kubectl
+      ansible.builtin.apt:
+        name:
+          - "kubelet={{ kubernetes_long_version }}"
+          - "kubectl={{ kubernetes_long_version }}"
+        state: present
+        allow_change_held_packages: true
+        allow_downgrade: true
 
     - name: Reload systemd daemon
       ansible.builtin.systemd:
