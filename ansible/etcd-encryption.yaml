@@ -145,11 +145,13 @@
       when: config_check.rc != 0
       retries: 3
 
-    - name: Make encryption manifest edit script executable
-      ansible.builtin.file:
-        path: /usr/local/bin/encryption-manifest-edit.sh
+    - name: Deploy encryption manifest edit script
+      ansible.builtin.copy:
+        src: ../scripts/k8s_vm_template/FilesToPlace/encryption-manifest-edit.sh
+        dest: /usr/local/bin/encryption-manifest-edit.sh
         mode: "0755"
-        state: file
+        owner: root
+        group: root
 
     - name: Set up cron job for encryption manifest edit script
       ansible.builtin.cron:
