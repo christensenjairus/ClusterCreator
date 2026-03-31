@@ -50,4 +50,10 @@ if [[ "$answer" =~ ^[Yy]$ ]]; then
   fi
 fi
 
+CONTAINERD_CONFIG_DIR="$REPO_PATH/scripts/k8s_vm_template/FilesToPlace/containerd.config.d"
+read -p "Create custom containerd config? (y/n): " answer
+if [[ "$answer" =~ ^[Yy]$ ]]; then
+  vim "$CONTAINERD_CONFIG_DIR/custom.toml"
+fi
+
 echo -e "${GREEN}DONE${ENDCOLOR}"

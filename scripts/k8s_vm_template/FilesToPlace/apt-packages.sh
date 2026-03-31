@@ -190,8 +190,11 @@ else
 fi
 
 # Create default containerd config
-mkdir -p /etc/containerd
+mkdir -p /etc/containerd/{config.d,certs.d}
 containerd config default | tee /etc/containerd/config.toml
+
+# Allow user-configured containerd config
+sed -i 's|imports = \[\]|imports = ["/etc/containerd/config.d/*.toml"]|' /etc/containerd/config.toml
 
 # Setup cgroup drivers (will use systemd, not cgroupfs, because its native to Debian/Ubuntu)
 sed -i '/SystemdCgroup = false/s/false/true/' /etc/containerd/config.toml

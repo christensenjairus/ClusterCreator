@@ -33,6 +33,8 @@ echo ""
 echo -e "${GREEN}Update, add packages, enable services, edit multipath config, set timezone, set firstboot scripts...${ENDCOLOR}"
 sudo virt-customize -a "$PROXMOX_ISO_PATH"/"$IMAGE_NAME" \
      --mkdir /etc/systemd/system/containerd.service.d/ \
+     --mkdir /etc/containerd/config.d/ \
+     --mkdir /etc/containerd/certs.d/ \
      --copy-in ./FilesToPlace/override.conf:/etc/systemd/system/containerd.service.d/ \
      --copy-in ./FilesToPlace/multipath.conf:/etc/ \
      --copy-in ./FilesToPlace/k8s_mods.conf:/etc/modules-load.d/ \
@@ -46,6 +48,8 @@ sudo virt-customize -a "$PROXMOX_ISO_PATH"/"$IMAGE_NAME" \
      --copy-in ./FilesToPlace/watch-disk-space.sh:/root/ \
      --copy-in ./FilesToPlace/extra-kernel-modules.sh:/root/ \
      --copy-in ./FilesToPlace/encryption-manifest-edit.sh:/usr/local/bin/ \
+     --copy-in ./FilesToPlace/containerd.config.d/:/etc/containerd/config.d/ \
+     --copy-in ./FilesToPlace/containerd.certs.d/:/etc/containerd/certs.d/ \
      --copy-in k8s.env:/etc/ \
      --install qemu-guest-agent,cloud-init \
      --timezone "$TIMEZONE" \
