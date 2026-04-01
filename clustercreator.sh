@@ -109,6 +109,7 @@ run_playbooks() {
     -e local_path_provisioner_version="$LOCAL_PATH_PROVISIONER_VERSION"
     -e metrics_server_version="$METRICS_SERVER_VERSION"
     -e kubelet_serving_cert_approver_version="$KUBELET_SERVING_CERT_APPROVER_VERSION"
+    -e pinned_kernel_version="${PINNED_KERNEL_VERSION:-none}"
   )
 
   # Separate playbooks from extra_vars
