@@ -26,6 +26,7 @@ echo -e "${GREEN}Upgrading essential apps from cluster: $CLUSTER_NAME.${ENDCOLOR
 playbooks=(
   "generate-hosts-txt.yaml"
   "trust-hosts.yaml"
+  "move-kubeconfig-remote.yaml"
   "cilium-setup.yaml"
   "kubelet-csr-approver.yaml"
   "local-storageclasses-setup.yaml"
