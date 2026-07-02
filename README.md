@@ -37,6 +37,7 @@
   - [Advanced Configurations](#advanced-configurations)
     - [Dynamic Configurations](#dynamic-configurations)
     - [Custom Worker Types](#custom-worker-types)
+    - [Image Garbage Collection](#image-garbage-collection)
   - [Troubleshooting](#troubleshooting)
     - [Installation Errors](#installation-errors)
   - [Final Product](#final-product)
@@ -419,6 +420,23 @@ Custom worker classes would be done to meet specific workload requirements like:
 - **Backup Workers**:
 
     - **Configuration**: Reduced CPU and memory, expanded disks, taints for backup storage.
+
+### Image Garbage Collection
+
+By default the kubelet only garbage-collects container images once disk usage crosses `imageGCHighThresholdPercent` (85%). On clusters that pull frequently-updated images, superseded image versions can accumulate for a long time before that threshold is reached, and pile up unevenly across nodes.
+
+Set `image_maximum_gc_age` on a cluster in `clusters.tf` to have the kubelet also reclaim any image left unused for longer than the given duration, regardless of disk usage:
+
+```tf
+    "beta" = {
+      cluster_name         = "beta"
+      ...
+      image_maximum_gc_age = "168h" # reclaim images unused for over 7 days
+      ...
+    }
+```
+
+> **Note**: the kubelet tracks each image's unused time in memory, so the timer resets when the kubelet restarts.
 
 ---
 

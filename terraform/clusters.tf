@@ -8,6 +8,7 @@ variable "clusters" {
     kubeconfig_file_name     : string                                                     # Required. Name of the local kubeconfig file to be created. Assumed this will be in $HOME/.kube/
     start_on_proxmox_boot    : optional(bool, true)                                       # Optional. Whether or not to start the cluster's vms on proxmox boot
     max_pods_per_node        : optional(number, 512)                                      # Optional. Max pods per node. This should be a function of the quantity of IPs in you pod_cidr and number of nodes.
+    image_maximum_gc_age     : optional(string, "")                                       # Optional. kubelet imageMaximumGCAge (e.g. "168h"). Reclaims images unused for longer than this. Empty leaves the kubeadm/kubelet default (age-based GC disabled).
     reboot_after_update      : optional(bool, false)                                      # Optional. Whether or not to reboot the nodes during terraform apply.
     use_pve_ha               : optional(bool, false)                                      # Optional. Whether to setup PVE High Availability for the VMs. Not currently supported on PVE 9 - https://github.com/bpg/terraform-provider-proxmox/issues/2097
     ssh                      : object({

@@ -40,3 +40,9 @@ etcd:
     certFile: /etc/kubernetes/pki/apiserver-etcd-client.crt
     keyFile: /etc/kubernetes/pki/apiserver-etcd-client.key
 {% endif %}
+{% if cluster_config.image_maximum_gc_age | default('') %}
+---
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+imageMaximumGCAge: {{ cluster_config.image_maximum_gc_age }}
+{% endif %}
