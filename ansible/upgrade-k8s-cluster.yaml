@@ -6,6 +6,9 @@
   become: true
   any_errors_fatal: true
 
+  vars:
+    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+
   tasks:
     - name: Create directory for apt keyrings
       ansible.builtin.file:
@@ -66,6 +69,35 @@
       ansible.builtin.fail:
         msg: "User chose not to continue."
       when: "user_confirmation.user_input | lower != 'yes'"
+
+    - name: Reconcile kubelet imageMaximumGCAge in kubelet-config ConfigMap
+      when: cluster_config.image_maximum_gc_age | default('') | length > 0
+      delegate_to: localhost
+      become: false
+      block:
+        - name: Read current imageMaximumGCAge from kubelet-config ConfigMap
+          ansible.builtin.shell: >
+            kubectl get configmap kubelet-config -n kube-system
+            -o jsonpath='{.data.kubelet}' | yq -r '.imageMaximumGCAge // ""'
+          register: current_gc_age
+          changed_when: false
+
+        - name: Patch kubelet-config with desired imageMaximumGCAge
+          when: current_gc_age.stdout | trim != cluster_config.image_maximum_gc_age
+          ansible.builtin.shell: |
+            # Get current KubeletConfiguration YAML, set imageMaximumGCAge, output as YAML
+            PATCHED=$(kubectl get configmap kubelet-config -n kube-system \
+              -o jsonpath='{.data.kubelet}' | yq -y '.imageMaximumGCAge = "{{ cluster_config.image_maximum_gc_age }}"')
+
+            # Update the ConfigMap
+            kubectl get configmap kubelet-config -n kube-system -o json | \
+              jq --arg config "$PATCHED" '.data.kubelet = $config' | \
+              kubectl replace -f -
+          register: gc_age_patch_result
+
+        - name: Show kubelet-config reconcile result
+          ansible.builtin.debug:
+            msg: "{{ gc_age_patch_result.stdout | default('kubelet-config already at imageMaximumGCAge: ' ~ cluster_config.image_maximum_gc_age) }}"
 
     - name: Kubeadm Upgrade Apply
       ansible.builtin.shell:
