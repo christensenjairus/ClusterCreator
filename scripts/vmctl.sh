@@ -43,7 +43,13 @@ required_vars=(
 check_required_vars "${required_vars[@]}"
 print_env_vars "${required_vars[@]}"
 
+# Prompt for confirmation
 echo -e "${GREEN}Performing $ACTION action on cluster: $CLUSTER_NAME.${ENDCOLOR}"
+read -r -p "Are you sure you want to proceed? (y/N): " confirm
+if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+  echo "Operation canceled."
+  exit 1
+fi
 
 # --------------------------- Script Start ---------------------------
 

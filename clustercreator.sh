@@ -9,7 +9,13 @@ export ENDCOLOR='\033[0m'
 CONFIG_DIR="$HOME/.config/clustercreator"
 REPO_PATH_FILE="$CONFIG_DIR/repo_path"
 CLUSTER_FILE="$CONFIG_DIR/current_cluster"
+ENVIRONMENT_FILE="$CONFIG_DIR/current_environment"
 INSTALL_PATH="${HOME}/.local/bin/ccr"
+
+# 1Password secret reference for the age private key used to decrypt
+# secrets.sops.yaml. Override by exporting SOPS_AGE_OP_REF, or bypass 1Password
+# entirely by exporting SOPS_AGE_KEY / SOPS_AGE_KEY_FILE.
+export SOPS_AGE_OP_REF="${SOPS_AGE_OP_REF:-op://Private/ClusterCreator SOPS age key/notesPlain}"
 
 # Function definitions
 check_required_vars() {
@@ -197,12 +203,103 @@ ctx() {
     kubectx "$CLUSTER_NAME" 2>/dev/null || true # will be created upon bootstrapping if it doesn't already exist.
 }
 
+env-cmd() {
+    if [[ -z "$1" ]]; then
+        cat "$ENVIRONMENT_FILE" 2>/dev/null || echo "No environment selected. Set one with 'ccr env <name>'."
+        exit 0
+    elif [[ $1 == "-h" || $1 == "--help" ]]; then
+        echo "Usage: $0 env [<environment_name>]"
+        echo ""
+        echo "Selects the active PVE environment (e.g. us-west-1, us-central-1, citadel)."
+        echo "Omitting the name shows the current environment."
+        echo ""
+        echo "The name must match a key under 'environments:' in secrets.sops.yaml."
+        echo "This determines PROXMOX_HOST/node, the Unifi URL, and the per-environment"
+        echo "secrets loaded at runtime (replacing the old comment-toggling)."
+        exit 1
+    fi
+    echo "$1" > "$ENVIRONMENT_FILE"
+    echo -e "${GREEN}Environment set to '$1'.${ENDCOLOR}"
+}
+
+# Decrypt secrets.sops.yaml for the active environment and export the values as
+# shell vars (VM_USERNAME/VM_PASSWORD/PROXMOX_HOST/...) and TF_VAR_* for tofu.
+# Best-effort/non-fatal: it warns and returns rather than exiting, so commands
+# that don't need secrets (env, configure-secrets, setup-ccr) still work.
+# Commands that DO need secrets rely on the later check_required_vars for a
+# clear error if something is missing.
+load_secrets() {
+  local secrets_file="$REPO_PATH/secrets.sops.yaml"
+  if [[ ! -f "$secrets_file" ]]; then
+    echo -e "${YELLOW}Warning: $secrets_file not found. Run 'ccr configure-secrets' to create it.${ENDCOLOR}" >&2
+    return 0
+  fi
+  if [[ ! -f "$ENVIRONMENT_FILE" ]]; then
+    echo -e "${YELLOW}Warning: no environment selected. Run 'ccr env <name>' to pick one.${ENDCOLOR}" >&2
+    return 0
+  fi
+  ENVIRONMENT="$(cat "$ENVIRONMENT_FILE")"
+  export ENVIRONMENT
+
+  # Load the age private key: prefer 1Password, fall back to SOPS_AGE_KEY_FILE.
+  if [[ -z "$SOPS_AGE_KEY" && -z "$SOPS_AGE_KEY_FILE" ]]; then
+    if command -v op &>/dev/null; then
+      SOPS_AGE_KEY="$(op read "$SOPS_AGE_OP_REF" 2>/dev/null)" && export SOPS_AGE_KEY
+    fi
+    if [[ -z "$SOPS_AGE_KEY" ]]; then
+      export SOPS_AGE_KEY_FILE="$HOME/.config/sops/age/keys.txt"
+    fi
+  fi
+
+  local json
+  if ! json="$(sops -d --output-type json "$secrets_file" 2>/dev/null)"; then
+    echo -e "${RED}Warning: failed to decrypt $secrets_file (check 1Password access or your age key).${ENDCOLOR}" >&2
+    return 0
+  fi
+
+  if [[ "$(printf '%s' "$json" | yq -p json '.environments | has(env(ENVIRONMENT))')" != "true" ]]; then
+    echo -e "${RED}Environment '$ENVIRONMENT' not found in secrets.sops.yaml. Available: $(printf '%s' "$json" | yq -p json '.environments | keys | join(", ")')${ENDCOLOR}" >&2
+    return 0
+  fi
+
+  _sv() { printf '%s' "$json" | yq -p json "$1"; }
+
+  # Shared (identity + global secrets).
+  # NOTE: we intentionally do NOT export a shell PROXMOX_USERNAME here — that is
+  # the root SSH user set in k8s.env, distinct from the Terraform provider's
+  # proxmox_username (below), which is only needed as TF_VAR_*.
+  VM_USERNAME="$(_sv '.shared.vm_username')"; export VM_USERNAME
+  TF_VAR_vm_username="$VM_USERNAME"; export TF_VAR_vm_username
+  TF_VAR_proxmox_username="$(_sv '.shared.proxmox_username')"; export TF_VAR_proxmox_username
+  TF_VAR_unifi_username="$(_sv '.shared.unifi_username')"; export TF_VAR_unifi_username
+  TF_VAR_minio_access_key="$(_sv '.shared.minio_access_key')"; export TF_VAR_minio_access_key
+  TF_VAR_minio_secret_key="$(_sv '.shared.minio_secret_key')"; export TF_VAR_minio_secret_key
+  # The s3 backend can't take sensitive TF vars, so also expose the MinIO creds
+  # as the standard AWS credential env vars that the backend/AWS provider read.
+  AWS_ACCESS_KEY_ID="$TF_VAR_minio_access_key"; export AWS_ACCESS_KEY_ID
+  AWS_SECRET_ACCESS_KEY="$TF_VAR_minio_secret_key"; export AWS_SECRET_ACCESS_KEY
+  TF_VAR_vm_ssh_key="$(printf '%s' "$json" | yq -p json -o json -I 0 '.shared.vm_ssh_keys')"; export TF_VAR_vm_ssh_key
+
+  # Per-environment (infra targets + per-env secrets)
+  PROXMOX_HOST="$(_sv '.environments[env(ENVIRONMENT)].proxmox_host')"; export PROXMOX_HOST
+  TF_VAR_proxmox_host="$PROXMOX_HOST"; export TF_VAR_proxmox_host
+  TF_VAR_proxmox_node="$(_sv '.environments[env(ENVIRONMENT)].proxmox_node')"; export TF_VAR_proxmox_node
+  TF_VAR_unifi_api_url="$(_sv '.environments[env(ENVIRONMENT)].unifi_api_url')"; export TF_VAR_unifi_api_url
+  TF_VAR_proxmox_api_token="$(_sv '.environments[env(ENVIRONMENT)].proxmox_api_token')"; export TF_VAR_proxmox_api_token
+  TF_VAR_unifi_password="$(_sv '.environments[env(ENVIRONMENT)].unifi_password')"; export TF_VAR_unifi_password
+  VM_PASSWORD="$(_sv '.environments[env(ENVIRONMENT)].vm_password')"; export VM_PASSWORD
+  TF_VAR_vm_password="$VM_PASSWORD"; export TF_VAR_vm_password
+
+  unset -f _sv
+}
+
 display_usage() {
     echo "Usage: clustercreator.sh|ccr <command> [options]"
     echo ""
     echo "Commands:"
     echo "  setup-ccr            Creates 'ccr' command and tells it where to look for scripts"
     echo "  ctx                  Sets the current cluster context"
+    echo "  env                  Sets the active PVE environment (selects per-env secrets & host)"
     echo "  configure-variables  Opens files with variables to be used by bash, ansible, and tofu"
     echo "  configure-secrets    Guides you though setting secrets to be used by bash, ansible, and tofu"
     echo "  configure-clusters   Opens your clusters configuration file"
@@ -220,7 +317,6 @@ display_usage() {
     echo "  upgrade-k8s          Upgrades the control-plane api to the version specified in the environment settings"
     echo "  vmctl                Controls VM state, including power controls and backups"
     echo "  run-command          Runs a bash command on a host or an Ansible host group"
-    echo "  toggle-providers     Toggles the S3 (Minio) and Unifi providers"
     echo ""
     echo "Use the -h/--help flag following a command for more descriptive help output."
 }
@@ -236,6 +332,8 @@ required_commands=(
   "kubectx"
   "tofu"
   "vim"
+  "sops"
+  "yq"
 )
 check_required_commands "${required_commands[@]}"
 
@@ -259,6 +357,13 @@ if [[ "$COMMAND" != "" && "$COMMAND" != "setup-ccr" && "$COMMAND" != "-h" && "$C
     source "$REPO_PATH/scripts/.env" 2>/dev/null || true
     source "$REPO_PATH/scripts/k8s.env"
     set +a # stop automatically exporting
+
+    # Decrypt SOPS secrets for the active environment (exports VM_*/PROXMOX_HOST/
+    # TF_VAR_*). Skipped for commands that create/select those (env, configure-*).
+    case "$COMMAND" in
+        env|configure-secrets|configure-variables|configure-clusters|configure-networks) : ;;
+        *) load_secrets ;;
+    esac
 fi
 
 # Load CLUSTER_FILE variable
@@ -334,6 +439,9 @@ case "$COMMAND" in
     ctx)
         ctx "$@"
         ;;
+    env)
+        env-cmd "$@"
+        ;;
     configure-variables)
         ( "$REPO_PATH/scripts/configure_variables.sh" "$@" )
         ;;
@@ -381,9 +489,6 @@ case "$COMMAND" in
         ;;
     run-command)
         ( "$REPO_PATH/scripts/run_command.sh" "$@" )
-        ;;
-    toggle-providers)
-        ( "$REPO_PATH/scripts/toggle_providers.sh" "$@" )
         ;;
     tofu)
         ( cd "$REPO_PATH/terraform" && tofu "$@" )

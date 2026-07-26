@@ -29,10 +29,14 @@
         creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 
     - name: Add Kubernetes apt repository
-      ansible.builtin.apt_repository:
-        repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_short_version }}/deb/ /"
+      ansible.builtin.deb822_repository:
+        name: kubernetes
+        types: [deb]
+        uris: "https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_short_version }}/deb/"
+        suites: "/"
+        signed_by: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+        enabled: true
         state: present
-        filename: "kubernetes"
 
     - name: Install specific versions of kubelet, kubeadm, kubectl
       ansible.builtin.apt:
@@ -48,7 +52,7 @@
     - name: Kubeadm Upgrade Plan
       ansible.builtin.shell:
         cmd: >
-          kubeadm upgrade plan v{{ kubernetes_medium_version }}
+          kubeadm upgrade plan --ignore-preflight-errors=CoreDNSUnsupportedPlugins,CoreDNSMigration v{{ kubernetes_medium_version }}
       ignore_errors: true
       delegate_to: "{{ inventory_hostname }}"
       register: plan_output
@@ -70,11 +74,7 @@
     - name: Kubeadm Upgrade Apply
       ansible.builtin.shell:
         cmd: >
-          # K8s documentation recommends this step
-          killall -s SIGTERM kube-apiserver # trigger a graceful kube-apiserver shutdown
-          sleep 20 # wait a little bit to permit completing in-flight requests
-          
-          kubeadm upgrade apply v{{ kubernetes_medium_version }} -y
+          kubeadm upgrade apply --ignore-preflight-errors=CoreDNSUnsupportedPlugins,CoreDNSMigration --skip-phases=addon/coredns v{{ kubernetes_medium_version }} -y
       ignore_errors: true
       delegate_to: "{{ inventory_hostname }}"
       register: upgrade_output

@@ -7,6 +7,10 @@ set -a # automatically export all variables
 source /etc/k8s.env
 set +a # stop automatically exporting
 
+# Fail (with a non-zero exit that the firstboot wrapper detects) if any download
+# or extraction step fails, instead of silently producing an incomplete template.
+set -eo pipefail
+
 export ARCH="amd64"
 
 # Install CNI Plugins
@@ -15,9 +19,6 @@ mkdir -p /opt/cni/bin
 tar Cxzvf /opt/cni/bin "cni-plugins-linux-amd64-v$CNI_PLUGINS_VERSION.tgz"
 rm "cni-plugins-linux-amd64-v$CNI_PLUGINS_VERSION.tgz"
 chown -R root:root /opt/cni/bin # https://github.com/cilium/cilium/issues/23838
-
-### install helm
-curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
 ### install yq
 wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq

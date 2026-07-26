@@ -2,7 +2,7 @@
   hosts: controlplane[0]
   gather_facts: false
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/' ~ cluster_name ~ '/cluster_config.json') | from_json }}"
     default_storage_class_name: "local-path"
   tasks:
     - name: Generate Non-Auto-Provisioning Local StorageClass Yaml

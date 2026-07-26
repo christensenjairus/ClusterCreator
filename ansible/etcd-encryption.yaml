@@ -6,7 +6,7 @@
   vars:
     enc_key_path: /etc/kubernetes/enc/enc.key
     enc_file_path: /etc/kubernetes/enc/enc.yaml
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/' ~ cluster_name ~ '/cluster_config.json') | from_json }}"
   tasks:
     - name: Check if the encryption key file exists on each node
       ansible.builtin.stat:

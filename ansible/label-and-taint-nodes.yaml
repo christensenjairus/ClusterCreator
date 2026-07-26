@@ -5,7 +5,7 @@
 
   vars:
     ansible_hosts_path: "tmp/{{ cluster_name }}/ansible-hosts.txt"
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/' ~ cluster_name ~ '/cluster_config.json') | from_json }}"
     etcd_group_exists: "{{ 'etcd' in groups }}"  # Check if the etcd group exists
 
   tasks:

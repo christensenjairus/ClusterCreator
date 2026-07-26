@@ -111,11 +111,21 @@ resource "proxmox_virtual_environment_vm" "node" {
     
     # DNS configuration
     dns {
-      # Use the search_domain from the dns block
-      domain = lookup(each.value.networking, "dns", null) != null ? lookup(each.value.networking, "search_domain", "lan") : "lan"
-      
-      # Use DNS servers from the dns block if available
-      servers = lookup(each.value.networking, "dns", null) != null ? concat(lookup(each.value.networking, "ipv4", null) != null ? [lookup(each.value.networking.ipv4, "dns1", "1.1.1.1"), lookup(each.value.networking.ipv4, "dns2", "1.0.0.1")] : ["1.1.1.1", "1.0.0.1"], lookup(each.value.networking, "ipv6", null) != null ? compact([lookup(each.value.networking.ipv6, "dns1", null), lookup(each.value.networking.ipv6, "dns2", null)]) : []) : ["1.1.1.1", "1.0.0.1"]
+      # Use the cluster's configured search domain (defaults to "lan").
+      domain = lookup(each.value.networking, "search_domain", "lan")
+
+      # Always apply the IPv4 DNS servers; append the IPv6 DNS servers only when
+      # this node actually has an IPv6 address on one of its NICs.
+      servers = concat(
+        [
+          each.value.networking.dns.ipv4.dns1,
+          each.value.networking.dns.ipv4.dns2,
+        ],
+        anytrue([for nic in each.value.node_ips.nics : nic.node_ipv6_address != null]) ? compact([
+          each.value.networking.dns.ipv6.dns1,
+          each.value.networking.dns.ipv6.dns2,
+        ]) : []
+      )
     }
   }
   
@@ -131,7 +141,7 @@ resource "proxmox_virtual_environment_vm" "node" {
     }
   }
   
-  reboot              = false # reboot is performed during the ./install_k8s.sh script, but only when needed, and only on nodes not part of the cluster already.
+  reboot              = false # reboot is performed during the bootstrap & add-nodes commands
   stop_on_destroy     = true  # stop the node when the terraform resource is destroyed. We don't care about data loss because it's being destroyed.
   migrate             = true
   on_boot             = each.value.on_boot

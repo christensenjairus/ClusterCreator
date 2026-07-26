@@ -32,7 +32,7 @@ playbooks=(
   "metrics-server-setup.yaml"
   "metallb-setup.yaml"
 )
-run_playbooks "-e node_name=$TARGETED_NODE -e timeout_seconds=$TIMEOUT_SECONDS" "${playbooks[@]}"
+run_playbooks "${playbooks[@]}"
 
 # ---------------------------- Script End ----------------------------
 

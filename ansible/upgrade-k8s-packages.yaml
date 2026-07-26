@@ -29,10 +29,14 @@
         creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 
     - name: Add Kubernetes apt repository
-      ansible.builtin.apt_repository:
-        repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_short_version }}/deb/ /"
+      ansible.builtin.deb822_repository:
+        name: kubernetes
+        types: [deb]
+        uris: "https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_short_version }}/deb/"
+        suites: "/"
+        signed_by: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+        enabled: true
         state: present
-        filename: "kubernetes"
 
     - name: Install specific versions of kubelet, kubeadm, kubectl
       ansible.builtin.apt:
@@ -67,7 +71,7 @@
     - name: Kubeadm Upgrade Node
       ansible.builtin.shell:
         cmd: >
-          kubeadm upgrade node
+          kubeadm upgrade node --skip-phases addon/coredns
       ignore_errors: true
 
     - name: Reload systemd daemon

@@ -63,9 +63,8 @@ conntrack \
 unzip \
 ceph-common \
 cron \
+ncdu \
 iproute2 \
-intel-gpu-tools \
-intel-opencl-icd \
 etcd-client \
 kubelet="$KUBERNETES_LONG_VERSION" \
 kubeadm="$KUBERNETES_LONG_VERSION" \
@@ -73,6 +72,9 @@ kubectl="$KUBERNETES_LONG_VERSION"
 
 # hold back kubernetes packages
 apt-mark hold kubelet kubeadm kubectl
+
+### install helm
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-4 | bash
 
 # install containerd, which have different package names on Debian and Ubuntu
 distro=$(lsb_release -is)
@@ -105,9 +107,9 @@ elif [[ "$distro" = *"Ubuntu"* ]]; then
     apt update
     apt install -y containerd.io
 
-    echo "Installing most recent kernel on Ubuntu..."
+    echo "Installing most recent kernel & intel gpu packages for Ubuntu..."
     # update this as needed. This works for both 24.04 and 25.04 as of 05/2025
-    apt install -y linux-firmware linux-generic-hwe-24.04
+    apt install -y linux-firmware linux-generic-hwe-24.04 intel-opencl-icd intel-gpu-tools
 
     # ----------------- Disable Runc AppArmor Profile -----------------
 
@@ -203,7 +205,7 @@ systemctl enable iscsid
 systemctl enable multipathd
 systemctl enable qemu-guest-agent
 
-if [[ -n "$NVIDIA_DRIVER_VERSION" && "$NVIDIA_DRIVER_VERSION" != "none" ]]; then
+if [[ "$NVIDIA_DRIVER_ENABLED" == "true" ]]; then
   if [[ "$distro" = *"Debian"* ]]; then
 
     # add contrib, non-free, and non-free-firmware components to sources.list
@@ -253,3 +255,19 @@ fi
 
 # extraneous package cleanup
 apt autoremove -y
+
+# Verify the critical components actually installed. Without this, a failed
+# `apt install kubelet=...`/containerd (e.g. an unavailable version or a repo
+# hiccup) would go unnoticed and get baked into a "successful" template. Exiting
+# non-zero here surfaces the failure to the firstboot wrapper and the host.
+missing=()
+for pkg in kubelet kubeadm kubectl containerd.io; do
+  dpkg -s "$pkg" >/dev/null 2>&1 || missing+=("$pkg (package)")
+done
+for bin in kubelet kubeadm kubectl containerd helm; do
+  command -v "$bin" >/dev/null 2>&1 || missing+=("$bin (binary)")
+done
+if (( ${#missing[@]} > 0 )); then
+  echo "ERROR: firstboot did not install critical components: ${missing[*]}" >&2
+  exit 1
+fi

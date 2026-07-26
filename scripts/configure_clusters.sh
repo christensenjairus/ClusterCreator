@@ -28,10 +28,14 @@ echo -e "${GREEN}Configuring your clusters file${ENDCOLOR}"
 
 read -p "Open terraform/clusters.tf for editing? (y/n): " answer
 if [[ "$answer" =~ ^[Yy]$ ]]; then
+  if [[ ! -f "$CLUSTERS_FILE" && -f "$CLUSTERS_FILE.example" ]]; then
+    echo -e "${YELLOW}terraform/clusters.tf not found — creating it from clusters.tf.example.${ENDCOLOR}"
+    cp "$CLUSTERS_FILE.example" "$CLUSTERS_FILE"
+  fi
   if [[ -f "$CLUSTERS_FILE" ]]; then
     vim "$CLUSTERS_FILE"
   else
-    echo -e "${RED}Error: $CLUSTERS_FILE not found.${ENDCOLOR}"
+    echo -e "${RED}Error: $CLUSTERS_FILE not found (and no clusters.tf.example to copy from).${ENDCOLOR}"
     exit 1
   fi
 fi

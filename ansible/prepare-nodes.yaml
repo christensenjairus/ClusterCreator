@@ -21,7 +21,7 @@
       no_log: true
     - name: Warn and pause if 'Error' or 'Fatal' is found in any firstboot log files, excluding specific instances
       pause:
-        prompt: "Warning: 'Error' or 'Fatal' strings found in firstboot log files. Template VM may have an issue with its firstboot scripts. Investigate /var/log/template-firstboot-*.log files and, if needed, recreate the template and the VM(s). You can add exclusions in the prepare-nodes playbook (~ line 26) to filter out false-positives. Press enter to ignore this warning or Ctrl+C to abort."
+        prompt: "Warning: 'Error' or 'Fatal' strings found in firstboot log files. Template VM may have an issue with its firstboot scripts. Investigate /var/log/template-firstboot-*.log files and, if needed, recreate the template and the VM(s). You can add exclusions in the prepare-nodes playbook (~ line 15) to filter out false-positives. Press enter to ignore this warning or Ctrl+C to abort."
       when: grep_output.results | selectattr('rc', 'equalto', 0) | list | count > 0
 
 - name: Prepare nodes
@@ -29,7 +29,7 @@
   gather_facts: true # needs to know OS type
   become: true  # This ensures all tasks are run with elevated privileges
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/' ~ cluster_name ~ '/cluster_config.json') | from_json }}"
   tasks:
 
     - name: Add IPv6 forwarding line to sysctl.d file (if IPv6 is enabled)
@@ -37,20 +37,30 @@
         path: /etc/sysctl.d/k8s_sysctl.conf
         line: 'net.ipv6.conf.all.forwarding        = 1'
         state: present
-      when: cluster_config.networking.nics[0].ipv6.subnet_prefix is defined and cluster_config.networking.nics[0].ipv6.subnet_prefix
+      when:
+        - cluster_config.networking.nics[0].ipv6 is defined
+        - cluster_config.networking.nics[0].ipv6 is not none
+        - cluster_config.networking.nics[0].ipv6.subnet_prefix is defined
+        - cluster_config.networking.nics[0].ipv6.subnet_prefix is not none
+        - cluster_config.networking.nics[0].ipv6.subnet_prefix | length > 0
     - name: Reload sysctl to apply changes (if IPv6 is enabled)
       ansible.builtin.command: sysctl --system
-      when: cluster_config.networking.nics[0].ipv6.subnet_prefix is defined and cluster_config.networking.nics[0].ipv6.subnet_prefix
+      when:
+        - cluster_config.networking.nics[0].ipv6 is defined
+        - cluster_config.networking.nics[0].ipv6 is not none
+        - cluster_config.networking.nics[0].ipv6.subnet_prefix is defined
+        - cluster_config.networking.nics[0].ipv6.subnet_prefix is not none
+        - cluster_config.networking.nics[0].ipv6.subnet_prefix | length > 0
 
     - name: Configure kubelet with the correct interface IP
       shell: |
-        {% if cluster_config.networking.nics[0].ipv6.subnet_prefix is defined and cluster_config.networking.nics[0].ipv6.subnet_prefix %}
+        {% if cluster_config.networking.nics[0].ipv6 is defined and cluster_config.networking.nics[0].ipv6 is not none and cluster_config.networking.nics[0].ipv6.subnet_prefix is defined and cluster_config.networking.nics[0].ipv6.subnet_prefix is not none and cluster_config.networking.nics[0].ipv6.subnet_prefix | length > 0 %}
         node_ip="{{ ipv4 }},{{ ipv6 }}"
         {% else %}
         node_ip="{{ ipv4 }}"
         {% endif %}
 
-        kubelet_extra_args="--node-ip=${node_ip} --max-pods={{ cluster_config.max_pods_per_node }} --rotate-server-certificates=true --rotate-certificates=true --housekeeping-interval=5s"
+        kubelet_extra_args="--node-ip=${node_ip} --max-pods={{ cluster_config.max_pods_per_node }} --rotate-server-certificates=true --rotate-certificates=true --housekeeping-interval=5s --resolv-conf=/etc/resolv-k8s.conf"
         # the housekeeping-interval was a fix I needed to fix cadvisor metrics not being deduplicated correctly when sent to Mimir.
 
         echo "KUBELET_EXTRA_ARGS=\"$kubelet_extra_args\"" | tee /etc/default/kubelet

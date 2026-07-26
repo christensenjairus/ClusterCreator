@@ -18,9 +18,10 @@
       - [4. Create an API Token for the User:](#4-create-an-api-token-for-the-user)
     - [2. Add a KUBECONFIG line to your .bashrc or .zshrc](#2-add-a-kubeconfig-line-to-your-bashrc-or-zshrc)
     - [3. Setup a `ccr` alias](#3-setup-a-ccr-alias)
-    - [4. Configure Additional Providers (optional)](#4-configure-additional-providers-optional)
+    - [4. Optional Providers](#4-optional-providers)
     - [5. Configure Variables](#5-configure-variables)
     - [6. Configure Secrets](#6-configure-secrets)
+    - [6b. Select an Environment](#6b-select-an-environment)
     - [7. Configure Clusters](#7-configure-clusters)
     - [8. Configure Networks](#8-configure-networks)
   - [Usage](#usage)
@@ -85,6 +86,9 @@ Before proceeding, ensure you have the following:
 - **Proxmox VE**: A running Proxmox cluster.
 - **OpenTofu**: Installed on your control machine.
 - **Ansible**: Installed on your control machine.
+- **SOPS** and **age**: For managing encrypted secrets (`brew install sops age`).
+- **yq**: For parsing the decrypted secrets (`brew install yq`).
+- **1Password CLI** (`op`, optional but recommended): Stores the age private key so secrets can be decrypted on any machine. Without it, the key is read from `~/.config/sops/age/keys.txt`.
 - **Access Credentials**: For Proxmox, and optionally Unifi and Minio.
 - **Unifi Controller** (optional): For managing networks and VLANs.
 - **Minio** (optional): For storing your tofu state.
@@ -147,17 +151,11 @@ As a shortcut for cluster management using this tool, you should link the `clust
 
 **NOTE: Most of the following commands have verbose `--help` output. Use it to find information omitted from the README for brevity.**
 
-### 4. Configure Additional Providers (optional)
+### 4. Optional Providers
 
-You can enable the Unifi provider to enable your Unifi controller to make dedicated VLANs for your cluster, allowing you to achieve network isolation if desired.
+**Unifi** (optional) — lets your Unifi controller create dedicated VLANs per cluster for network isolation. It's controlled by a single variable rather than editing provider blocks: `enable_unifi` in `terraform/variables.tf` (default `true`). Set it to `false` (or export `TF_VAR_enable_unifi=false`) to create no `unifi_network` resources; the provider is lazy, so when disabled it never authenticates. No file toggling needed.
 
-You can enable the Minio provider to store your tofu/terraform state in S3 instead of your local computer. This is recommended for your production clusters.
-
-Use the new `ccr` command to enable the provider of your choice.
-
-```shell
-ccr toggle-providers
-```
+**MinIO/S3 state** — this tool stores OpenTofu state in your MinIO S3 bucket via the `backend "s3"` block, and the workflow (secrets, `ccr env`) assumes it. It is always on; there is no local-state mode. Configure the bucket/region/endpoint in `terraform/variables.tf` and the access keys in `secrets.sops.yaml` (see step 6).
 
 ### 5. Configure Variables
 
@@ -169,42 +167,69 @@ ccr configure-variables
 
 This will open the files for you to set
 - **Template VM settings**: Temporary settings for the Template VM while it is installing packages.
-- **Proxmox Information**: Information like the Proxmox url, ISO path, datastore names, etc.
+- **Proxmox Information**: ISO path, datastore names, etc.
   - `PROXMOX_USERNAME` can be `root` or a user that can run `sudo` commands ***without a password***.
-- **Unifi Information**: (optional, needs to be toggled on first) The Unifi API url.
-- **Minio Bucket, Region, and URL**: (optional, needs to be toggled on first) The minio bucket, region, and URL for storing Tofu state.
+  - Note: the Proxmox **host** and the Unifi **API URL** are per-environment and now live in `secrets.sops.yaml` (see step 6), selected via `ccr env`.
+- **Minio Bucket, Region, and Endpoint**: Set in `terraform/variables.tf` for storing Tofu state (always used).
 
 ### 6. Configure Secrets
 
-The following command will help you set up your secrets. The secrets you enter will be used for bash (`scripts/.env`) and tofu (`terraform/secrets.tf`).
+Secrets are stored **encrypted at rest** in `secrets.sops.yaml` using [SOPS](https://github.com/getsops/sops) with an [age](https://github.com/FiloSottile/age) key. This file is safe to commit — every value is encrypted. The age **private key** is kept in 1Password (or, as a fallback, `~/.config/sops/age/keys.txt`) and loaded automatically at runtime; the age **public key** lives in the committed `.sops.yaml`.
+
+The following command decrypts the file into your editor and re-encrypts it on save:
 
 ```bash
 ccr configure-secrets
 ```
 
-This will guide you through setting
-- **VM Credentials and SSH Key**: Standard linux user configuration.
-- **Proxmox Credentials**: Refer to for creating API tokens.
-- **Unifi Credentials**: (optional, needs to be toggled on first) Create a service account in the Unifi Controller with Site Admin permissions for the Network app.
-- **Minio Access Key/Secret**: (optional, needs to be toggled on first) Create a minio access key that has read/write access to the bucket specified in `terraform/variables.tf`.
+On first run it creates `secrets.sops.yaml` from `secrets.sops.example.yaml`. Fill in every `REPLACE_ME`:
+- **`shared`** — values identical across environments: `vm_username`, `vm_ssh_keys`, `minio_access_key`/`minio_secret_key`, and the Proxmox/Unifi service usernames.
+- **`environments.<name>`** — per-datacenter values: `proxmox_host`, `proxmox_node`, `unifi_api_url`, `proxmox_api_token`, `unifi_password`, `vm_password`.
+
+Refer to the sections above for creating the Proxmox API token, the Unifi service account (Site Admin on the Network app), and a Minio access key with read/write to your state bucket.
+
+#### First-time age key setup
+
+If you don't already have an age key, generate one and store the private key in 1Password:
+
+```bash
+mkdir -p ~/.config/sops/age
+age-keygen -o ~/.config/sops/age/keys.txt          # prints the PUBLIC key
+op item create --category "Secure Note" --vault "Private" \
+  --title "ClusterCreator SOPS age key" \
+  "notesPlain[text]=$(cat ~/.config/sops/age/keys.txt)"
+```
+
+Put the printed **public** key in `.sops.yaml` (under `age:`). Point `ccr` at your 1Password item by exporting `SOPS_AGE_OP_REF` (default: `op://Private/ClusterCreator SOPS age key/notesPlain`).
+
+### 6b. Select an Environment
+
+The active PVE environment determines which per-environment secrets and which `PROXMOX_HOST` are used (replacing the old practice of commenting/uncommenting blocks in `k8s.env`/`variables.tf`/`secrets.tf`):
+
+```bash
+ccr env us-west-1        # set the active environment
+ccr env                  # show the current environment
+```
+
+The name must match a key under `environments:` in `secrets.sops.yaml`.
 
 ### 7. Configure Clusters
 
-The following command will show you where to configure your cluster configurations. This file is found in tofu's (`terraform/clusters.tf`).
-
-Remember to set the username to be your own.
+Your cluster definitions live in `terraform/clusters.tf`, which is **gitignored** (it's your personal environment). The repo ships a committed template, `terraform/clusters.tf.example`, containing three worked examples — `alpha` (single node), `beta` (control plane + general workers), and `gamma` (HA control plane with decoupled etcd). On first run, the command below copies the template to `clusters.tf` for you to customize:
 
 ```bash
 ccr configure-clusters
 ```
 
+Remember to set the username to be your own.
+
 **NOTE: Make sure you understand the cluster object definined at the top of `terraform/clusters.tf`. It has many options with set defaults, and many features like the HA, boot on PVE startup, which are all *disabled by default***.
 
 ### 8. Configure Networks
 
-**This is only used when the Unifi provider is enabled with `ccr toggle-providers`**
+**This is only used when the Unifi provider is enabled (`enable_unifi = true` in `terraform/variables.tf`, the default).**
 
-The following command will show you where to configure your network configurations for the optional Unifi provider. This file is found in tofu's (`terraform/networks.tf`).
+Your network definitions live in `terraform/networks.tf`, which is **gitignored** like `clusters.tf`; the committed template is `terraform/networks.tf.example`. On first run the command below copies the template to `networks.tf`.
 
 The key of the network must match the key of the cluster to be applied by Tofu.
 
@@ -246,7 +271,7 @@ What It Does:
 
 ### 2. Initialize Tofu
 
-Initialize Tofu modules. This step is required only once (and after toggling a providers)
+Initialize Tofu modules. This step is required only once (and again if you change the backend or providers). First select an environment with `ccr env <name>` so the S3 backend credentials are available.
 
 ```bash
 ccr tofu init

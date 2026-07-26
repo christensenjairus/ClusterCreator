@@ -16,7 +16,7 @@ set -a # automatically export all variables
 source .env
 source k8s.env
 # Add gpu tag(s)
-if [[ -n "$NVIDIA_DRIVER_VERSION" && "$NVIDIA_DRIVER_VERSION" != "none" ]]; then
+if [[ "$NVIDIA_DRIVER_ENABLED" == "true" ]]; then
   EXTRA_TEMPLATE_TAGS="${EXTRA_TEMPLATE_TAGS:+$EXTRA_TEMPLATE_TAGS }nvidia"
 fi
 set +a # stop automatically exporting
@@ -35,6 +35,8 @@ sudo virt-customize -a "$PROXMOX_ISO_PATH"/"$IMAGE_NAME" \
      --mkdir /etc/systemd/system/containerd.service.d/ \
      --copy-in ./FilesToPlace/override.conf:/etc/systemd/system/containerd.service.d/ \
      --copy-in ./FilesToPlace/multipath.conf:/etc/ \
+     --copy-in ./FilesToPlace/resolv-k8s.conf:/etc/ \
+     --run-command 'rm -f /etc/resolv.conf && ln -s /etc/resolv-k8s.conf /etc/resolv.conf' \
      --copy-in ./FilesToPlace/k8s_mods.conf:/etc/modules-load.d/ \
      --copy-in ./FilesToPlace/storage_mods.conf:/etc/modules-load.d/ \
      --copy-in ./FilesToPlace/network_mods.conf:/etc/modules-load.d/ \
@@ -116,10 +118,20 @@ while true; do
   output=$(sudo qm guest exec "$TEMPLATE_VM_ID" cat /tmp/.firstboot 2>/dev/null)
   success=$?
   if [[ $success -eq 0 ]]; then
-    exit_code=$(echo "$output" | jq '.exitcode')
-    if [[ $? -eq 0 && $exit_code -eq 0 ]]; then
-      echo -e "\n${GREEN}Firstboot complete. Proceeding with cloud-init reset and shutdown...${ENDCOLOR}"
-      break
+    # .exitcode is the exit code of the guest's `cat` (0 once the file exists);
+    # out-data is the file's contents, which the firstboot script sets to "0" on
+    # success or "FAILED ..." on failure. We must check the CONTENTS, not just
+    # that the file exists, otherwise a failed install still looks successful.
+    cat_exit=$(echo "$output" | jq '.exitcode')
+    firstboot_status=$(echo "$output" | jq -r '.["out-data"] // empty' | tr -d '[:space:]')
+    if [[ "$cat_exit" == "0" && -n "$firstboot_status" ]]; then
+      if [[ "$firstboot_status" == "0" ]]; then
+        echo -e "\n${GREEN}Firstboot complete. Proceeding with cloud-init reset and shutdown...${ENDCOLOR}"
+        break
+      else
+        echo -e "\n${RED}Firstboot reported a failure (${firstboot_status}). Check /var/log/template-firstboot-*.log inside the VM. Aborting.${ENDCOLOR}"
+        exit 1
+      fi
     fi
   fi
   echo -n "."
@@ -141,7 +153,7 @@ fi
 
 echo -e "${GREEN}Checking for 'No space left' logs...${ENDCOLOR}"
 log_output=$(sudo qm guest exec "$TEMPLATE_VM_ID" -- /bin/sh -c "cat /var/log/template-firstboot-*" | jq -r '.["out-data"]')
-if grep -q "No space left" /var/log/template-firstboot-* 2>/dev/null; then
+if echo "$log_output" | grep -q "No space left"; then
     echo -e "${RED}'No space left' logs found. Please increase TEMPLATE_DISK_SIZE and try again.${ENDCOLOR}"
     exit 1
 else

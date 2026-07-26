@@ -65,6 +65,7 @@ playbooks=(
   "trust-hosts.yaml"
   "upgrade-k8s-cluster.yaml"
   "etcd-encryption.yaml"
+  "upgrade-source-packages.yaml"
   "upgrade-apt.yaml"
 )
 run_playbooks "--limit=${TARGETED_NODE}" "${playbooks[@]}"

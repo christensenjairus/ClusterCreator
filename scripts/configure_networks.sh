@@ -28,10 +28,14 @@ echo -e "${GREEN}Configuring your networks file${ENDCOLOR}"
 
 read -p "Open terraform/networks.tf for editing? (y/n): " answer
 if [[ "$answer" =~ ^[Yy]$ ]]; then
+  if [[ ! -f "$NETWORKS_FILE" && -f "$NETWORKS_FILE.example" ]]; then
+    echo -e "${YELLOW}terraform/networks.tf not found — creating it from networks.tf.example.${ENDCOLOR}"
+    cp "$NETWORKS_FILE.example" "$NETWORKS_FILE"
+  fi
   if [[ -f "$NETWORKS_FILE" ]]; then
     vim "$NETWORKS_FILE"
   else
-    echo -e "${RED}Error: $NETWORKS_FILE not found.${ENDCOLOR}"
+    echo -e "${RED}Error: $NETWORKS_FILE not found (and no networks.tf.example to copy from).${ENDCOLOR}"
     exit 1
   fi
 fi

@@ -1,3 +1,12 @@
+# ============================================================================
+# EXAMPLE Unifi network definitions. Copy this file to `networks.tf` and
+# customize:  cp terraform/networks.tf.example terraform/networks.tf
+# `networks.tf` is gitignored (personal environment). Only used when the Unifi
+# provider is enabled (`enable_unifi = true`, the default). Each key must match
+# a cluster name in clusters.tf, and each vlan_id/subnet must match that
+# cluster's NIC. If you don't use Unifi, set `enable_unifi = false` and you can
+# leave this as the example (its resources won't be created).
+# ============================================================================
 #noinspection TFIncorrectVariableType
 variable "networks" {
   description = "Configuration details for networks by environment."
@@ -18,47 +27,38 @@ variable "networks" {
       gateway           : optional(string)                                           # Optional. DHCP IPv6 gateway for this network in UniFi
     }), {})
   })))
-  default = { # create your networks here using the above object
+  default = { # create your networks here using the above object; keys match cluster names
     "alpha" = [
       {
-        network_name       = "ALPHA"
-        search_domain      = "lan"
-        vlan_id            = 100
+        network_name  = "ALPHA"
+        search_domain = "lan"
+        vlan_id       = 100
         ipv4 = {
-          dns1             = "1.1.1.1"
-          dns2             = "1.0.0.1"
-          subnet_prefix    = "10.0.1"
-          gateway          = "10.0.1.1"
+          subnet_prefix = "10.0.1"
+          gateway       = "10.0.1.1"
         }
-        ipv6 = {}
       }
     ]
     "beta" = [
       {
-        network_name       = "BETA"
-        search_domain      = "lan"
-        vlan_id            = 200
+        network_name  = "BETA"
+        search_domain = "lan"
+        vlan_id       = 200
         ipv4 = {
-          dns1             = "1.1.1.1"
-          dns2             = "1.0.0.1"
-          subnet_prefix    = "10.0.2"
-          gateway          = "10.0.2.1"
+          subnet_prefix = "10.0.2"
+          gateway       = "10.0.2.1"
         }
-        ipv6 = {}
       }
     ]
     "gamma" = [
       {
-        network_name       = "GAMMA"
-        search_domain      = "lan"
-        vlan_id            = 300
+        network_name  = "GAMMA"
+        search_domain = "lan"
+        vlan_id       = 300
         ipv4 = {
-          dns1             = "1.1.1.1"
-          dns2             = "1.0.0.1"
-          subnet_prefix    = "10.0.3"
-          gateway          = "10.0.3.1"
+          subnet_prefix = "10.0.3"
+          gateway       = "10.0.3.1"
         }
-        ipv6 = {}
       }
     ]
   }

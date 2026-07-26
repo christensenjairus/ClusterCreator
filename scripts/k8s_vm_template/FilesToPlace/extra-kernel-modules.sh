@@ -13,10 +13,16 @@ if ! dpkg -l | grep -q "^ii\s\+$current_kernel_package"; then
 
   # Update package list and install the missing package
   apt-get update -y >> /var/log/extra-kernel-modules.log 2>&1
-  apt-get install -y "$current_kernel_package" >> /var/log/extra-kernel-modules.log 2>&1
 
-  # Set reboot flag if the current kernel package was installed
-  reboot_needed=1
+  # Only flag a reboot if the install actually succeeded. Otherwise the package
+  # stays missing, this check fails again on the next boot, and we would reboot
+  # forever (network/DNS down at @reboot time, package unavailable for the exact
+  # kernel version, apt lock held by cloud-init, etc.).
+  if apt-get install -y "$current_kernel_package" >> /var/log/extra-kernel-modules.log 2>&1; then
+    reboot_needed=1
+  else
+    echo "Install of $current_kernel_package failed; will retry on the next boot without rebooting now." >> /var/log/extra-kernel-modules.log 2>&1
+  fi
 else
   echo "$current_kernel_package is already installed."
 fi

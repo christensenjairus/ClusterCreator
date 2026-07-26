@@ -1,0 +1,9 @@
+# SOPS configuration — https://github.com/getsops/sops
+# The `age` value below is a PUBLIC key (safe to commit). The matching PRIVATE
+# key lives in 1Password and is loaded at runtime by `ccr` (Stage 2).
+# Anyone with the private key can decrypt; add more recipients (one per line)
+# to let additional keys/machines decrypt.
+creation_rules:
+  - path_regex: (^|/)secrets\.sops\.ya?ml$
+    age: >-
+      age1st703h2a597cpxqp2dcqnnf8ag8y7swq60c7kah6ndh8wsw5yuaqjdhlj2

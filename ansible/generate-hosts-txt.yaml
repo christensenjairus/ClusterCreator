@@ -3,7 +3,7 @@
   hosts: localhost
   gather_facts: false
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/' ~ cluster_name ~ '/cluster_config.json') | from_json }}"
     cluster_name: "{{ cluster_config.cluster_name }}"
     node_classes: "{{ cluster_config.node_classes }}"
     networking: "{{ cluster_config.networking }}"

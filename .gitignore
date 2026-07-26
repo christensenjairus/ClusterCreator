@@ -1,7 +1,18 @@
 .idea
 .terraform*
+# Legacy plaintext secrets (migrated to secrets.sops.yaml). The *.bak from the
+# migration holds plaintext and must never be committed. secrets.sops.yaml
+# itself IS committed on purpose — it is encrypted with SOPS+age.
 terraform/secrets.tf
+terraform/secrets.tf.bak
 terraform/terraform.tfstate*
+# Personal environment config — copy the committed *.example templates and
+# customize. The .example files themselves stay tracked.
+terraform/clusters.tf
+terraform/networks.tf
 ansible/tmp
 *.DS_Store
 scripts/.env
+# Never commit a decrypted secrets file
+secrets.sops.dec.yaml
+secrets.dec.yaml

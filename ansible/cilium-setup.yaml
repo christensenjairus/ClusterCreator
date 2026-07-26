@@ -4,7 +4,7 @@
   tags:
     - cilium_basic_install
   vars:
-    cluster_config: "{{ lookup('file', 'tmp/{{ cluster_name }}/cluster_config.json') | from_json }}"
+    cluster_config: "{{ lookup('file', 'tmp/' ~ cluster_name ~ '/cluster_config.json') | from_json }}"
   tasks:
     - name: Calculate the count of non-API/ETCD servers
       set_fact:
@@ -39,6 +39,7 @@
 
     - name: Install Cilium
       timeout: 180
+      retries: 3
       ansible.builtin.shell:
         cmd: >
           helm upgrade --install cilium cilium/cilium
