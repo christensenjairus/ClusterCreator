@@ -315,6 +315,9 @@ display_usage() {
     echo "  reset-all-nodes      Resets Kubernetes configurations for all hosts"
     echo "  upgrade-addons       Upgrades the addons to the versions specified in the environment settings"
     echo "  upgrade-k8s          Upgrades the control-plane api to the version specified in the environment settings"
+    echo "  check-certs          Audits TLS certificate expiration on etcd and controlplane nodes"
+    echo "  renew-etcd-certs     Renews external etcd certs and the apiserver's etcd client cert"
+    echo "  renew-cp-certs       Renews kubeadm-managed certs on the controlplane nodes"
     echo "  vmctl                Controls VM state, including power controls and backups"
     echo "  run-command          Runs a bash command on a host or an Ansible host group"
     echo ""
@@ -424,6 +427,9 @@ if [[ "$COMMAND" == "template" || \
       "$COMMAND" == "reset-all-nodes" || \
       "$COMMAND" == "upgrade-addons" || \
       "$COMMAND" == "upgrade-k8s" || \
+      "$COMMAND" == "check-certs" || \
+      "$COMMAND" == "renew-etcd-certs" || \
+      "$COMMAND" == "renew-cp-certs" || \
       "$COMMAND" == "vmctl" || \
       "$COMMAND" == "run-command" \
     ]]; then
@@ -483,6 +489,15 @@ case "$COMMAND" in
         ;;
     upgrade-k8s)
         ( "$REPO_PATH/scripts/upgrade_k8s.sh" "$@" )
+        ;;
+    check-certs)
+        ( "$REPO_PATH/scripts/check_certs.sh" "$@" )
+        ;;
+    renew-etcd-certs)
+        ( "$REPO_PATH/scripts/renew_etcd_certs.sh" "$@" )
+        ;;
+    renew-cp-certs)
+        ( "$REPO_PATH/scripts/renew_controlplane_certs.sh" "$@" )
         ;;
     vmctl)
         ( "$REPO_PATH/scripts/vmctl.sh" "$@")
