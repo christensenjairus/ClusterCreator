@@ -1,0 +1,709 @@
+---
+# Renew the TLS certificates of an external etcd cluster, then refresh the
+# apiserver-etcd-client certificate the controlplanes use to talk to it.
+#
+# WHY THIS PLAYBOOK EXISTS
+#   `kubeadm upgrade apply` renews certificates only on the node it runs on.
+#   With external etcd it never touches the etcd members, so their
+#   server/peer/healthcheck-client certs quietly expire at kubeadm's default
+#   one-year lifetime. When they do, the apiservers can no longer open NEW etcd
+#   connections. They limp along on established connections and watch caches
+#   while /metrics times out, so the symptom looks like a broken metrics scrape
+#   rather than a control-plane failure.
+#
+# THE TOPOLOGY THIS MUST RESPECT
+#   etcd-nodes-setup.yaml deliberately leaves the etcd CA private key on the
+#   FIRST etcd node only:
+#     * helpers/ansible_etcd_cert_creation.yaml:14 deletes ca.key from the
+#       bundle scp'd to every other etcd node.
+#     * The controlplanes receive etcd/ca.crt but never etcd/ca.key.
+#   Consequences:
+#     * `kubeadm certs renew` is a SIGNING operation. It CANNOT run on
+#       etcd[1:] - there is no CA key there to sign with. Running it there
+#       fails outright.
+#     * Therefore every certificate is minted on etcd[0] (exactly as during
+#       bootstrap, via `kubeadm init phase certs` with each node's own
+#       kubeadmcfg.yaml so the SANs are correct for that node) and then
+#       distributed.
+#
+#   This mirrors bootstrap rather than inventing a second, divergent codepath.
+#
+# SAFETY
+#   * All certificates are generated FIRST, before any service is restarted.
+#     A signing failure therefore aborts the run before it can disturb a
+#     working cluster.
+#   * etcd members are restarted ONE AT A TIME with a health gate between
+#     them, so quorum is never lost.
+#   * Every replaced file is backed up on the host that owns it.
+#   * The etcd CA is validated up front; if the CA itself has expired the run
+#     aborts, because that needs a full CA rotation instead.
+#   * ca.key is never copied off etcd[0].
+#
+# USAGE
+#   ccr check-certs          # audit first
+#   ccr renew-etcd-certs
+
+- name: Preflight - validate the etcd CA and locate the signing node
+  hosts: etcd
+  gather_facts: false
+  become: true
+  any_errors_fatal: true
+  tasks:
+    - name: Confirm the etcd CA certificate exists
+      ansible.builtin.stat:
+        path: /etc/kubernetes/pki/etcd/ca.crt
+      register: etcd_ca
+
+    - name: Fail when the etcd CA certificate is missing
+      ansible.builtin.fail:
+        msg: >-
+          /etc/kubernetes/pki/etcd/ca.crt is missing on {{ inventory_hostname }}.
+          This host does not look like a bootstrapped etcd member. Aborting.
+      when: not etcd_ca.stat.exists
+
+    - name: Check whether the etcd CA is still valid
+      ansible.builtin.command:
+        cmd: openssl x509 -in /etc/kubernetes/pki/etcd/ca.crt -noout -checkend 0
+      register: etcd_ca_valid
+      changed_when: false
+      failed_when: false
+
+    - name: Read the etcd CA expiry date
+      ansible.builtin.shell:
+        cmd: set -o pipefail && openssl x509 -in /etc/kubernetes/pki/etcd/ca.crt -noout -enddate | cut -d= -f2
+      args:
+        executable: /bin/bash
+      register: etcd_ca_enddate
+      changed_when: false
+
+    - name: Refuse to continue when the etcd CA itself has expired
+      ansible.builtin.fail:
+        msg: >-
+          The etcd CA on {{ inventory_hostname }} expired on
+          {{ etcd_ca_enddate.stdout }}. Renewing leaf certificates against an
+          expired CA fixes nothing; this requires a full CA rotation, which is
+          a separate and far more invasive procedure. Aborting.
+      when: etcd_ca_valid.rc != 0
+
+    - name: Report the etcd CA validity
+      ansible.builtin.debug:
+        msg: "etcd CA on {{ inventory_hostname }} is valid until {{ etcd_ca_enddate.stdout }}"
+
+    - name: Determine whether this node holds the etcd CA private key
+      ansible.builtin.stat:
+        path: /etc/kubernetes/pki/etcd/ca.key
+      register: etcd_ca_key
+
+    - name: Record CA-key ownership as a fact
+      ansible.builtin.set_fact:
+        has_ca_key: "{{ etcd_ca_key.stat.exists }}"
+
+    - name: Show which node can sign certificates
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }} {{ 'HAS' if has_ca_key else 'does NOT have' }}
+          the etcd CA private key
+          {{ '(this is the signing node)' if has_ca_key else '(cannot sign; will receive certs)' }}
+
+- name: Preflight - confirm exactly one signing node exists
+  hosts: localhost
+  gather_facts: false
+  connection: local
+  any_errors_fatal: true
+  tasks:
+    - name: Build the list of etcd nodes holding the CA key
+      ansible.builtin.set_fact:
+        signing_nodes: >-
+          {{ groups['etcd']
+             | zip(groups['etcd'] | map('extract', hostvars, 'has_ca_key'))
+             | selectattr(1)
+             | map(attribute=0)
+             | list }}
+
+    - name: Fail when no etcd node can sign certificates
+      ansible.builtin.fail:
+        msg: >-
+          No etcd node has /etc/kubernetes/pki/etcd/ca.key, so no certificate
+          can be issued. The etcd CA private key normally lives on
+          {{ groups['etcd'][0] }}. Restore it from backup before renewing.
+      when: signing_nodes | length == 0
+
+    - name: Report the signing node
+      ansible.builtin.debug:
+        msg: "Certificates will be issued on: {{ signing_nodes | join(', ') }}"
+
+- name: Record etcd cluster health before making any change
+  hosts: etcd[0]
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Query etcd endpoint health
+      ansible.builtin.shell:
+        cmd: >
+          ETCDCTL_API=3 etcdctl
+          --cert /etc/kubernetes/pki/etcd/peer.crt
+          --key /etc/kubernetes/pki/etcd/peer.key
+          --cacert /etc/kubernetes/pki/etcd/ca.crt
+          --endpoints {% for h in groups['etcd'] %}https://{{ hostvars[h].ansible_host }}:2379{% if not loop.last %},{% endif %}{% endfor %}
+          endpoint health --write-out=table
+      register: etcd_health_before
+      changed_when: false
+      failed_when: false
+
+    - name: Show pre-change etcd health
+      ansible.builtin.debug:
+        msg: >-
+          {{ (etcd_health_before.stdout_lines | default([]))
+             + (etcd_health_before.stderr_lines | default([])) }}
+
+    - name: Note that unhealthy output is expected when certs are already expired
+      ansible.builtin.debug:
+        msg: >-
+          etcdctl did not report every member healthy. This is EXPECTED when the
+          certificates have already expired, because etcdctl authenticates with
+          the same expired material. Continuing.
+      when: etcd_health_before.rc != 0
+
+# ---------------------------------------------------------------------------
+# Phase 1: mint every certificate on the signing node. Nothing is restarted
+# here, so a failure at this stage leaves the running cluster untouched.
+# ---------------------------------------------------------------------------
+- name: Generate all replacement certificates on the signing etcd node
+  hosts: etcd[0]
+  gather_facts: true
+  become: true
+  any_errors_fatal: true
+  vars:
+    staging_root: /root/cert-renewal
+  tasks:
+    - name: Fail early if this node cannot sign
+      ansible.builtin.fail:
+        msg: >-
+          {{ inventory_hostname }} does not hold /etc/kubernetes/pki/etcd/ca.key
+          and therefore cannot issue certificates.
+      when: not (hostvars[inventory_hostname].has_ca_key | bool)
+
+    # Copied verbatim from etcd-nodes-setup.yaml:116. Must stay byte-identical
+    # to what bootstrap generates or etcd rejects the member configuration.
+    - name: Build the etcd initial-cluster string exactly as bootstrap does
+      ansible.builtin.set_fact:
+        initial_cluster: "{% for host in groups['etcd'] %}{{ host }}=https://{{ hostvars[host].ansible_host }}:2380{% if not loop.last %},{% endif %}{% endfor %}"  # noqa: yaml[line-length]
+
+    - name: Back up the signing node's PKI before touching it
+      ansible.builtin.shell:
+        cmd: >
+          set -e;
+          mkdir -p /root/etcd-pki-backup;
+          cp -a /etc/kubernetes/pki
+            /root/etcd-pki-backup/pki-{{ ansible_date_time.iso8601_basic_short }}
+      args:
+        executable: /bin/bash
+        creates: "/root/etcd-pki-backup/pki-{{ ansible_date_time.iso8601_basic_short }}"
+
+    - name: Preserve the current CA material so it is never regenerated
+      ansible.builtin.shell:
+        cmd: >
+          set -e;
+          mkdir -p {{ staging_root }}/ca-safe;
+          cp -a /etc/kubernetes/pki/etcd/ca.crt {{ staging_root }}/ca-safe/;
+          cp -a /etc/kubernetes/pki/etcd/ca.key {{ staging_root }}/ca-safe/
+      args:
+        executable: /bin/bash
+      changed_when: true
+
+    - name: Create a staging directory per etcd node
+      ansible.builtin.file:
+        path: "{{ staging_root }}/{{ hostvars[item].ansible_host }}"
+        state: directory
+        mode: '0700'
+      loop: "{{ groups['etcd'] }}"
+
+    - name: Render a kubeadm config per etcd node so SANs are correct
+      ansible.builtin.template:
+        src: helpers/kubeadm_etcd_config.yaml.j2
+        dest: "{{ staging_root }}/{{ hostvars[item].ansible_host }}/kubeadmcfg.yaml"
+        mode: '0600'
+      loop: "{{ groups['etcd'] }}"
+
+    # kubeadm writes into /etc/kubernetes/pki, so each node's certs are
+    # generated in turn and immediately moved into that node's staging dir.
+    # The CA is restored between iterations so it is never rotated.
+    - name: Generate server, peer and healthcheck certs for each etcd node
+      ansible.builtin.shell:
+        cmd: |
+          set -euo pipefail
+          CFG="{{ staging_root }}/{{ hostvars[item].ansible_host }}/kubeadmcfg.yaml"
+          DEST="{{ staging_root }}/{{ hostvars[item].ansible_host }}/pki/etcd"
+          mkdir -p "$DEST"
+
+          # Clear only leaf material; keep the CA in place for signing.
+          find /etc/kubernetes/pki/etcd -type f \
+            -not -name ca.crt -not -name ca.key -delete
+
+          kubeadm init phase certs etcd-server              --config="$CFG"
+          kubeadm init phase certs etcd-peer                --config="$CFG"
+          kubeadm init phase certs etcd-healthcheck-client  --config="$CFG"
+
+          for f in server.crt server.key peer.crt peer.key \
+                   healthcheck-client.crt healthcheck-client.key; do
+            cp -a "/etc/kubernetes/pki/etcd/$f" "$DEST/$f"
+          done
+          # ca.crt travels with the bundle; ca.key never does.
+          cp -a /etc/kubernetes/pki/etcd/ca.crt "$DEST/ca.crt"
+      args:
+        executable: /bin/bash
+      loop: "{{ groups['etcd'] }}"
+      loop_control:
+        label: "{{ item }} ({{ hostvars[item].ansible_host }})"
+      changed_when: true
+
+    - name: Generate the apiserver-etcd-client certificate
+      ansible.builtin.shell:
+        cmd: |
+          set -euo pipefail
+          rm -f /etc/kubernetes/pki/apiserver-etcd-client.crt \
+                /etc/kubernetes/pki/apiserver-etcd-client.key
+          kubeadm init phase certs apiserver-etcd-client \
+            --config="{{ staging_root }}/{{ hostvars[groups['etcd'][0]].ansible_host }}/kubeadmcfg.yaml"
+          mkdir -p {{ staging_root }}/client
+          cp -a /etc/kubernetes/pki/apiserver-etcd-client.crt {{ staging_root }}/client/
+          cp -a /etc/kubernetes/pki/apiserver-etcd-client.key {{ staging_root }}/client/
+      args:
+        executable: /bin/bash
+      changed_when: true
+
+    - name: Restore the signing node's own PKI from its staging bundle
+      ansible.builtin.shell:
+        cmd: |
+          set -euo pipefail
+          SRC="{{ staging_root }}/{{ hostvars[groups['etcd'][0]].ansible_host }}/pki/etcd"
+          install -o root -g root -m 0600 "$SRC/server.key"               /etc/kubernetes/pki/etcd/server.key
+          install -o root -g root -m 0644 "$SRC/server.crt"               /etc/kubernetes/pki/etcd/server.crt
+          install -o root -g root -m 0600 "$SRC/peer.key"                 /etc/kubernetes/pki/etcd/peer.key
+          install -o root -g root -m 0644 "$SRC/peer.crt"                 /etc/kubernetes/pki/etcd/peer.crt
+          install -o root -g root -m 0600 "$SRC/healthcheck-client.key"   /etc/kubernetes/pki/etcd/healthcheck-client.key
+          install -o root -g root -m 0644 "$SRC/healthcheck-client.crt"   /etc/kubernetes/pki/etcd/healthcheck-client.crt
+          # Guarantee the CA was not rotated by any of the phases above.
+          install -o root -g root -m 0644 {{ staging_root }}/ca-safe/ca.crt /etc/kubernetes/pki/etcd/ca.crt
+          install -o root -g root -m 0600 {{ staging_root }}/ca-safe/ca.key /etc/kubernetes/pki/etcd/ca.key
+          install -o root -g root -m 0644 {{ staging_root }}/client/apiserver-etcd-client.crt /etc/kubernetes/pki/apiserver-etcd-client.crt
+          install -o root -g root -m 0600 {{ staging_root }}/client/apiserver-etcd-client.key /etc/kubernetes/pki/apiserver-etcd-client.key
+      args:
+        executable: /bin/bash
+      changed_when: true
+
+    - name: Verify the CA certificate was not rotated
+      ansible.builtin.shell:
+        cmd: >
+          set -o pipefail &&
+          diff -q {{ staging_root }}/ca-safe/ca.crt /etc/kubernetes/pki/etcd/ca.crt
+          && echo IDENTICAL
+      args:
+        executable: /bin/bash
+      register: ca_unchanged
+      changed_when: false
+
+    - name: Confirm CA integrity
+      ansible.builtin.assert:
+        that:
+          - "'IDENTICAL' in ca_unchanged.stdout"
+        success_msg: "etcd CA is unchanged - only leaf certificates were reissued."
+        fail_msg: >-
+          The etcd CA certificate CHANGED during renewal. This would break every
+          other member. Restore from /root/etcd-pki-backup/ immediately.
+
+    - name: Verify each new certificate chains to the etcd CA
+      ansible.builtin.shell:
+        cmd: |
+          set -euo pipefail
+          for n in {{ groups['etcd'] | map('extract', hostvars, 'ansible_host') | join(' ') }}; do
+            for c in server peer healthcheck-client; do
+              openssl verify -CAfile {{ staging_root }}/ca-safe/ca.crt \
+                "{{ staging_root }}/$n/pki/etcd/$c.crt" >/dev/null
+            done
+          done
+          openssl verify -CAfile {{ staging_root }}/ca-safe/ca.crt \
+            {{ staging_root }}/client/apiserver-etcd-client.crt >/dev/null
+          echo ALL_CHAIN_OK
+      args:
+        executable: /bin/bash
+      register: chain_check
+      changed_when: false
+
+    - name: Confirm all new certificates validate against the CA
+      ansible.builtin.assert:
+        that:
+          - "'ALL_CHAIN_OK' in chain_check.stdout"
+        success_msg: "Every new certificate chains correctly to the etcd CA."
+        fail_msg: "At least one new certificate does not verify against the etcd CA. Aborting before any restart."
+
+    - name: Slurp each node's certificate bundle for distribution
+      ansible.builtin.shell:
+        cmd: >
+          set -o pipefail &&
+          tar -C {{ staging_root }}/{{ hostvars[item].ansible_host }}/pki/etcd
+          -cz server.crt server.key peer.crt peer.key
+          healthcheck-client.crt healthcheck-client.key | base64 -w0
+      args:
+        executable: /bin/bash
+      register: node_bundles
+      changed_when: false
+      loop: "{{ groups['etcd'] }}"
+      loop_control:
+        label: "{{ item }}"
+
+    - name: Slurp the apiserver etcd client certificate
+      ansible.builtin.slurp:
+        src: "{{ staging_root }}/client/apiserver-etcd-client.crt"
+      register: client_crt
+
+    - name: Slurp the apiserver etcd client key
+      ansible.builtin.slurp:
+        src: "{{ staging_root }}/client/apiserver-etcd-client.key"
+      register: client_key
+
+    - name: Publish certificate material for later plays
+      ansible.builtin.set_fact:
+        etcd_node_bundles: >-
+          {{ dict(node_bundles.results
+                  | map(attribute='item')
+                  | zip(node_bundles.results | map(attribute='stdout'))) }}
+        apiserver_etcd_client_crt: "{{ client_crt.content }}"
+        apiserver_etcd_client_key: "{{ client_key.content }}"
+
+    - name: Report what was generated
+      ansible.builtin.debug:
+        msg: >-
+          Generated server/peer/healthcheck certs for
+          {{ groups['etcd'] | join(', ') }} plus apiserver-etcd-client.
+          Nothing has been restarted yet.
+
+# ---------------------------------------------------------------------------
+# Phase 2: install the new material and restart members ONE AT A TIME.
+# serial: 1 plus a health gate keeps quorum intact throughout.
+# ---------------------------------------------------------------------------
+- name: Install certificates and restart etcd members one at a time
+  hosts: etcd
+  gather_facts: true
+  become: true
+  serial: 1
+  any_errors_fatal: true
+  vars:
+    etcd_primary: "{{ groups['etcd'][0] }}"
+  tasks:
+    - name: Back up this node's PKI directory
+      ansible.builtin.shell:
+        cmd: >
+          set -e;
+          mkdir -p /root/etcd-pki-backup;
+          cp -a /etc/kubernetes/pki
+            /root/etcd-pki-backup/pki-{{ ansible_date_time.iso8601_basic_short }}
+      args:
+        executable: /bin/bash
+        creates: "/root/etcd-pki-backup/pki-{{ ansible_date_time.iso8601_basic_short }}"
+
+    # The signing node already installed its own certs in the previous play.
+    - name: Unpack this node's certificate bundle
+      ansible.builtin.shell:
+        cmd: |
+          set -euo pipefail
+          TMP=$(mktemp -d)
+          trap 'rm -rf "$TMP"' EXIT
+          echo '{{ hostvars[etcd_primary].etcd_node_bundles[inventory_hostname] }}' \
+            | base64 -d | tar -C "$TMP" -xz
+          install -o root -g root -m 0644 "$TMP/server.crt"             /etc/kubernetes/pki/etcd/server.crt
+          install -o root -g root -m 0600 "$TMP/server.key"             /etc/kubernetes/pki/etcd/server.key
+          install -o root -g root -m 0644 "$TMP/peer.crt"               /etc/kubernetes/pki/etcd/peer.crt
+          install -o root -g root -m 0600 "$TMP/peer.key"               /etc/kubernetes/pki/etcd/peer.key
+          install -o root -g root -m 0644 "$TMP/healthcheck-client.crt" /etc/kubernetes/pki/etcd/healthcheck-client.crt
+          install -o root -g root -m 0600 "$TMP/healthcheck-client.key" /etc/kubernetes/pki/etcd/healthcheck-client.key
+      args:
+        executable: /bin/bash
+      when: inventory_hostname != etcd_primary
+      changed_when: true
+
+    - name: Confirm the installed server certificate is now valid
+      ansible.builtin.command:
+        cmd: openssl x509 -in /etc/kubernetes/pki/etcd/server.crt -noout -checkend 86400
+      changed_when: false
+
+    # etcd is a static pod and does not reload certificates from disk.
+    - name: Force the etcd static pod to restart
+      block:
+        - name: Move the etcd manifest aside
+          ansible.builtin.command:
+            cmd: mv /etc/kubernetes/manifests/etcd.yaml /tmp/etcd.yaml.renewing
+          changed_when: true
+
+        - name: Give the kubelet time to tear the pod down
+          ansible.builtin.pause:
+            seconds: 20
+      always:
+        - name: Restore the etcd manifest
+          ansible.builtin.command:
+            cmd: mv /tmp/etcd.yaml.renewing /etc/kubernetes/manifests/etcd.yaml
+          changed_when: true
+          failed_when: false
+
+    - name: Wait for this member to listen on 2379 again
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: 2379
+        state: started
+        timeout: 180
+        delay: 10
+
+    - name: Wait for this member to report healthy with the new certificates
+      ansible.builtin.shell:
+        cmd: >
+          ETCDCTL_API=3 etcdctl
+          --cert /etc/kubernetes/pki/etcd/peer.crt
+          --key /etc/kubernetes/pki/etcd/peer.key
+          --cacert /etc/kubernetes/pki/etcd/ca.crt
+          --endpoints https://{{ ansible_host }}:2379
+          endpoint health
+      register: member_health
+      until: member_health.rc == 0
+      retries: 30
+      delay: 10
+      changed_when: false
+
+    - name: Confirm the whole cluster still has quorum before moving on
+      ansible.builtin.shell:
+        cmd: >
+          ETCDCTL_API=3 etcdctl
+          --cert /etc/kubernetes/pki/etcd/peer.crt
+          --key /etc/kubernetes/pki/etcd/peer.key
+          --cacert /etc/kubernetes/pki/etcd/ca.crt
+          --endpoints https://{{ ansible_host }}:2379
+          endpoint status --write-out=simple
+      register: quorum_check
+      until: quorum_check.rc == 0
+      retries: 20
+      delay: 10
+      changed_when: false
+
+    - name: Report this member restored
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }} restarted with renewed certificates and is healthy."
+
+# ---------------------------------------------------------------------------
+# Phase 3: refresh the controlplanes' client certificate and restart them.
+# ---------------------------------------------------------------------------
+- name: Distribute the etcd client certificate to the controlplanes
+  hosts: controlplane
+  gather_facts: false
+  become: true
+  serial: 1
+  any_errors_fatal: true
+  vars:
+    etcd_primary: "{{ groups['etcd'][0] }}"
+  tasks:
+    - name: Ensure the PKI directories exist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      loop:
+        - /etc/kubernetes/pki
+        - /etc/kubernetes/pki/etcd
+
+    - name: Back up the existing client certificate material
+      ansible.builtin.shell:
+        cmd: |
+          set -uo pipefail
+          ts=$(date +%Y%m%d%H%M%S)
+          for f in /etc/kubernetes/pki/apiserver-etcd-client.crt \
+                   /etc/kubernetes/pki/apiserver-etcd-client.key; do
+            [ -f "$f" ] && cp -a "$f" "$f.bak-$ts"
+          done
+          exit 0
+      args:
+        executable: /bin/bash
+      changed_when: true
+
+    - name: Install the renewed etcd client certificate
+      ansible.builtin.copy:
+        content: "{{ hostvars[etcd_primary].apiserver_etcd_client_crt | b64decode }}"
+        dest: /etc/kubernetes/pki/apiserver-etcd-client.crt
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Install the renewed etcd client key
+      ansible.builtin.copy:
+        content: "{{ hostvars[etcd_primary].apiserver_etcd_client_key | b64decode }}"
+        dest: /etc/kubernetes/pki/apiserver-etcd-client.key
+        owner: root
+        group: root
+        mode: '0600'
+
+    - name: Confirm the installed client certificate is valid
+      ansible.builtin.command:
+        cmd: openssl x509 -in /etc/kubernetes/pki/apiserver-etcd-client.crt -noout -checkend 86400
+      changed_when: false
+
+    - name: Confirm the client certificate chains to the local etcd CA copy
+      ansible.builtin.command:
+        cmd: >
+          openssl verify -CAfile /etc/kubernetes/pki/etcd/ca.crt
+          /etc/kubernetes/pki/apiserver-etcd-client.crt
+      changed_when: false
+
+    # kube-apiserver is a static pod and will not reload client certs in place.
+    - name: Force the kube-apiserver static pod to restart
+      block:
+        - name: Move the apiserver manifest aside
+          ansible.builtin.command:
+            cmd: mv /etc/kubernetes/manifests/kube-apiserver.yaml /tmp/kube-apiserver.yaml.renewing
+          changed_when: true
+
+        - name: Give the kubelet time to tear the pod down
+          ansible.builtin.pause:
+            seconds: 20
+      always:
+        - name: Restore the apiserver manifest
+          ansible.builtin.command:
+            cmd: mv /tmp/kube-apiserver.yaml.renewing /etc/kubernetes/manifests/kube-apiserver.yaml
+          changed_when: true
+          failed_when: false
+
+    - name: Wait for this apiserver to accept connections again
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: 6443
+        state: started
+        timeout: 300
+        delay: 10
+
+    - name: Wait for this apiserver to report live
+      ansible.builtin.uri:
+        url: "https://{{ ansible_host }}:6443/livez"
+        validate_certs: false
+        status_code: 200
+      register: apiserver_livez
+      until: apiserver_livez.status | default(0) == 200
+      retries: 30
+      delay: 10
+
+    - name: Wait for this apiserver to report ready
+      ansible.builtin.uri:
+        url: "https://{{ ansible_host }}:6443/readyz"
+        validate_certs: false
+        status_code: 200
+      register: apiserver_readyz
+      until: apiserver_readyz.status | default(0) == 200
+      retries: 30
+      delay: 10
+      failed_when: false
+
+    - name: Report apiserver state
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }} apiserver is live
+          (livez={{ apiserver_livez.status | default('n/a') }},
+          readyz={{ apiserver_readyz.status | default('n/a') }})
+
+# ---------------------------------------------------------------------------
+# Phase 4: verify on evidence, not on optimism.
+# ---------------------------------------------------------------------------
+- name: Verify the etcd cluster after renewal
+  hosts: etcd[0]
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Query etcd endpoint health across all members
+      ansible.builtin.shell:
+        cmd: >
+          ETCDCTL_API=3 etcdctl
+          --cert /etc/kubernetes/pki/etcd/peer.crt
+          --key /etc/kubernetes/pki/etcd/peer.key
+          --cacert /etc/kubernetes/pki/etcd/ca.crt
+          --endpoints {% for h in groups['etcd'] %}https://{{ hostvars[h].ansible_host }}:2379{% if not loop.last %},{% endif %}{% endfor %}
+          endpoint health --write-out=table
+      register: etcd_health_after
+      changed_when: false
+      failed_when: false
+
+    - name: Show post-change etcd health
+      ansible.builtin.debug:
+        msg: >-
+          {{ (etcd_health_after.stdout_lines | default([]))
+             + (etcd_health_after.stderr_lines | default([])) }}
+
+    - name: Fail when etcd is still unhealthy
+      ansible.builtin.fail:
+        msg: >-
+          etcd still reports unhealthy endpoints after renewal. Backups of the
+          previous PKI are in /root/etcd-pki-backup/ on each etcd node.
+      when: etcd_health_after.rc != 0
+
+    - name: Report the new expiry dates
+      ansible.builtin.shell:
+        cmd: |
+          set -o pipefail
+          for f in /etc/kubernetes/pki/etcd/server.crt \
+                   /etc/kubernetes/pki/etcd/peer.crt \
+                   /etc/kubernetes/pki/etcd/healthcheck-client.crt \
+                   /etc/kubernetes/pki/etcd/ca.crt \
+                   /etc/kubernetes/pki/apiserver-etcd-client.crt; do
+            printf '%-56s %s\n' "$f" \
+              "$(openssl x509 -in "$f" -noout -enddate | cut -d= -f2)"
+          done
+      args:
+        executable: /bin/bash
+      register: new_expiry
+      changed_when: false
+
+    - name: Show the new expiry dates
+      ansible.builtin.debug:
+        msg: "{{ new_expiry.stdout_lines }}"
+
+- name: Check the apiservers for lingering certificate errors
+  hosts: controlplane
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Grep recent apiserver logs for x509 failures
+      ansible.builtin.shell:
+        cmd: |
+          set -uo pipefail
+          cid=$(crictl ps --name kube-apiserver -q 2>/dev/null | head -1)
+          if [ -z "$cid" ]; then
+            echo "NO_CONTAINER"
+            exit 0
+          fi
+          crictl logs --tail 200 "$cid" 2>&1 \
+            | grep -ci 'x509\|certificate has expired' || true
+      args:
+        executable: /bin/bash
+      register: x509_hits
+      changed_when: false
+      failed_when: false
+
+    - name: Report the apiserver log check
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}:
+          {{ 'container not found via crictl - check manually'
+             if 'NO_CONTAINER' in x509_hits.stdout
+             else (x509_hits.stdout | trim ~ ' x509 mentions in the last 200 log lines'
+                   ~ (' (expected 0)' if (x509_hits.stdout | trim) == '0' else ' - INVESTIGATE')) }}
+
+- name: Final guidance
+  hosts: localhost
+  gather_facts: false
+  connection: local
+  tasks:
+    - name: Print follow-up steps
+      ansible.builtin.debug:
+        msg:
+          - "External etcd and apiserver-etcd-client certificates renewed."
+          - "Verify from the monitoring side that the target recovered:"
+          - "  up{job=\"apiserver\"} should return 1 for every controlplane"
+          - "  the TargetDown alert should clear within a scrape interval or two"
+          - "Renewed certificates are valid for one year."
+          - "Run 'ccr check-certs' on a schedule so this is never rediscovered"
+          - "through a downstream symptom again."

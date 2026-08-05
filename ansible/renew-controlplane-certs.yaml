@@ -1,0 +1,189 @@
+---
+# Renew the kubeadm-managed certificates on the controlplane nodes.
+#
+# This covers the certificates the controlplanes can issue themselves, because
+# they hold the cluster CA: apiserver, apiserver-kubelet-client, front-proxy,
+# and the kubeconfigs under /etc/kubernetes.
+#
+# It deliberately does NOT try to renew apiserver-etcd-client when an external
+# etcd cluster is in use. The controlplanes have etcd/ca.crt but not
+# etcd/ca.key, so they cannot sign against the etcd CA - that certificate is
+# handled by renew-etcd-certs.yaml, which issues it on the first etcd node and
+# copies it out.
+#
+# Note: `kubeadm upgrade apply` already renews these as a side effect, so in
+# normal operation this playbook is only needed when you are not upgrading and
+# the one-year clock is running out.
+#
+# Usage:
+#   ccr renew-cp-certs
+
+- name: Renew controlplane certificates
+  hosts: controlplane
+  gather_facts: false
+  become: true
+  serial: 1
+  any_errors_fatal: true
+  vars:
+    external_etcd: "{{ (groups['etcd'] | default([]) | length) > 0 }}"
+    # apiserver-etcd-client is excluded when etcd is external; see the note above.
+    renewable_certs:
+      - apiserver
+      - apiserver-kubelet-client
+      - front-proxy-client
+      - admin.conf
+      - controller-manager.conf
+      - scheduler.conf
+  tasks:
+    - name: Confirm the cluster CA private key is present
+      ansible.builtin.stat:
+        path: /etc/kubernetes/pki/ca.key
+      register: cluster_ca_key
+
+    - name: Fail when the cluster CA key is missing
+      ansible.builtin.fail:
+        msg: >-
+          /etc/kubernetes/pki/ca.key is missing on {{ inventory_hostname }}, so
+          this node cannot renew its own certificates. Aborting.
+      when: not cluster_ca_key.stat.exists
+
+    - name: Check whether the cluster CA has expired
+      ansible.builtin.command:
+        cmd: openssl x509 -in /etc/kubernetes/pki/ca.crt -noout -checkend 0
+      register: cluster_ca_valid
+      changed_when: false
+      failed_when: false
+
+    - name: Refuse to continue when the cluster CA itself has expired
+      ansible.builtin.fail:
+        msg: >-
+          The cluster CA on {{ inventory_hostname }} has expired. Renewing leaf
+          certificates against an expired CA will not help; this requires a full
+          CA rotation. Aborting.
+      when: cluster_ca_valid.rc != 0
+
+    - name: Ensure the backup directory exists
+      ansible.builtin.file:
+        path: /root/cp-pki-backup
+        state: directory
+        mode: '0700'
+
+    - name: Back up the existing PKI and kubeconfigs
+      ansible.builtin.command:  # noqa: command-instead-of-module
+        cmd: >
+          tar czf /root/cp-pki-backup/kubernetes-{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}.tar.gz
+          -C / etc/kubernetes/pki etc/kubernetes/admin.conf
+          etc/kubernetes/controller-manager.conf etc/kubernetes/scheduler.conf
+      changed_when: true
+      failed_when: false
+
+    - name: Show which certificates will be renewed
+      ansible.builtin.debug:
+        msg: >-
+          Renewing on {{ inventory_hostname }}: {{ renewable_certs | join(', ') }}.
+          {{ 'apiserver-etcd-client is skipped because etcd is external - use renew-etcd-certs for it.'
+             if external_etcd | bool else '' }}
+
+    - name: Renew each certificate
+      ansible.builtin.command:
+        cmd: "kubeadm certs renew {{ item }}"
+      loop: "{{ renewable_certs }}"
+      register: cp_renewals
+      changed_when: "'renewed' in cp_renewals.stdout | lower"
+
+    - name: Renew apiserver-etcd-client when etcd is stacked (not external)
+      ansible.builtin.command:
+        cmd: kubeadm certs renew apiserver-etcd-client
+      when: not external_etcd | bool
+      register: stacked_client_renewal
+      changed_when: "'renewed' in stacked_client_renewal.stdout | lower"
+
+    - name: Show renewal output
+      ansible.builtin.debug:
+        msg: "{{ cp_renewals.results | map(attribute='stdout_lines') | flatten }}"
+
+    # kube-apiserver, controller-manager and scheduler are static pods and will
+    # not reload certificates from disk on their own.
+    - name: Force the controlplane static pods to restart
+      block:
+        - name: Move the static pod manifests aside
+          ansible.builtin.command:
+            cmd: "mv /etc/kubernetes/manifests/{{ item }} /tmp/{{ item }}.renewing"
+          loop:
+            - kube-apiserver.yaml
+            - kube-controller-manager.yaml
+            - kube-scheduler.yaml
+          changed_when: true
+          failed_when: false
+
+        - name: Wait for the kubelet to tear the pods down
+          ansible.builtin.pause:
+            seconds: 25
+      always:
+        - name: Restore the static pod manifests
+          ansible.builtin.command:
+            cmd: "mv /tmp/{{ item }}.renewing /etc/kubernetes/manifests/{{ item }}"
+          loop:
+            - kube-apiserver.yaml
+            - kube-controller-manager.yaml
+            - kube-scheduler.yaml
+          changed_when: true
+          failed_when: false
+
+    - name: Restart kubelet so it picks up the refreshed kubeconfigs
+      ansible.builtin.systemd:
+        name: kubelet
+        state: restarted
+
+    - name: Wait for the apiserver to accept connections again
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: 6443
+        state: started
+        timeout: 300
+        delay: 10
+
+    - name: Wait for the apiserver to report healthy
+      ansible.builtin.uri:
+        url: "https://{{ ansible_host }}:6443/livez"
+        validate_certs: false
+        status_code: 200
+      register: cp_livez
+      until: cp_livez.status == 200
+      retries: 30
+      delay: 10
+
+    - name: Refresh the root kubeconfig from the renewed admin.conf
+      ansible.builtin.copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /root/.kube/config
+        remote_src: true
+        owner: root
+        group: root
+        mode: '0600'
+      failed_when: false
+
+    - name: Report new expiry dates
+      ansible.builtin.command:
+        cmd: kubeadm certs check-expiration
+      register: cp_expiry
+      changed_when: false
+
+    - name: Show new expiry dates
+      ansible.builtin.debug:
+        msg: "{{ cp_expiry.stdout_lines }}"
+
+- name: Final reminder
+  hosts: localhost
+  gather_facts: false
+  connection: local
+  tasks:
+    - name: Print follow-up guidance
+      ansible.builtin.debug:
+        msg:
+          - "Controlplane certificates renewed."
+          - "Your local kubeconfig still holds the OLD client certificate if it was"
+          - "copied from admin.conf. Refresh it with:"
+          - "  ccr run-command 'cat /etc/kubernetes/admin.conf' controlplane"
+          - "or re-run the move-kubeconfig-local playbook."
+          - "Certificates are valid for one year; run 'ccr check-certs' on a schedule."

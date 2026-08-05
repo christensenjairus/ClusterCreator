@@ -1,0 +1,196 @@
+---
+# Read-only audit of every kubeadm-managed TLS certificate in the cluster.
+#
+# External etcd nodes are the important part here: `kubeadm upgrade apply` renews
+# the certificates on the node it runs on, but it has no knowledge of external
+# etcd members, so /etc/kubernetes/pki/etcd/{server,peer,healthcheck-client}.crt
+# age out silently at the kubeadm default lifetime of one year.
+#
+# Nothing is modified. Safe to run on a schedule.
+#
+# Optional:
+#   -e warn_days=30      warn when a certificate expires within this many days
+#   -e fail_on_warn=true exit non-zero if anything is expired or inside warn_days
+
+- name: Audit certificate expiration on etcd nodes
+  hosts: etcd
+  gather_facts: false
+  become: true
+  vars:
+    warn_days: "{{ warn_days | default(30) }}"
+    etcd_cert_paths:
+      - /etc/kubernetes/pki/etcd/ca.crt
+      - /etc/kubernetes/pki/etcd/server.crt
+      - /etc/kubernetes/pki/etcd/peer.crt
+      - /etc/kubernetes/pki/etcd/healthcheck-client.crt
+      - /etc/kubernetes/pki/apiserver-etcd-client.crt
+  tasks:
+    - name: Check which certificate files are present
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop: "{{ etcd_cert_paths }}"
+      register: etcd_cert_stat
+
+    - name: Read certificate expiry
+      # -checkend returns rc 1 when the cert will expire inside the window, so
+      # failed_when is disabled and the rc is interpreted below.
+      ansible.builtin.shell: |
+        set -o pipefail
+        end=$(openssl x509 -in '{{ item.item }}' -noout -enddate | cut -d= -f2)
+        if openssl x509 -in '{{ item.item }}' -noout -checkend 0 >/dev/null 2>&1; then
+          if openssl x509 -in '{{ item.item }}' -noout -checkend {{ warn_days | int * 86400 }} >/dev/null 2>&1; then
+            state=OK
+          else
+            state=EXPIRING
+          fi
+        else
+          state=EXPIRED
+        fi
+        echo "${state}|${end}"
+      args:
+        executable: /bin/bash
+      changed_when: false
+      failed_when: false
+      loop: "{{ etcd_cert_stat.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+      when: item.stat.exists
+      register: etcd_cert_expiry
+
+    - name: Report etcd certificate expiry
+      ansible.builtin.debug:
+        msg: >-
+          {{ '%-14s %-46s %-9s %s' | format(
+               inventory_hostname,
+               item.item.item | basename,
+               item.stdout.split('|')[0],
+               item.stdout.split('|')[1]) }}
+      loop: "{{ etcd_cert_expiry.results | rejectattr('skipped', 'defined') | list }}"
+      loop_control:
+        label: "{{ item.item.item | basename }}"
+
+    - name: Record problem certificates on this host
+      ansible.builtin.set_fact:
+        cert_problems: >-
+          {{ etcd_cert_expiry.results
+             | rejectattr('skipped', 'defined')
+             | rejectattr('stdout', 'search', '^OK')
+             | map(attribute='item.item')
+             | list }}
+
+    - name: Warn about expired or expiring etcd certificates
+      ansible.builtin.debug:
+        msg: >-
+          WARNING on {{ inventory_hostname }}: {{ cert_problems | length }}
+          certificate(s) expired or expiring within {{ warn_days }} days:
+          {{ cert_problems | map('basename') | join(', ') }}.
+          Renew with: ccr renew-etcd-certs
+      when: cert_problems | length > 0
+
+- name: Audit certificate expiration on controlplane nodes
+  hosts: controlplane
+  gather_facts: false
+  become: true
+  vars:
+    warn_days: "{{ warn_days | default(30) }}"
+    cp_cert_paths:
+      - /etc/kubernetes/pki/ca.crt
+      - /etc/kubernetes/pki/apiserver.crt
+      - /etc/kubernetes/pki/apiserver-kubelet-client.crt
+      - /etc/kubernetes/pki/apiserver-etcd-client.crt
+      - /etc/kubernetes/pki/front-proxy-ca.crt
+      - /etc/kubernetes/pki/front-proxy-client.crt
+      - /etc/kubernetes/pki/etcd/ca.crt
+  tasks:
+    - name: Check which certificate files are present
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop: "{{ cp_cert_paths }}"
+      register: cp_cert_stat
+
+    - name: Read certificate expiry
+      ansible.builtin.shell: |
+        set -o pipefail
+        end=$(openssl x509 -in '{{ item.item }}' -noout -enddate | cut -d= -f2)
+        if openssl x509 -in '{{ item.item }}' -noout -checkend 0 >/dev/null 2>&1; then
+          if openssl x509 -in '{{ item.item }}' -noout -checkend {{ warn_days | int * 86400 }} >/dev/null 2>&1; then
+            state=OK
+          else
+            state=EXPIRING
+          fi
+        else
+          state=EXPIRED
+        fi
+        echo "${state}|${end}"
+      args:
+        executable: /bin/bash
+      changed_when: false
+      failed_when: false
+      loop: "{{ cp_cert_stat.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+      when: item.stat.exists
+      register: cp_cert_expiry
+
+    - name: Report controlplane certificate expiry
+      ansible.builtin.debug:
+        msg: >-
+          {{ '%-26s %-46s %-9s %s' | format(
+               inventory_hostname,
+               item.item.item | basename,
+               item.stdout.split('|')[0],
+               item.stdout.split('|')[1]) }}
+      loop: "{{ cp_cert_expiry.results | rejectattr('skipped', 'defined') | list }}"
+      loop_control:
+        label: "{{ item.item.item | basename }}"
+
+    - name: Record problem certificates on this host
+      ansible.builtin.set_fact:
+        cert_problems: >-
+          {{ cp_cert_expiry.results
+             | rejectattr('skipped', 'defined')
+             | rejectattr('stdout', 'search', '^OK')
+             | map(attribute='item.item')
+             | list }}
+
+    - name: Warn about expired or expiring controlplane certificates
+      ansible.builtin.debug:
+        msg: >-
+          WARNING on {{ inventory_hostname }}: {{ cert_problems | length }}
+          certificate(s) expired or expiring within {{ warn_days }} days:
+          {{ cert_problems | map('basename') | join(', ') }}.
+          Renew with: ccr renew-cp-certs
+      when: cert_problems | length > 0
+
+- name: Summarize
+  hosts: localhost
+  gather_facts: false
+  connection: local
+  vars:
+    warn_days: "{{ warn_days | default(30) }}"
+  tasks:
+    - name: Build problem list
+      ansible.builtin.set_fact:
+        bad_hosts: >-
+          {{ (groups['etcd'] | default([]) + groups['controlplane'] | default([]))
+             | map('extract', hostvars, 'cert_problems')
+             | select('defined')
+             | select('truthy')
+             | list }}
+
+    - name: Print summary
+      ansible.builtin.debug:
+        msg: >-
+          {{ 'All audited certificates are valid for more than ' ~ warn_days ~ ' days.'
+             if (bad_hosts | length) == 0
+             else (bad_hosts | map('length') | sum) ~ ' certificate(s) across ' ~
+                  (bad_hosts | length) ~ ' host(s) are EXPIRED or expiring within ' ~
+                  warn_days ~ ' days. See the per-host warnings above.' }}
+
+    - name: Fail if requested
+      ansible.builtin.fail:
+        msg: >-
+          Certificate audit failed: expired or soon-to-expire certificates found.
+      when:
+        - fail_on_warn | default(false) | bool
+        - (bad_hosts | length) > 0

@@ -330,9 +330,58 @@ Manage your K8s VMs using the other commands:
 * `ccr reset-all-nodes`
 * `ccr upgrade-addons`
 * `ccr upgrade-k8s`
+* `ccr check-certs`
+* `ccr renew-etcd-certs`
+* `ccr renew-cp-certs`
 * `ccr vmctl`
 * `ccr run-command`
   Each can be run with `--help` for more information on how they work, their arguments, and their flags.
+
+### Certificate maintenance
+
+kubeadm issues cluster certificates with a **one-year** lifetime and renews them
+automatically during `kubeadm upgrade apply` — but **only on the node the upgrade runs
+on**. With the optional decoupled etcd cluster, nothing on the control plane ever
+renews the etcd members' certificates, so they expire roughly a year after
+provisioning.
+
+The failure mode is deceptive. The control plane keeps serving from established
+connections and watch caches, so pods stay `Running` and `kubectl` works, while every
+*new* apiserver→etcd connection fails. It usually surfaces sideways — most often as a
+`TargetDown` alert for the `apiserver` job, because `/metrics` times out.
+
+Audit expiry across both etcd and controlplane nodes (read-only):
+
+```bash
+ccr check-certs                        # 30-day warning window
+ccr check-certs --warn-days 45
+ccr check-certs --fail-on-warn         # non-zero exit for cron/CI monitoring
+```
+
+Renew the external etcd certificates and the apiserver's etcd client certificate:
+
+```bash
+ccr renew-etcd-certs
+```
+
+All certificates are generated **first** on the etcd node holding the CA key, then
+members are restarted **one at a time** with a health gate between each, so quorum is
+preserved. The etcd CA private key never leaves that node, matching how
+`etcd-nodes-setup.yaml` provisions the cluster. If the etcd CA itself has expired the
+run aborts, since that requires a full CA rotation rather than leaf renewal.
+
+Renew the kubeadm-managed certificates on the controlplane nodes:
+
+```bash
+ccr renew-cp-certs
+```
+
+`apiserver-etcd-client` is intentionally skipped there when etcd is external: the
+controlplanes hold `etcd/ca.crt` but not `etcd/ca.key`, so they cannot sign against the
+etcd CA. Use `ccr renew-etcd-certs` for that certificate.
+
+Run `ccr check-certs --fail-on-warn` on a schedule so expiry is never rediscovered
+through a downstream symptom.
 
 ---
 
