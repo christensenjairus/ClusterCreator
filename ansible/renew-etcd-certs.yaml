@@ -191,14 +191,14 @@
 
     - name: Back up the signing node's PKI before touching it
       ansible.builtin.shell:
-        cmd: >
-          set -e;
-          mkdir -p /root/etcd-pki-backup;
-          cp -a /etc/kubernetes/pki
-            /root/etcd-pki-backup/pki-{{ ansible_date_time.iso8601_basic_short }}
+        cmd: |
+          set -euo pipefail
+          dest="/root/etcd-pki-backup/pki-{{ ansible_facts.date_time.iso8601_basic_short }}"
+          mkdir -p /root/etcd-pki-backup
+          cp -a /etc/kubernetes/pki "$dest"
       args:
         executable: /bin/bash
-        creates: "/root/etcd-pki-backup/pki-{{ ansible_date_time.iso8601_basic_short }}"
+        creates: "/root/etcd-pki-backup/pki-{{ ansible_facts.date_time.iso8601_basic_short }}"
 
     - name: Preserve the current CA material so it is never regenerated
       ansible.builtin.shell:
@@ -393,14 +393,14 @@
   tasks:
     - name: Back up this node's PKI directory
       ansible.builtin.shell:
-        cmd: >
-          set -e;
-          mkdir -p /root/etcd-pki-backup;
-          cp -a /etc/kubernetes/pki
-            /root/etcd-pki-backup/pki-{{ ansible_date_time.iso8601_basic_short }}
+        cmd: |
+          set -euo pipefail
+          dest="/root/etcd-pki-backup/pki-{{ ansible_facts.date_time.iso8601_basic_short }}"
+          mkdir -p /root/etcd-pki-backup
+          cp -a /etc/kubernetes/pki "$dest"
       args:
         executable: /bin/bash
-        creates: "/root/etcd-pki-backup/pki-{{ ansible_date_time.iso8601_basic_short }}"
+        creates: "/root/etcd-pki-backup/pki-{{ ansible_facts.date_time.iso8601_basic_short }}"
 
     # The signing node already installed its own certs in the previous play.
     - name: Unpack this node's certificate bundle
