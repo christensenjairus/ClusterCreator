@@ -463,6 +463,39 @@
         cmd: openssl x509 -in /etc/kubernetes/pki/etcd/peer.crt -noout -checkend 86400
       changed_when: false
 
+    # Bootstrap left an inert copy of apiserver-etcd-client on every etcd node
+    # after the first: helpers/ansible_etcd_cert_creation.yaml `cp -R`s the whole
+    # PKI directory into each node's bundle and strips only ca.key. Nothing on an
+    # etcd node reads it - the consumer is the controlplane - so it is never
+    # renewed and lingers as a permanently expired file that makes audits and
+    # manual inspection look alarming. Retire it into the backup instead.
+    - name: Retire the stale apiserver-etcd-client copy on non-signing etcd nodes
+      ansible.builtin.shell:
+        cmd: |
+          set -uo pipefail
+          moved=""
+          for f in /etc/kubernetes/pki/apiserver-etcd-client.crt \
+                   /etc/kubernetes/pki/apiserver-etcd-client.key; do
+            if [ -f "$f" ]; then
+              mv "$f" "$f.unused-bootstrap-copy"
+              moved="$moved $(basename "$f")"
+            fi
+          done
+          if [ -n "$moved" ]; then
+            echo "retired:$moved"
+          else
+            echo "nothing to retire"
+          fi
+        executable: /bin/bash
+      register: retire_stale
+      changed_when: "'retired:' in retire_stale.stdout"
+      when: inventory_hostname != etcd_primary
+
+    - name: Report stale copy cleanup
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}: {{ retire_stale.stdout | default('skipped (signing node keeps its copy)') | trim }}
+
     - name: Report certificates staged on this member
       ansible.builtin.debug:
         msg: >-

@@ -23,7 +23,18 @@
       - /etc/kubernetes/pki/etcd/server.crt
       - /etc/kubernetes/pki/etcd/peer.crt
       - /etc/kubernetes/pki/etcd/healthcheck-client.crt
-      - /etc/kubernetes/pki/apiserver-etcd-client.crt
+      # apiserver-etcd-client is deliberately NOT audited here.
+      #
+      # etcd nodes carry an inert copy of it left over from bootstrap:
+      # helpers/ansible_etcd_cert_creation.yaml generates the cert on the first
+      # etcd node and then `cp -R`s the whole PKI directory into each other
+      # node's bundle, stripping only ca.key. Nothing on an etcd node ever reads
+      # the file - the only consumer is the controlplane, via the external etcd
+      # certFile/keyFile in helpers/kubeadm_cp_config.yaml.j2.
+      #
+      # Auditing it here reports those stale copies as EXPIRED forever, because
+      # renewal correctly ships etcd nodes only their server/peer/healthcheck
+      # material. The controlplane play below audits the copy that matters.
   tasks:
     - name: Check which certificate files are present
       ansible.builtin.stat:
