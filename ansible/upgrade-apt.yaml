@@ -6,6 +6,22 @@
   any_errors_fatal: true
 
   tasks:
+    - name: Sync k8s.env to node
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../scripts/k8s.env"
+        dest: /etc/k8s.env
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Sync extra-kernel-modules.sh to node
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../scripts/k8s_vm_template/FilesToPlace/extra-kernel-modules.sh"
+        dest: /root/extra-kernel-modules.sh
+        owner: root
+        group: root
+        mode: '0755'
+
     - name: Upgrade all packages to the latest version
       become: true
       ansible.builtin.apt:
@@ -18,10 +34,95 @@
       until: upgrade_result is succeeded
       retries: 30
       delay: 10
+
+    - name: Install linux-modules-extra for all installed kernels
+      ansible.builtin.shell: |
+        for kernel in $(dpkg --list | grep -oP '^ii\s+linux-image-\K[0-9][^\s]+'); do
+          pkg="linux-modules-extra-${kernel}"
+          if dpkg -l "$pkg" 2>/dev/null | grep -q '^ii'; then
+            echo "$pkg already installed"
+          else
+            echo "Installing $pkg"
+            apt-get install -y "$pkg"
+          fi
+        done
+      register: modules_result
+      changed_when: "'Installing' in modules_result.stdout"
+
+    # Workaround for broken Ubuntu 6.8.0-* kernels (e.g. 6.8.0-100, 6.8.0-101)
+    # that randomly drop UDP packets. This wreaks havoc in K8s — Cilium goes
+    # into CrashLoopBackOff, which in turn kills other pods on the node as
+    # they lose networking.
+    # See: https://bugs.launchpad.net/ubuntu/+source/linux/+bug/2141531
+    #
+    # If the newest installed kernel is in the same major.minor.patch series
+    # as the pinned version (e.g. both 6.8.0-*), GRUB is set to boot the
+    # pinned kernel. Otherwise — pinning disabled, or a jump to a new series
+    # (e.g. 6.8.1, 6.12) — GRUB_DEFAULT is reset to 0 so the node goes back to
+    # booting the newest kernel. The reset matters: without it, a node pinned
+    # by an earlier run keeps booting the pinned kernel forever, even after
+    # PINNED_KERNEL_VERSION is set to "none".
+    - name: Set kernel boot preference
+      block:
+        - name: Get the newest installed kernel version
+          ansible.builtin.shell: |
+            dpkg --list | grep -oP '^ii\s+linux-image-\K[0-9][^\s]+' | sort -V | tail -1
+          register: newest_kernel
+          changed_when: false
+
+        - name: Extract major.minor.patch from pinned and newest kernels
+          ansible.builtin.set_fact:
+            pinned_series: "{{ pinned_kernel_version | regex_replace('^(\\d+\\.\\d+\\.\\d+).*', '\\1') }}"
+            newest_series: "{{ newest_kernel.stdout | regex_replace('^(\\d+\\.\\d+\\.\\d+).*', '\\1') }}"
+
+        - name: Determine if kernel pinning applies
+          ansible.builtin.set_fact:
+            kernel_pin_active: "{{ pinned_kernel_version != 'none' and pinned_series == newest_series }}"
+
+        - name: Get filesystem UUID for GRUB menu entry
+          ansible.builtin.shell: |
+            findmnt -no UUID /
+          register: root_uuid
+          changed_when: false
+          when: kernel_pin_active
+
+        - name: Set GRUB default to pinned kernel
+          ansible.builtin.lineinfile:
+            path: /etc/default/grub
+            regexp: '^GRUB_DEFAULT='
+            line: 'GRUB_DEFAULT="gnulinux-advanced-{{ root_uuid.stdout }}>gnulinux-{{ pinned_kernel_version }}-advanced-{{ root_uuid.stdout }}"'
+          register: grub_pinned
+          when: kernel_pin_active
+
+        # Undo any pin left behind by an earlier run. 0 is the stock Ubuntu
+        # value and boots the first menu entry, i.e. the newest kernel.
+        - name: Reset GRUB default to the newest kernel
+          ansible.builtin.lineinfile:
+            path: /etc/default/grub
+            regexp: '^GRUB_DEFAULT='
+            line: 'GRUB_DEFAULT=0'
+          register: grub_unpinned
+          when: not kernel_pin_active
+
+        - name: Update GRUB configuration
+          ansible.builtin.command: update-grub
+          when: grub_pinned.changed | default(false) or grub_unpinned.changed | default(false)
+
+        - name: Log kernel pin status
+          ansible.builtin.debug:
+            msg: >-
+              {% if kernel_pin_active %}
+              Kernel pinned to {{ pinned_kernel_version }} (newest installed: {{ newest_kernel.stdout }}, same {{ pinned_series }} series).
+              {% elif pinned_kernel_version == 'none' %}
+              Kernel pinning disabled. Booting the newest installed kernel ({{ newest_kernel.stdout }}).
+              {% else %}
+              Kernel pin not applied — newest kernel {{ newest_kernel.stdout }} is in a different series ({{ newest_series }}) than pin ({{ pinned_series }}). Booting newest kernel.
+              {% endif %}
+
     - name: Reboot the node
       become: true
       ansible.builtin.reboot:
-        msg: "Rebooting because k8s package upgrades sometimes require a reboot (e.g. the CNI)"
+        msg: "Rebooting after apt upgrade"
         connect_timeout: 5
         reboot_timeout: 600
         pre_reboot_delay: 0
