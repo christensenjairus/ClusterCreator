@@ -1,6 +1,9 @@
 - name: Deploy Local StorageClasses
   hosts: controlplane[0]
   gather_facts: false
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+    K8S_AUTH_KUBECONFIG: /etc/kubernetes/admin.conf
   vars:
     cluster_config: "{{ lookup('file', 'tmp/' ~ cluster_name ~ '/cluster_config.json') | from_json }}"
     default_storage_class_name: "local-path"

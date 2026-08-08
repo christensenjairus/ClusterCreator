@@ -1,6 +1,8 @@
 - name: Install Cilium on Kubernetes Cluster
   hosts: controlplane[0]
   gather_facts: false
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
   tags:
     - cilium_basic_install
   vars:
@@ -12,7 +14,7 @@
 
     - name: Determine non-API/ETCD server count
       set_fact:
-        replica_count: "{{ 1 if non_api_etcd_server_count <= \"1\" else 2 }}"
+        replica_count: "{{ 1 if non_api_etcd_server_count <= 1 else 2 }}"
 
     - name: Generate cilium.yaml configuration file
       become: yes

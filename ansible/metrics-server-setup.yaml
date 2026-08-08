@@ -2,6 +2,8 @@
 - name: Apply metrics-server manifest
   hosts: controlplane[0]
   gather_facts: false
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
   vars:
     cluster_config: "{{ lookup('file', 'tmp/' ~ cluster_name ~ '/cluster_config.json') | from_json }}"
   tasks:
@@ -12,7 +14,7 @@
 
     - name: Determine if needing HA based on non-API/ETCD server count
       set_fact:
-        metrics_server_replica_count: "{{ 1 if non_api_etcd_server_count <= \"1\" else 2 }}"
+        metrics_server_replica_count: "{{ 1 if non_api_etcd_server_count <= 1 else 2 }}"
 
     - name: Add Metrics-Server Helm repository
       ansible.builtin.shell:

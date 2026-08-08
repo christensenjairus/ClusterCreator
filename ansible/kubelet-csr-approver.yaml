@@ -2,6 +2,9 @@
 - name: Apply kubelet-serving-cert-approver manifest
   hosts: controlplane[0]
   gather_facts: false
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+    K8S_AUTH_KUBECONFIG: /etc/kubernetes/admin.conf
   vars:
     cluster_config: "{{ lookup('file', 'tmp/' ~ cluster_name ~ '/cluster_config.json') | from_json }}"
   tasks:
@@ -12,7 +15,7 @@
 
     - name: Determine if needing HA based on non-API/ETCD server count
       set_fact:
-        kubelet_csr_approver_replica_count: "{{ 1 if non_api_etcd_server_count <= \"1\" else 2 }}"
+        kubelet_csr_approver_replica_count: "{{ 1 if non_api_etcd_server_count <= 1 else 2 }}"
 
     - name: Download the kubelet-serving-cert-approver manifest
       ansible.builtin.get_url:
