@@ -111,6 +111,7 @@ run_playbooks() {
     -e cni_plugins_version="$CNI_PLUGINS_VERSION"
     -e etcd_version="$ETCD_VERSION"
     -e cilium_version="$CILIUM_VERSION"
+    -e cilium_local_redirect_policy="${CILIUM_LOCAL_REDIRECT_POLICY:-false}"
     -e metallb_version="$METALLB_VERSION"
     -e local_path_provisioner_version="$LOCAL_PATH_PROVISIONER_VERSION"
     -e metrics_server_version="$METRICS_SERVER_VERSION"

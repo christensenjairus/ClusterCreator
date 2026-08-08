@@ -3,7 +3,7 @@ cluster:
   name: {{ cluster_name }}
 operator:
   replicas: {{ replica_count }}
-rolloutCiliumPods: true
+rollOutCiliumPods: true
 ipv4:
   enabled: true
 ipv6:
@@ -24,3 +24,7 @@ cni:
 k8sServiceHost: {{ vip }}
 k8sServicePort: 6443
 kubeProxyReplacement: true
+{% if cilium_local_redirect_policy | default(false) | bool %}
+localRedirectPolicies:
+  enabled: true
+{% endif %}
